@@ -1,26 +1,38 @@
 package models
-
 type PlayerStats struct {
-	SteamID              string  `json:"steam_id"`
-	DisplayName          string  `json:"display_name"`
-	KillerPips           int     `json:"killer_pips"`
-	SurvivorPips         int     `json:"survivor_pips"`
-	KilledCampers        int     `json:"killed_campers"`
-	SacrificedCampers    int     `json:"sacrificed_campers"`
-	GeneratorPct         float64 `json:"generator_pct"`
-	HealPct              float64 `json:"heal_pct"`
-	EscapesKO            int     `json:"escapes_ko"`
-	Escapes              int     `json:"escapes"`
-	SkillCheckSuccess    int     `json:"skill_check_success"`
-	HookedAndEscape      int     `json:"hooked_and_escape"`
-	UnhookOrHeal         int     `json:"unhook_or_heal"`
-	UnhookOrHealPostExit int     `json:"unhook_or_heal_post_exit"`
-	BloodwebPoints       int     `json:"bloodweb_points"`
-	CamperPerfectGames   int     `json:"camper_perfect_games"`
-	KillerPerfectGames   int     `json:"killer_perfect_games"`
-	UncloakAttacks       int     `json:"uncloak_attacks"`
-	EscapeThroughHatch   int     `json:"escape_through_hatch"`
-	CamperFullLoadout    int     `json:"camper_full_loadout"`
-	KillerFullLoadout    int     `json:"killer_full_loadout"`
-	CamperNewItem        int     `json:"camper_new_item"`
+	// Core player identification
+	SteamID     string `json:"steam_id" validate:"required"`
+	DisplayName string `json:"display_name" validate:"required,min=1,max=32"`
+	
+	// Progression metrics
+	KillerPips   int `json:"killer_pips" validate:"min=0"`
+	SurvivorPips int `json:"survivor_pips" validate:"min=0"`
+	
+	// Killer statistics
+	KilledCampers     int `json:"killed_campers" validate:"min=0"`
+	SacrificedCampers int `json:"sacrificed_campers" validate:"min=0"`
+	UncloakAttacks    int `json:"uncloak_attacks" validate:"min=0"`
+	
+	// Survivor statistics  
+	GeneratorPct         float64 `json:"generator_pct" validate:"min=0,max=100"`
+	HealPct              float64 `json:"heal_pct" validate:"min=0,max=100"`
+	EscapesKO            int     `json:"escapes_ko" validate:"min=0"`
+	Escapes              int     `json:"escapes" validate:"min=0"`
+	SkillCheckSuccess    int     `json:"skill_check_success" validate:"min=0"`
+	HookedAndEscape      int     `json:"hooked_and_escape" validate:"min=0"`
+	UnhookOrHeal         int     `json:"unhook_or_heal" validate:"min=0"`
+	UnhookOrHealPostExit int     `json:"unhook_or_heal_post_exit" validate:"min=0"`
+	EscapeThroughHatch   int     `json:"escape_through_hatch" validate:"min=0"`
+	
+	// Game progression
+	BloodwebPoints int `json:"bloodweb_points" validate:"min=0"`
+	
+	// Achievement counters
+	CamperPerfectGames int `json:"camper_perfect_games" validate:"min=0"`
+	KillerPerfectGames int `json:"killer_perfect_games" validate:"min=0"`
+	
+	// Equipment tracking
+	CamperFullLoadout int `json:"camper_full_loadout" validate:"min=0"`
+	KillerFullLoadout int `json:"killer_full_loadout" validate:"min=0"`
+	CamperNewItem     int `json:"camper_new_item" validate:"min=0"`
 }
