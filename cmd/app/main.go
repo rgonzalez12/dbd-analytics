@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/rgonzalez12/dbd-analytics/internal/handlers"
+	handler "github.com/rgonzalez12/dbd-analytics/internal/handlers"
 )
 
 func main() {
