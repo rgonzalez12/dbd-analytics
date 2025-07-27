@@ -4,15 +4,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/gorilla/mux"
 	handler "github.com/rgonzalez12/dbd-analytics/internal/handlers"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	r := mux.NewRouter()
 
-	//home route
+	// home route
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Stats and Analytics coming soon...")
 	})
