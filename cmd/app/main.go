@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/joho/godotenv"
 	"github.com/gorilla/mux"
