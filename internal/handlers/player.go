@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/rgonzalez12/dbd-analytics/internal/models"
 )
 
 type SteamPlayerResponse struct {
@@ -25,6 +24,19 @@ type SteamPlayer struct {
 	PersonaName string `json:"personaname"`
 	Avatar      string `json:"avatar"`
 	AvatarFull  string `json:"avatarfull"`
+}
+
+type SteamStatsResponse struct {
+	Playerstats struct {
+		SteamID string      `json:"steamID"`
+		GameName string     `json:"gameName"`
+		Stats   []SteamStat `json:"stats"`
+	} `json:"playerstats"`
+}
+
+type SteamStat struct {
+	Name  string `json:"name"`
+	Value float64    `json:"value"`
 }
 
 func GetPlayerStats(w http.ResponseWriter, r *http.Request) {
@@ -53,26 +65,14 @@ func GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	player := models.PlayerStats{
-		SteamID:              steamPlayer.SteamID,
-		DisplayName:          steamPlayer.PersonaName,
-		KillerPips:           123,
-		SurvivorPips:         87,
-		KilledCampers:        250,
-		SacrificedCampers:    320,
-		GeneratorPct:         73.6,
-		HealPct:              51.2,
-		Escapes:              64,
-		SkillCheckSuccess:    421,
-		BloodwebPoints:       312000,
-		EscapeThroughHatch:   5,
-		UnhookOrHeal:         76,
-		CamperFullLoadout:    12,
-		KillerPerfectGames:   7,
+	steamStats, err := fetchSteamStats(steamPlayer.SteamID, apiKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch player stats: %v", err), http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(player); err != nil {
+	if err := json.NewEncoder(w).Encode(steamStats); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		return
 	}
@@ -180,4 +180,36 @@ func fetchPlayerBySteamID64(steamID64, apiKey string) (*SteamPlayer, error) {
 	}
 
 	return &steamResp.Response.Players[0], nil
+}
+
+func fetchSteamStats(steamID64, apiKey string) (*SteamStatsResponse, error) {
+	baseURL := "https://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v2/"
+	params := url.Values{}
+	params.Set("appid", "381210")
+	params.Set("key", apiKey)
+	params.Set("steamid", steamID64)
+
+	apiURL := baseURL + "?" + params.Encode()
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request to Steam stats API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("steam stats API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read stats response body: %w", err)
+	}
+
+	var statsResp SteamStatsResponse
+	if err := json.Unmarshal(body, &statsResp); err != nil {
+		return nil, fmt.Errorf("failed to parse Steam stats response: %w", err)
+	}
+
+	return &statsResp, nil
 }
