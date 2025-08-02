@@ -44,7 +44,8 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	slog.Debug("Getting player summary", "steam_id_or_vanity", steamIDOrVanity)
+	slog.Debug("Starting player summary request", 
+		slog.String("steam_id_or_vanity", steamIDOrVanity))
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
@@ -74,7 +75,9 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, NewNotFoundError("Player")
 	}
 
-	slog.Debug("Successfully retrieved player summary", "steam_id", steamID64)
+	slog.Info("Successfully retrieved player summary", 
+		slog.String("steam_id", steamID64),
+		slog.String("persona_name", resp.Response.Players[0].PersonaName))
 	return &resp.Response.Players[0], nil
 }
 
@@ -83,7 +86,8 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	slog.Debug("Getting player stats", "steam_id_or_vanity", steamIDOrVanity)
+	slog.Debug("Starting player stats request", 
+		slog.String("steam_id_or_vanity", steamIDOrVanity))
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
@@ -110,7 +114,9 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 		return nil, retryErr
 	}
 
-	slog.Debug("Successfully retrieved player stats", "steam_id", steamID64)
+	slog.Info("Successfully retrieved player stats", 
+		slog.String("steam_id", steamID64),
+		slog.Int("stats_count", len(resp.Playerstats.Stats)))
 	return &resp.Playerstats, nil
 }
 
@@ -119,7 +125,8 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 		return steamIDOrVanity, nil
 	}
 
-	slog.Debug("Resolving vanity URL", "vanity_url", steamIDOrVanity)
+	slog.Debug("Resolving vanity URL to Steam ID", 
+		slog.String("vanity_url", steamIDOrVanity))
 
 	endpoint := fmt.Sprintf("%s/ISteamUser/ResolveVanityURL/v0001/", BaseURL)
 	params := url.Values{}
@@ -144,46 +151,60 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 		return "", NewNotFoundError("Vanity URL")
 	}
 
-	slog.Debug("Successfully resolved vanity URL", "vanity_url", steamIDOrVanity, "steam_id", resp.Response.SteamID)
+	slog.Info("Successfully resolved vanity URL", 
+		slog.String("vanity_url", steamIDOrVanity), 
+		slog.String("steam_id", resp.Response.SteamID))
 	return resp.Response.SteamID, nil
 }
 
 func (c *Client) makeRequest(endpoint string, params url.Values, result interface{}) *APIError {
 	apiURL := endpoint + "?" + params.Encode()
 
-	slog.Debug("Making Steam API request", "url", apiURL)
+	slog.Debug("Making Steam API request", 
+		slog.String("url", apiURL))
 
 	resp, err := c.client.Get(apiURL)
 	if err != nil {
-		slog.Error("Network error during Steam API request", "error", err, "url", apiURL)
+		slog.Error("Network error during Steam API request", 
+			slog.String("error", err.Error()), 
+			slog.String("url", apiURL))
 		return NewNetworkError(err)
 	}
 	defer resp.Body.Close()
 
 	// Handle rate limiting with structured error
 	if resp.StatusCode == http.StatusTooManyRequests {
-		slog.Warn("Steam API rate limit hit", "status_code", resp.StatusCode)
+		slog.Warn("Steam API rate limit exceeded", 
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("url", apiURL))
 		return NewRateLimitError()
 	}
 
 	// Handle other HTTP errors using specific retryable status codes
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("Steam API HTTP error", "status_code", resp.StatusCode, "url", apiURL)
+		slog.Error("Steam API returned HTTP error", 
+			slog.Int("status_code", resp.StatusCode), 
+			slog.String("url", apiURL))
 		return NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d", resp.StatusCode))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("Failed to read response body", "error", err)
+		slog.Error("Failed to read response body from Steam API", 
+			slog.String("error", err.Error()))
 		return NewInternalError(fmt.Errorf("failed to read response body: %w", err))
 	}
 
 	if err := json.Unmarshal(body, result); err != nil {
-		slog.Error("Failed to parse JSON response", "error", err, "body", string(body))
+		slog.Error("Failed to parse JSON response from Steam API", 
+			slog.String("error", err.Error()), 
+			slog.String("body_preview", string(body)[:min(len(body), 200)]))
 		return NewInternalError(fmt.Errorf("failed to parse JSON response: %w", err))
 	}
 
-	slog.Debug("Steam API request successful", "status_code", resp.StatusCode)
+	slog.Debug("Steam API request completed successfully", 
+		slog.Int("status_code", resp.StatusCode),
+		slog.Int("response_size", len(body)))
 	return nil
 }
 
@@ -194,4 +215,11 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

@@ -22,50 +22,73 @@ func NewHandler() *Handler {
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
 	if steamID == "" {
-		slog.Warn("GetPlayerSummary called without steam ID")
+		slog.Warn("GetPlayerSummary called without steam ID",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path))
 		writeErrorResponse(w, steam.NewValidationError("Steam ID required"))
 		return
 	}
 
-	slog.Info("Getting player summary", "steam_id", steamID)
+	slog.Info("Processing player summary request", 
+		slog.String("steam_id", steamID),
+		slog.String("client_ip", r.RemoteAddr))
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		slog.Error("Failed to get player summary", "steam_id", steamID, "error", err.Message, "error_type", err.Type)
+		slog.Error("Failed to get player summary", 
+			slog.String("steam_id", steamID), 
+			slog.String("error", err.Message), 
+			slog.String("error_type", string(err.Type)),
+			slog.Bool("retryable", err.Retryable))
 		writeErrorResponse(w, err)
 		return
 	}
 
-	slog.Info("Successfully retrieved player summary", "steam_id", steamID, "persona_name", summary.PersonaName)
+	slog.Info("Successfully processed player summary request", 
+		slog.String("steam_id", steamID), 
+		slog.String("persona_name", summary.PersonaName))
 	writeJSONResponse(w, summary)
 }
 
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
 	if steamID == "" {
-		slog.Warn("GetPlayerStats called without steam ID")
+		slog.Warn("GetPlayerStats called without steam ID",
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path))
 		writeErrorResponse(w, steam.NewValidationError("Steam ID required"))
 		return
 	}
 
-	slog.Info("Getting player stats", "steam_id", steamID)
+	slog.Info("Processing player stats request", 
+		slog.String("steam_id", steamID),
+		slog.String("client_ip", r.RemoteAddr))
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		slog.Error("Failed to get player summary for stats", "steam_id", steamID, "error", err.Message, "error_type", err.Type)
+		slog.Error("Failed to get player summary for stats request", 
+			slog.String("steam_id", steamID), 
+			slog.String("error", err.Message), 
+			slog.String("error_type", string(err.Type)))
 		writeErrorResponse(w, err)
 		return
 	}
 
 	rawStats, err := h.steamClient.GetPlayerStats(steamID)
 	if err != nil {
-		slog.Error("Failed to get player stats", "steam_id", steamID, "error", err.Message, "error_type", err.Type)
+		slog.Error("Failed to get player stats", 
+			slog.String("steam_id", steamID), 
+			slog.String("error", err.Message), 
+			slog.String("error_type", string(err.Type)))
 		writeErrorResponse(w, err)
 		return
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
-	slog.Info("Successfully retrieved and mapped player stats", "steam_id", steamID, "stats_count", len(rawStats.Stats))
+	slog.Info("Successfully processed player stats request", 
+		slog.String("steam_id", steamID), 
+		slog.Int("raw_stats_count", len(rawStats.Stats)),
+		slog.String("persona_name", summary.PersonaName))
 	writeJSONResponse(w, playerStats)
 }
 
@@ -86,7 +109,9 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	}
 	
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
-		slog.Error("Failed to encode error response", "error", err)
+		slog.Error("Failed to encode error response", 
+			slog.String("error", err.Error()),
+			slog.String("original_error", apiErr.Message))
 		// Fallback to plain text if JSON encoding fails
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
@@ -96,7 +121,8 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("Failed to encode JSON response", "error", err)
+		slog.Error("Failed to encode JSON response", 
+			slog.String("error", err.Error()))
 		writeErrorResponse(w, steam.NewInternalError(err))
 		return
 	}
