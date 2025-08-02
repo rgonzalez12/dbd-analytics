@@ -5,6 +5,21 @@ import (
 	"net/http"
 )
 
+// Predefined error variables for common scenarios
+var (
+	ErrRateLimit = &APIError{
+		Type:       ErrorTypeRateLimit,
+		Message:    "Steam API rate-limited, try again later",
+		StatusCode: http.StatusTooManyRequests,
+		Retryable:  true,
+	}
+	ErrUpstream = &APIError{
+		Type:      ErrorTypeAPIError,
+		Message:   "Steam API upstream error",
+		Retryable: true,
+	}
+)
+
 type ErrorType string
 
 const (
@@ -46,11 +61,25 @@ func NewNotFoundError(resource string) *APIError {
 }
 
 func NewAPIError(statusCode int, message string) *APIError {
+	retryable := isRetryableStatusCode(statusCode)
 	return &APIError{
 		Type:       ErrorTypeAPIError,
 		Message:    fmt.Sprintf("Steam API error: %s", message),
 		StatusCode: statusCode,
-		Retryable:  statusCode >= 500,
+		Retryable:  retryable,
+	}
+}
+
+// isRetryableStatusCode determines if a status code should be retried
+func isRetryableStatusCode(statusCode int) bool {
+	switch statusCode {
+	case http.StatusTooManyRequests, // 429
+		http.StatusBadGateway,        // 502
+		http.StatusServiceUnavailable, // 503
+		http.StatusGatewayTimeout:     // 504
+		return true
+	default:
+		return false
 	}
 }
 

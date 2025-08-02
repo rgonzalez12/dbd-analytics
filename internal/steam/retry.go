@@ -1,7 +1,9 @@
 package steam
 
 import (
+	"log/slog"
 	"math"
+	"math/rand"
 	"time"
 )
 
@@ -21,15 +23,35 @@ func DefaultRetryConfig() RetryConfig {
 
 type RetryableFunc func() (*APIError, bool)
 
+// WithRetry executes a function with exponential backoff retry logic
 func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
+	return withRetryAndLogging(config, fn, "")
+}
+
+// WithRetryAndLogging executes a function with retry logic and structured logging
+func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string) *APIError {
 	var lastErr *APIError
 	
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
+		// Log retry attempt if this is not the first attempt
+		if attempt > 0 && operation != "" {
+			slog.Warn("Retrying operation",
+				"operation", operation,
+				"attempt", attempt+1,
+				"max_attempts", config.MaxAttempts,
+				"last_error", lastErr.Type)
+		}
+		
 		// Execute the function
 		err, shouldStop := fn()
 		
 		// Success case
 		if err == nil {
+			if attempt > 0 && operation != "" {
+				slog.Info("Operation succeeded after retry",
+					"operation", operation,
+					"attempts", attempt+1)
+			}
 			return nil
 		}
 		
@@ -47,6 +69,15 @@ func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
 		}
 	}
 	
+	// Log final failure
+	if operation != "" {
+		slog.Error("Operation failed after all retries",
+			"operation", operation,
+			"attempts", config.MaxAttempts,
+			"final_error", lastErr.Type,
+			"error_message", lastErr.Message)
+	}
+	
 	return lastErr
 }
 
@@ -59,6 +90,10 @@ func calculateBackoffDelay(attempt int, config RetryConfig) time.Duration {
 	if delay > float64(config.MaxDelay) {
 		delay = float64(config.MaxDelay)
 	}
+	
+	// Add jitter: random value between 0.5 and 1.5 of the calculated delay
+	jitter := 0.5 + rand.Float64()
+	delay = delay * jitter
 	
 	return time.Duration(delay)
 }
