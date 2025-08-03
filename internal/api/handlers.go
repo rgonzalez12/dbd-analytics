@@ -23,8 +23,9 @@ var (
 )
 
 type Handler struct {
-	steamClient  *steam.Client
-	cacheManager *cache.Manager
+	steamClient        *steam.Client
+	cacheManager       *cache.Manager
+	lastEvictionTime   time.Time
 }
 
 func NewHandler() *Handler {
@@ -434,26 +435,123 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // EvictExpiredEntries manually triggers cache cleanup and returns statistics
+// This is an admin-only endpoint and should be protected in production
 func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
+	// Rate limiting: only allow one eviction per 30 seconds
+	if !h.checkEvictionRateLimit(r) {
+		writeErrorResponse(w, steam.NewRateLimitErrorWithRetryAfter(30))
+		return
+	}
+	
+	// Basic admin check - in production, replace with proper auth
+	adminToken := r.Header.Get("X-Admin-Token")
+	if adminToken == "" {
+		log.Warn("Unauthorized cache eviction attempt",
+			"client_ip", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
+			"path", r.URL.Path)
+		writeErrorResponse(w, steam.NewValidationError("admin token required"))
+		return
+	}
+	
 	if h.cacheManager == nil {
 		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
 		return
 	}
 
+	start := time.Now()
 	evicted := h.cacheManager.GetCache().EvictExpired()
 	stats := h.cacheManager.GetCache().Stats()
+	duration := time.Since(start)
 
 	response := map[string]interface{}{
-		"evicted_entries": evicted,
+		"evicted_entries":   evicted,
 		"remaining_entries": stats.Entries,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"duration_ms":       duration.Milliseconds(),
+		"timestamp":         time.Now().UTC().Format(time.RFC3339),
+		"admin_initiated":   true,
 	}
 
 	log.Info("Manual cache eviction completed",
 		"evicted", evicted,
-		"remaining", stats.Entries)
+		"remaining", stats.Entries,
+		"duration", duration,
+		"admin_token_provided", adminToken != "",
+		"client_ip", r.RemoteAddr)
 
 	writeJSONResponse(w, response)
+}
+
+// GetMetrics returns Prometheus-style metrics for monitoring
+func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	if h.cacheManager == nil {
+		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
+		return
+	}
+
+	stats := h.cacheManager.GetCache().Stats()
+	
+	// Generate Prometheus-style metrics
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+	
+	fmt.Fprintf(w, "# HELP cache_hits_total Total number of cache hits\n")
+	fmt.Fprintf(w, "# TYPE cache_hits_total counter\n")
+	fmt.Fprintf(w, "cache_hits_total %d\n", stats.Hits)
+	
+	fmt.Fprintf(w, "# HELP cache_misses_total Total number of cache misses\n")
+	fmt.Fprintf(w, "# TYPE cache_misses_total counter\n")
+	fmt.Fprintf(w, "cache_misses_total %d\n", stats.Misses)
+	
+	fmt.Fprintf(w, "# HELP cache_evictions_total Total number of cache evictions\n")
+	fmt.Fprintf(w, "# TYPE cache_evictions_total counter\n")
+	fmt.Fprintf(w, "cache_evictions_total %d\n", stats.Evictions)
+	
+	fmt.Fprintf(w, "# HELP cache_lru_evictions_total Total number of LRU evictions\n")
+	fmt.Fprintf(w, "# TYPE cache_lru_evictions_total counter\n")
+	fmt.Fprintf(w, "cache_lru_evictions_total %d\n", stats.LRUEvictions)
+	
+	fmt.Fprintf(w, "# HELP cache_corruption_events_total Total number of corruption events detected\n")
+	fmt.Fprintf(w, "# TYPE cache_corruption_events_total counter\n")
+	fmt.Fprintf(w, "cache_corruption_events_total %d\n", stats.CorruptionEvents)
+	
+	fmt.Fprintf(w, "# HELP cache_recovery_events_total Total number of recovery operations performed\n")
+	fmt.Fprintf(w, "# TYPE cache_recovery_events_total counter\n")
+	fmt.Fprintf(w, "cache_recovery_events_total %d\n", stats.RecoveryEvents)
+	
+	fmt.Fprintf(w, "# HELP cache_entries Current number of cache entries\n")
+	fmt.Fprintf(w, "# TYPE cache_entries gauge\n")
+	fmt.Fprintf(w, "cache_entries %d\n", stats.Entries)
+	
+	fmt.Fprintf(w, "# HELP cache_memory_usage_bytes Current memory usage in bytes\n")
+	fmt.Fprintf(w, "# TYPE cache_memory_usage_bytes gauge\n")
+	fmt.Fprintf(w, "cache_memory_usage_bytes %d\n", stats.MemoryUsage)
+	
+	fmt.Fprintf(w, "# HELP cache_hit_rate_percent Current hit rate percentage\n")
+	fmt.Fprintf(w, "# TYPE cache_hit_rate_percent gauge\n")
+	fmt.Fprintf(w, "cache_hit_rate_percent %.2f\n", stats.HitRate)
+	
+	fmt.Fprintf(w, "# HELP cache_uptime_seconds Cache uptime in seconds\n")
+	fmt.Fprintf(w, "# TYPE cache_uptime_seconds gauge\n")
+	fmt.Fprintf(w, "cache_uptime_seconds %d\n", stats.UptimeSeconds)
+
+	log.Debug("Prometheus metrics served",
+		"client_ip", r.RemoteAddr,
+		"hit_rate", fmt.Sprintf("%.1f%%", stats.HitRate),
+		"entries", stats.Entries)
+}
+
+// checkEvictionRateLimit implements basic rate limiting for cache eviction
+func (h *Handler) checkEvictionRateLimit(r *http.Request) bool {
+	now := time.Now()
+	if now.Sub(h.lastEvictionTime) < 30*time.Second {
+		log.Warn("Cache eviction rate limited",
+			"client_ip", r.RemoteAddr,
+			"time_since_last", now.Sub(h.lastEvictionTime),
+			"required_wait", 30*time.Second)
+		return false
+	}
+	h.lastEvictionTime = now
+	return true
 }
 
 // Close gracefully shuts down the handler and its dependencies

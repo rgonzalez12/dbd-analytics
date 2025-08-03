@@ -244,18 +244,20 @@ func (mc *MemoryCache) Stats() CacheStats {
 
 	// Create a copy of stats with enhanced metrics
 	stats := CacheStats{
-		Hits:           mc.stats.Hits,
-		Misses:         mc.stats.Misses,
-		Evictions:      mc.stats.Evictions,
-		Entries:        len(mc.data),
-		MemoryUsage:    mc.stats.MemoryUsage,
-		SetsTotal:      mc.stats.SetsTotal,
-		DeletesTotal:   mc.stats.DeletesTotal,
-		ExpiredKeys:    mc.stats.ExpiredKeys,
-		LRUEvictions:   mc.stats.LRUEvictions,
-		LastHitTime:    mc.stats.LastHitTime,
-		LastMissTime:   mc.stats.LastMissTime,
-		UptimeSeconds:  int64(time.Since(mc.startTime).Seconds()),
+		Hits:             mc.stats.Hits,
+		Misses:           mc.stats.Misses,
+		Evictions:        mc.stats.Evictions,
+		Entries:          len(mc.data),
+		MemoryUsage:      mc.stats.MemoryUsage,
+		SetsTotal:        mc.stats.SetsTotal,
+		DeletesTotal:     mc.stats.DeletesTotal,
+		ExpiredKeys:      mc.stats.ExpiredKeys,
+		LRUEvictions:     mc.stats.LRUEvictions,
+		CorruptionEvents: mc.stats.CorruptionEvents,
+		RecoveryEvents:   mc.stats.RecoveryEvents,
+		LastHitTime:      mc.stats.LastHitTime,
+		LastMissTime:     mc.stats.LastMissTime,
+		UptimeSeconds:    int64(time.Since(mc.startTime).Seconds()),
 	}
 	
 	// Calculate hit rate
@@ -377,12 +379,74 @@ func (mc *MemoryCache) calculateSize(value interface{}) int64 {
 	// This is not perfectly accurate but gives a reasonable approximation
 	data, err := json.Marshal(value)
 	if err != nil {
+		// Track corruption event
+		mc.stats.CorruptionEvents++
+		log.Error("Cache value serialization failed - potential corruption",
+			"error", err.Error(),
+			"corruption_events_total", mc.stats.CorruptionEvents,
+			"value_type", fmt.Sprintf("%T", value))
+		
 		// Fallback to a conservative estimate
 		return 1024 // 1KB default
 	}
 	
 	// Add overhead for map storage, pointers, etc.
 	return int64(len(data)) + 200 // ~200 bytes overhead per entry
+}
+
+// detectAndRecover performs corruption detection and recovery
+func (mc *MemoryCache) detectAndRecover() int {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	
+	corrupted := 0
+	now := time.Now()
+	
+	for key, entry := range mc.data {
+		// Check for obvious corruption indicators
+		if entry == nil {
+			delete(mc.data, key)
+			corrupted++
+			continue
+		}
+		
+		// Check for invalid timestamps
+		if entry.ExpiresAt.IsZero() || entry.AccessedAt.IsZero() {
+			delete(mc.data, key)
+			mc.stats.MemoryUsage -= entry.Size
+			corrupted++
+			continue
+		}
+		
+		// Check for impossibly old access times (> 1 year ago)
+		if now.Sub(entry.AccessedAt) > 365*24*time.Hour {
+			delete(mc.data, key)
+			mc.stats.MemoryUsage -= entry.Size
+			corrupted++
+			continue
+		}
+		
+		// Attempt to re-serialize value to detect corruption
+		if _, err := json.Marshal(entry.Value); err != nil {
+			delete(mc.data, key)
+			mc.stats.MemoryUsage -= entry.Size
+			corrupted++
+			continue
+		}
+	}
+	
+	if corrupted > 0 {
+		mc.stats.CorruptionEvents += int64(corrupted)
+		mc.stats.RecoveryEvents++
+		
+		log.Error("Cache corruption detected and recovered",
+			"corrupted_entries", corrupted,
+			"corruption_events_total", mc.stats.CorruptionEvents,
+			"recovery_events_total", mc.stats.RecoveryEvents,
+			"remaining_entries", len(mc.data))
+	}
+	
+	return corrupted
 }
 
 // cleanupWorker runs in a background goroutine to periodically clean expired entries
@@ -399,12 +463,20 @@ func (mc *MemoryCache) cleanupWorker() {
 		case <-mc.cleanupTicker.C:
 			start := time.Now()
 			evicted := mc.EvictExpired()
+			
+			// Perform corruption detection every 5th cleanup
+			corrupted := 0
+			if cleanupCount%5 == 0 {
+				corrupted = mc.detectAndRecover()
+			}
+			
 			duration := time.Since(start)
 			cleanupCount++
 			
-			if evicted > 0 {
+			if evicted > 0 || corrupted > 0 {
 				log.Debug("Scheduled cleanup completed",
 					"evicted_entries", evicted,
+					"corrupted_entries", corrupted,
 					"duration", duration,
 					"remaining_entries", mc.getCurrentEntryCount())
 			}
@@ -419,6 +491,7 @@ func (mc *MemoryCache) cleanupWorker() {
 				log.Warn("Cache cleanup took longer than expected",
 					"duration", duration,
 					"evicted", evicted,
+					"corrupted", corrupted,
 					"performance_concern", "consider_redis_upgrade")
 			}
 

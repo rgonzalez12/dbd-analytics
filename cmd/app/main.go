@@ -148,6 +148,9 @@ func main() {
 	// Cache management endpoints
 	r.HandleFunc("/api/cache/stats", h.GetCacheStats).Methods("GET")
 	r.HandleFunc("/api/cache/evict", h.EvictExpiredEntries).Methods("POST")
+	
+	// Prometheus metrics endpoint
+	r.HandleFunc("/metrics", h.GetMetrics).Methods("GET")
 
 	server := &http.Server{
 		Addr:    port,

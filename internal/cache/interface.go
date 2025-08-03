@@ -28,6 +28,10 @@ type CacheStats struct {
 	LRUEvictions   int64   `json:"lru_evictions"`
 	AverageKeySize int64   `json:"average_key_size"`
 	
+	// Corruption and reliability metrics
+	CorruptionEvents int64 `json:"corruption_events"`
+	RecoveryEvents   int64 `json:"recovery_events"`
+	
 	// Performance tracking
 	LastHitTime    time.Time `json:"last_hit_time"`
 	LastMissTime   time.Time `json:"last_miss_time"`
