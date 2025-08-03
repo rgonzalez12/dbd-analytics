@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
@@ -19,13 +21,71 @@ func NewHandler() *Handler {
 	}
 }
 
+// validateSteamID validates that a Steam ID is exactly 17 digits
+func validateSteamID(steamID string) bool {
+	// Steam ID must be exactly 17 digits
+	if len(steamID) != 17 {
+		return false
+	}
+	
+	// Must be all numeric
+	if _, err := strconv.ParseUint(steamID, 10, 64); err != nil {
+		return false
+	}
+	
+	// Additional check: Steam IDs should start with 7656119 (Steam's base)
+	return steamID[:7] == "7656119"
+}
+
+// isValidVanityURL validates that a vanity URL contains only allowed characters
+func isValidVanityURL(vanity string) bool {
+	// Vanity URLs should be 3-32 characters, alphanumeric plus underscore/hyphen
+	if len(vanity) < 3 || len(vanity) > 32 {
+		return false
+	}
+	
+	// Match allowed characters for Steam vanity URLs
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, vanity)
+	return matched
+}
+
+// validateSteamIDOrVanity validates the input as either a Steam ID or vanity URL
+func validateSteamIDOrVanity(input string) *steam.APIError {
+	if input == "" {
+		return steam.NewValidationError("Steam ID or vanity URL required")
+	}
+	
+	// If it starts with 7656119 (Steam ID prefix), it must be a valid Steam ID
+	if len(input) >= 7 && input[:7] == "7656119" {
+		if !validateSteamID(input) {
+			return steam.NewValidationError("Invalid Steam ID format. Must be 17 digits starting with 7656119")
+		}
+		return nil
+	}
+	
+	// If it's all digits but doesn't start with Steam prefix, it's an invalid Steam ID
+	if matched, _ := regexp.MatchString(`^\d+$`, input); matched {
+		return steam.NewValidationError("Invalid Steam ID format. Must be 17 digits starting with 7656119")
+	}
+	
+	// Otherwise validate as vanity URL
+	if !isValidVanityURL(input) {
+		return steam.NewValidationError("Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only")
+	}
+	
+	return nil
+}
+
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
-	if steamID == "" {
-		slog.Warn("GetPlayerSummary called without steam ID",
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path))
-		writeErrorResponse(w, steam.NewValidationError("Steam ID required"))
+	
+	// Validate Steam ID format before processing
+	if err := validateSteamIDOrVanity(steamID); err != nil {
+		slog.Warn("Invalid Steam ID format in GetPlayerSummary",
+			slog.String("steam_id", steamID),
+			slog.String("client_ip", r.RemoteAddr),
+			slog.String("error", err.Message))
+		writeErrorResponse(w, err)
 		return
 	}
 
@@ -52,11 +112,14 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
-	if steamID == "" {
-		slog.Warn("GetPlayerStats called without steam ID",
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path))
-		writeErrorResponse(w, steam.NewValidationError("Steam ID required"))
+	
+	// Validate Steam ID format before processing
+	if err := validateSteamIDOrVanity(steamID); err != nil {
+		slog.Warn("Invalid Steam ID format in GetPlayerStats",
+			slog.String("steam_id", steamID),
+			slog.String("client_ip", r.RemoteAddr),
+			slog.String("error", err.Message))
+		writeErrorResponse(w, err)
 		return
 	}
 
