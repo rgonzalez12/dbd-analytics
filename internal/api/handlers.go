@@ -236,7 +236,8 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 
 	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
-		if err := h.cacheManager.GetCache().Set(cacheKey, summary, cache.PlayerSummaryTTL); err != nil {
+		config := h.cacheManager.GetConfig()
+		if err := h.cacheManager.GetCache().Set(cacheKey, summary, config.TTL.PlayerSummary); err != nil {
 			requestLogger.Error("Failed to cache player summary", 
 				"error", err, 
 				"cache_key", cacheKey,
@@ -244,7 +245,7 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		} else {
 			requestLogger.Debug("Player summary cached", 
 				"cache_key", cacheKey, 
-				"ttl", cache.PlayerSummaryTTL,
+				"ttl", config.TTL.PlayerSummary,
 				"cache_status", "set_success")
 		}
 		
@@ -343,7 +344,8 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
-		if err := h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, cache.PlayerStatsTTL); err != nil {
+		config := h.cacheManager.GetConfig()
+		if err := h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, config.TTL.PlayerStats); err != nil {
 			requestLogger.Error("Failed to cache player stats",
 				"error", err,
 				"cache_key", cacheKey,
@@ -352,7 +354,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		} else {
 			requestLogger.Debug("Player stats cached successfully",
 				"cache_key", cacheKey,
-				"ttl", cache.PlayerStatsTTL,
+				"ttl", config.TTL.PlayerStats,
 				"display_name", flatPlayerStats.DisplayName)
 		}
 	}

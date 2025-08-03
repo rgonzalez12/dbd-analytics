@@ -2,6 +2,8 @@ package cache
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"time"
 )
 
@@ -17,6 +19,7 @@ type Config struct {
 	Type   CacheType         `json:"type"`
 	Memory MemoryCacheConfig `json:"memory"`
 	Redis  RedisConfig       `json:"redis"`
+	TTL    TTLConfig         `json:"ttl"`
 }
 
 // RedisConfig holds Redis-specific configuration for future Redis implementation
@@ -33,11 +36,12 @@ type RedisConfig struct {
 
 // DefaultConfig returns a sensible default configuration for production
 func DefaultConfig() Config {
+	ttlConfig := GetTTLFromEnv()
 	return Config{
 		Type: MemoryCacheType,
 		Memory: MemoryCacheConfig{
 			MaxEntries:      1000,
-			DefaultTTL:      3 * time.Minute,
+			DefaultTTL:      ttlConfig.DefaultTTL,
 			CleanupInterval: 30 * time.Second,
 		},
 		Redis: RedisConfig{
@@ -49,14 +53,15 @@ func DefaultConfig() Config {
 			ReadTimeout:  3 * time.Second,
 			WriteTimeout: 3 * time.Second,
 		},
+		TTL: ttlConfig,
 	}
 }
 
 // PlayerStatsConfig returns cache configuration optimized for player statistics
 func PlayerStatsConfig() Config {
 	config := DefaultConfig()
-	// Player stats change infrequently, can cache longer
-	config.Memory.DefaultTTL = 5 * time.Minute
+	// Use configurable TTL for player stats
+	config.Memory.DefaultTTL = config.TTL.PlayerStats
 	// Increase capacity for player data but keep reasonable limits
 	config.Memory.MaxEntries = 2000
 	// More frequent cleanup for active usage
@@ -70,13 +75,21 @@ func DevelopmentConfig() Config {
 	config.Memory.MaxEntries = 100        // Small for testing
 	config.Memory.DefaultTTL = 30 * time.Second // Short TTL for testing
 	config.Memory.CleanupInterval = 5 * time.Second // Frequent cleanup
+	// Override TTL config for development
+	config.TTL = TTLConfig{
+		PlayerStats:   30 * time.Second,
+		PlayerSummary: 1 * time.Minute,
+		SteamAPI:      30 * time.Second,
+		DefaultTTL:    30 * time.Second,
+	}
 	return config
 }
 
 // Manager provides a factory and management layer for different cache implementations
 type Manager struct {
-	config Config
-	cache  Cache
+	config         Config
+	cache          Cache
+	circuitBreaker *CircuitBreaker
 }
 
 // NewManager creates a new cache manager with the specified configuration
@@ -91,6 +104,11 @@ func NewManager(config Config) (*Manager, error) {
 	}
 
 	manager.cache = cache
+	
+	// Create circuit breaker for upstream API protection
+	circuitConfig := DefaultCircuitBreakerConfig()
+	manager.circuitBreaker = NewCircuitBreaker(circuitConfig, cache)
+	
 	return manager, nil
 }
 
@@ -102,6 +120,35 @@ func (m *Manager) GetCache() Cache {
 // GetConfig returns the current cache configuration
 func (m *Manager) GetConfig() Config {
 	return m.config
+}
+
+// GetCircuitBreaker returns the circuit breaker for upstream API protection
+func (m *Manager) GetCircuitBreaker() *CircuitBreaker {
+	return m.circuitBreaker
+}
+
+// ExecuteWithFallback executes a function with circuit breaker and cache fallback
+func (m *Manager) ExecuteWithFallback(key string, fn func() (interface{}, error)) (interface{}, error) {
+	return m.circuitBreaker.ExecuteWithStaleCache(key, fn)
+}
+
+// GetCacheStatus returns comprehensive cache and circuit breaker status
+func (m *Manager) GetCacheStatus() map[string]interface{} {
+	status := map[string]interface{}{
+		"cache_type": m.config.Type,
+		"config":     m.config,
+	}
+	
+	if m.circuitBreaker != nil {
+		status["circuit_breaker"] = m.circuitBreaker.GetDetailedStatus()
+	}
+	
+	// Add cache-specific stats if available
+	if memCache, ok := m.cache.(*MemoryCache); ok {
+		status["cache_stats"] = memCache.GetStats()
+	}
+	
+	return status
 }
 
 // Close gracefully shuts down the cache
@@ -146,9 +193,32 @@ const (
 	SteamAPIPrefix     = "steam_api"
 )
 
-// TTL constants for different data types
-const (
-	PlayerStatsTTL   = 5 * time.Minute  // Player stats change infrequently
-	PlayerSummaryTTL = 10 * time.Minute // Profile info changes very rarely
-	SteamAPITTL      = 3 * time.Minute  // General Steam API data
-)
+// TTLConfig holds configurable TTL values for different data types
+type TTLConfig struct {
+	PlayerStats   time.Duration `json:"player_stats_ttl"`
+	PlayerSummary time.Duration `json:"player_summary_ttl"`
+	SteamAPI      time.Duration `json:"steam_api_ttl"`
+	DefaultTTL    time.Duration `json:"default_ttl"`
+}
+
+// GetTTLFromEnv returns TTL configuration from environment variables with fallbacks
+func GetTTLFromEnv() TTLConfig {
+	return TTLConfig{
+		PlayerStats:   getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
+		PlayerSummary: getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
+		SteamAPI:      getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
+		DefaultTTL:    getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
+	}
+}
+
+// getEnvDuration parses duration from environment variable with fallback
+func getEnvDuration(envKey string, fallback time.Duration) time.Duration {
+	if value := os.Getenv(envKey); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+		// Log warning about invalid duration format but continue with fallback
+		log.Printf("Warning: Invalid duration format for %s: %s, using fallback %v", envKey, value, fallback)
+	}
+	return fallback
+}

@@ -540,3 +540,35 @@ func (mc *MemoryCache) getCurrentEntryCount() int {
 	defer mc.mu.RUnlock()
 	return len(mc.data)
 }
+
+// GetStats returns a copy of the current cache statistics
+func (mc *MemoryCache) GetStats() CacheStats {
+	mc.mu.RLock()
+	defer mc.mu.RUnlock()
+	
+	// Calculate hit rate
+	totalRequests := mc.stats.Hits + mc.stats.Misses
+	var hitRate float64
+	if totalRequests > 0 {
+		hitRate = float64(mc.stats.Hits) / float64(totalRequests)
+	}
+	
+	// Return a copy to prevent race conditions
+	return CacheStats{
+		Hits:             mc.stats.Hits,
+		Misses:           mc.stats.Misses,
+		SetsTotal:        mc.stats.SetsTotal,
+		DeletesTotal:     mc.stats.DeletesTotal,
+		Evictions:        mc.stats.Evictions,
+		ExpiredKeys:      mc.stats.ExpiredKeys,
+		LRUEvictions:     mc.stats.LRUEvictions,
+		MemoryUsage:      mc.stats.MemoryUsage,
+		LastHitTime:      mc.stats.LastHitTime,
+		LastMissTime:     mc.stats.LastMissTime,
+		CorruptionEvents: mc.stats.CorruptionEvents,
+		RecoveryEvents:   mc.stats.RecoveryEvents,
+		Entries:          len(mc.data),
+		HitRate:          hitRate,
+		UptimeSeconds:    int64(time.Since(mc.startTime).Seconds()),
+	}
+}

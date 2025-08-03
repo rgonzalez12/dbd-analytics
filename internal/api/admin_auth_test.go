@@ -120,11 +120,12 @@ func TestAdminAuthWithInvalidToken(t *testing.T) {
 			
 			// Verify appropriate error message
 			body := rr.Body.String()
-			if tc.expectedStatus == http.StatusUnauthorized {
+			switch tc.expectedStatus {
+			case http.StatusUnauthorized:
 				if !strings.Contains(strings.ToLower(body), "required") {
 					t.Error("Expected 'required' in unauthorized response")
 				}
-			} else if tc.expectedStatus == http.StatusForbidden {
+			case http.StatusForbidden:
 				if !strings.Contains(strings.ToLower(body), "invalid") {
 					t.Error("Expected 'invalid' in forbidden response")
 				}
