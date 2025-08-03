@@ -17,6 +17,17 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/api"
 )
 
+// responseWriter wraps http.ResponseWriter to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
 func main() {
 	// Set working directory (helpful for Docker/deployment)
 	if workDir := os.Getenv("WORKDIR"); workDir != "" {
@@ -25,9 +36,15 @@ func main() {
 		}
 	}
 
-	// Initialize structured logging
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+	// Initialize structured logging with JSON output for better observability
+	logLevel := slog.LevelInfo
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = slog.LevelDebug
+	}
+	
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: logLevel,
+		AddSource: true, // Add source file and line for debugging
 	}))
 	slog.SetDefault(logger)
 
@@ -59,14 +76,39 @@ func main() {
 	// Initialize router
 	r := mux.NewRouter()
 
-	// Add logging middleware to see all requests
+	// Add comprehensive logging middleware
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			slog.Info("HTTP Request", 
+			start := time.Now()
+			
+			// Create a response writer wrapper to capture status code
+			wrappedWriter := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+			
+			// Extract Steam ID from URL if present
+			vars := mux.Vars(req)
+			steamID := vars["steamid"]
+			
+			// Log incoming request
+			slog.Info("incoming_request",
 				slog.String("method", req.Method),
 				slog.String("path", req.URL.Path),
-				slog.String("remote_addr", req.RemoteAddr))
-			next.ServeHTTP(w, req)
+				slog.String("steam_id", steamID),
+				slog.String("user_agent", req.UserAgent()),
+				slog.String("remote_addr", req.RemoteAddr),
+				slog.String("request_id", req.Header.Get("X-Request-ID")))
+			
+			// Process request
+			next.ServeHTTP(wrappedWriter, req)
+			
+			// Log response
+			duration := time.Since(start)
+			slog.Info("request_completed",
+				slog.String("method", req.Method),
+				slog.String("path", req.URL.Path),
+				slog.String("steam_id", steamID),
+				slog.Int("status_code", wrappedWriter.statusCode),
+				slog.Duration("duration", duration),
+				slog.String("duration_ms", fmt.Sprintf("%.2f", duration.Seconds()*1000)))
 		})
 	})
 
@@ -79,13 +121,11 @@ func main() {
 		host := r.Host
 		if host == "" {
 			// If host is empty, use localhost with the configured port
-			hostPort := "localhost" + port
 			if strings.HasPrefix(port, ":") {
-				hostPort = "localhost" + port
+				host = "localhost" + port
 			} else {
-				hostPort = "localhost:" + port
+				host = "localhost:" + port
 			}
-			host = hostPort
 		}
 		
 		fmt.Fprintln(w, "🎮 Dead by Daylight Analytics API")

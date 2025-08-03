@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 )
 
 const (
@@ -189,51 +190,79 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 
 func (c *Client) makeRequest(endpoint string, params url.Values, result interface{}) *APIError {
 	apiURL := endpoint + "?" + params.Encode()
+	start := time.Now()
 
-	slog.Debug("Making Steam API request", 
+	// Log outgoing Steam API request
+	slog.Info("steam_api_request_start",
+		slog.String("endpoint", endpoint),
+		slog.String("method", "GET"),
 		slog.String("url", apiURL))
 
 	resp, err := c.client.Get(apiURL)
+	requestDuration := time.Since(start)
+	
 	if err != nil {
-		slog.Error("Network error during Steam API request", 
-			slog.String("error", err.Error()), 
-			slog.String("url", apiURL))
+		slog.Error("steam_api_request_failed",
+			slog.String("error", err.Error()),
+			slog.String("endpoint", endpoint),
+			slog.Duration("duration", requestDuration),
+			slog.String("duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000)),
+			slog.String("error_type", "network_error"))
 		return NewNetworkError(err)
 	}
 	defer resp.Body.Close()
 
+	// Log response details
+	slog.Info("steam_api_request_completed",
+		slog.String("endpoint", endpoint),
+		slog.Int("status_code", resp.StatusCode),
+		slog.Duration("duration", requestDuration),
+		slog.String("duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000)),
+		slog.String("content_length", resp.Header.Get("Content-Length")))
+
 	// Handle rate limiting with structured error
 	if resp.StatusCode == http.StatusTooManyRequests {
-		slog.Warn("Steam API rate limit exceeded", 
+		slog.Warn("steam_api_rate_limited",
 			slog.Int("status_code", resp.StatusCode),
-			slog.String("url", apiURL))
+			slog.String("endpoint", endpoint),
+			slog.Duration("duration", requestDuration))
 		return NewRateLimitError()
 	}
 
 	// Handle other HTTP errors using specific retryable status codes
 	if resp.StatusCode != http.StatusOK {
-		slog.Error("Steam API returned HTTP error", 
-			slog.Int("status_code", resp.StatusCode), 
-			slog.String("url", apiURL))
+		slog.Error("steam_api_http_error",
+			slog.Int("status_code", resp.StatusCode),
+			slog.String("endpoint", endpoint),
+			slog.Duration("duration", requestDuration),
+			slog.String("error_type", "http_error"))
 		return NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d", resp.StatusCode))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("Failed to read response body from Steam API", 
-			slog.String("error", err.Error()))
+		slog.Error("steam_api_response_read_failed",
+			slog.String("error", err.Error()),
+			slog.String("endpoint", endpoint),
+			slog.Duration("duration", requestDuration))
 		return NewInternalError(fmt.Errorf("failed to read response body: %w", err))
 	}
 
 	if err := json.Unmarshal(body, result); err != nil {
-		slog.Error("Failed to parse JSON response from Steam API", 
-			slog.String("error", err.Error()), 
+		slog.Error("steam_api_json_parse_failed",
+			slog.String("error", err.Error()),
+			slog.String("endpoint", endpoint),
+			slog.Duration("duration", requestDuration),
+			slog.Int("response_size", len(body)),
 			slog.String("body_preview", string(body)[:min(len(body), 200)]))
 		return NewInternalError(fmt.Errorf("failed to parse JSON response: %w", err))
 	}
 
-	slog.Debug("Steam API request completed successfully", 
+	slog.Info("steam_api_request_success",
+		slog.String("endpoint", endpoint),
 		slog.Int("status_code", resp.StatusCode),
+		slog.Duration("duration", requestDuration),
+		slog.String("duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000)),
 		slog.Int("response_size", len(body)))
 	return nil
 }

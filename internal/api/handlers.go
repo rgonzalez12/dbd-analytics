@@ -346,10 +346,28 @@ func determineStatusCode(apiErr *steam.APIError) int {
 // writeJSONResponse writes a successful JSON response to the client
 func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		slog.Error("Failed to encode JSON response", 
+	
+	// Marshal to get response size for logging
+	responseBytes, err := json.Marshal(data)
+	if err != nil {
+		slog.Error("Failed to marshal JSON response", 
 			slog.String("error", err.Error()))
 		writeErrorResponse(w, steam.NewInternalError(err))
+		return
+	}
+	
+	// Log successful response
+	slog.Info("successful_response_sent",
+		slog.Int("status_code", http.StatusOK),
+		slog.Int("response_size", len(responseBytes)),
+		slog.String("content_type", "application/json"))
+	
+	// Write the response
+	if _, err := w.Write(responseBytes); err != nil {
+		slog.Error("Failed to write JSON response", 
+			slog.String("error", err.Error()),
+			slog.Int("response_size", len(responseBytes)))
+		// Can't call writeErrorResponse here as headers are already sent
 		return
 	}
 }
