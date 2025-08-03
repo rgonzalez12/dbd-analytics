@@ -200,105 +200,180 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 }
 
 func (c *Client) makeRequest(endpoint string, params url.Values, result interface{}) *APIError {
-	apiURL := endpoint + "?" + params.Encode()
-	start := time.Now()
-
-	// Log outgoing Steam API request
-	log.Info("steam_api_request_start",
-		"endpoint", endpoint,
-		"method", "GET",
-		"url", apiURL)
-
-	resp, err := c.client.Get(apiURL)
-	requestDuration := time.Since(start)
+	var lastErr *APIError
 	
-	if err != nil {
-		log.Error("steam_api_request_failed",
-			"error", err.Error(),
+	for attempt := 0; attempt <= c.retryConfig.MaxAttempts; attempt++ {
+		// If this is a retry attempt, wait before trying again
+		if attempt > 0 {
+			delay := c.calculateRetryDelay(lastErr, attempt-1)
+			
+			log.Info("steam_api_retry_attempt",
+				"attempt", attempt,
+				"max_attempts", c.retryConfig.MaxAttempts,
+				"delay_seconds", delay.Seconds(),
+				"endpoint", endpoint)
+			
+			time.Sleep(delay)
+		}
+		
+		apiURL := endpoint + "?" + params.Encode()
+		start := time.Now()
+
+		// Log outgoing Steam API request
+		log.Info("steam_api_request_start",
 			"endpoint", endpoint,
+			"method", "GET",
+			"url", apiURL,
+			"attempt", attempt+1)
+
+		resp, err := c.client.Get(apiURL)
+		requestDuration := time.Since(start)
+		
+		if err != nil {
+			log.Error("steam_api_request_failed",
+				"error", err.Error(),
+				"endpoint", endpoint,
+				"duration", requestDuration,
+				"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
+				"error_type", "network_error",
+				"attempt", attempt+1)
+			lastErr = NewNetworkError(err)
+			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
+				return lastErr
+			}
+			continue
+		}
+		defer resp.Body.Close()
+
+		// Log response details
+		log.Info("steam_api_request_completed",
+			"endpoint", endpoint,
+			"status_code", resp.StatusCode,
 			"duration", requestDuration,
 			"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
-			"error_type", "network_error")
-		return NewNetworkError(err)
-	}
-	defer resp.Body.Close()
+			"content_length", resp.Header.Get("Content-Length"),
+			"attempt", attempt+1)
 
-	// Log response details
-	log.Info("steam_api_request_completed",
-		"endpoint", endpoint,
-		"status_code", resp.StatusCode,
-		"duration", requestDuration,
-		"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
-		"content_length", resp.Header.Get("Content-Length"))
+		// Handle rate limiting with enhanced header parsing
+		if resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter := c.parseRateLimitHeaders(resp.Header)
+			log.Warn("steam_api_rate_limited",
+				"status_code", resp.StatusCode,
+				"endpoint", endpoint,
+				"duration", requestDuration,
+				"retry_after_seconds", retryAfter,
+				"retry_after_header", resp.Header.Get("Retry-After"),
+				"rate_limit_reset_header", resp.Header.Get("X-RateLimit-Reset"),
+				"attempt", attempt+1)
+			lastErr = NewRateLimitErrorWithRetryAfter(retryAfter)
+			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
+				return lastErr
+			}
+			continue
+		}
 
-	// Handle rate limiting with Retry-After header parsing
-	if resp.StatusCode == http.StatusTooManyRequests {
-		retryAfter := c.parseRetryAfterHeader(resp.Header.Get("Retry-After"))
-		log.Warn("steam_api_rate_limited",
+		// Handle other HTTP errors using specific retryable status codes
+		if resp.StatusCode != http.StatusOK {
+			log.Error("steam_api_http_error",
+				"status_code", resp.StatusCode,
+				"endpoint", endpoint,
+				"duration", requestDuration,
+				"error_type", "http_error",
+				"attempt", attempt+1)
+			lastErr = NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d", resp.StatusCode))
+			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
+				return lastErr
+			}
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Error("steam_api_response_read_failed",
+				"error", err.Error(),
+				"endpoint", endpoint,
+				"duration", requestDuration,
+				"attempt", attempt+1)
+			lastErr = NewInternalError(fmt.Errorf("failed to read response body: %w", err))
+			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
+				return lastErr
+			}
+			continue
+		}
+
+		if err := json.Unmarshal(body, result); err != nil {
+			log.Error("steam_api_json_parse_failed",
+				"error", err.Error(),
+				"endpoint", endpoint,
+				"duration", requestDuration,
+				"response_size", len(body),
+				"body_preview", string(body)[:min(len(body), 200)],
+				"attempt", attempt+1)
+			lastErr = NewInternalError(fmt.Errorf("failed to parse JSON response: %w", err))
+			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
+				return lastErr
+			}
+			continue
+		}
+
+		log.Info("steam_api_request_success",
+			"endpoint", endpoint,
 			"status_code", resp.StatusCode,
-			"endpoint", endpoint,
 			"duration", requestDuration,
-			"retry_after", retryAfter)
-		return NewRateLimitErrorWithRetryAfter(retryAfter)
-	}
+			"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
+			"attempt", attempt+1)
 
-	// Handle other HTTP errors using specific retryable status codes
-	if resp.StatusCode != http.StatusOK {
-		log.Error("steam_api_http_error",
-			"status_code", resp.StatusCode,
-			"endpoint", endpoint,
-			"duration", requestDuration,
-			"error_type", "http_error")
-		return NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d", resp.StatusCode))
+		return nil // Success!
 	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Error("steam_api_response_read_failed",
-			"error", err.Error(),
-			"endpoint", endpoint,
-			"duration", requestDuration)
-		return NewInternalError(fmt.Errorf("failed to read response body: %w", err))
-	}
-
-	if err := json.Unmarshal(body, result); err != nil {
-		log.Error("steam_api_json_parse_failed",
-			"error", err.Error(),
-			"endpoint", endpoint,
-			"duration", requestDuration,
-			"response_size", len(body),
-			"body_preview", string(body)[:min(len(body), 200)])
-		return NewInternalError(fmt.Errorf("failed to parse JSON response: %w", err))
-	}
-
-	log.Info("steam_api_request_success",
-		"endpoint", endpoint,
-		"status_code", resp.StatusCode,
-		"duration", requestDuration,
-		"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
-		"response_size", len(body))
-	return nil
+	
+	return lastErr
 }
 
-// parseRetryAfterHeader parses the Retry-After header value
-// Returns retry time in seconds, defaulting to 60 if parsing fails
-func (c *Client) parseRetryAfterHeader(retryAfterValue string) int {
-	if retryAfterValue == "" {
-		return 60 // Default to 60 seconds if no header present
-	}
-	
-	// Try to parse as seconds (integer)
-	if seconds, err := strconv.Atoi(retryAfterValue); err == nil && seconds > 0 {
-		// Cap at reasonable maximum (5 minutes)
-		if seconds > 300 {
-			return 300
+// calculateRetryDelay calculates the delay before the next retry attempt
+func (c *Client) calculateRetryDelay(lastErr *APIError, attempt int) time.Duration {
+	// If we have a rate limit error, check if we have rate limit headers
+	if lastErr != nil && lastErr.Type == ErrorTypeRateLimit && lastErr.StatusCode == 429 {
+		// If RetryAfter is set to a reasonable value (not the default 60s fallback), use it
+		if lastErr.RetryAfter > 0 && lastErr.RetryAfter <= 10 {
+			return time.Duration(lastErr.RetryAfter) * time.Second
 		}
-		return seconds
 	}
 	
-	// If parsing fails, default to 60 seconds
-	log.Debug("Failed to parse Retry-After header, using default",
-		"retry_after_value", retryAfterValue,
+	// Otherwise use exponential backoff (including when rate limit has no useful headers)
+	return calculateBackoffDelay(attempt, c.retryConfig)
+}
+
+// parseRateLimitHeaders parses rate limit headers and returns retry time in seconds
+// Checks Retry-After and X-RateLimit-Reset headers, defaulting to 60 if not found
+func (c *Client) parseRateLimitHeaders(headers http.Header) int {
+	// First check Retry-After header (preferred)
+	if retryAfter := headers.Get("Retry-After"); retryAfter != "" {
+		if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+			// Cap at reasonable maximum (5 minutes)
+			if seconds > 300 {
+				return 300
+			}
+			return seconds
+		}
+	}
+	
+	// Check X-RateLimit-Reset header (Unix timestamp)
+	if resetTime := headers.Get("X-RateLimit-Reset"); resetTime != "" {
+		if timestamp, err := strconv.ParseInt(resetTime, 10, 64); err == nil {
+			resetAt := time.Unix(timestamp, 0)
+			secondsUntilReset := int(time.Until(resetAt).Seconds())
+			
+			// Only use if it's positive and reasonable (within 5 minutes)
+			if secondsUntilReset > 0 && secondsUntilReset <= 300 {
+				return secondsUntilReset
+			}
+		}
+	}
+	
+	// Default to 60 seconds if no valid headers found
+	log.Debug("No valid rate limit headers found, using default",
+		"retry_after", headers.Get("Retry-After"),
+		"rate_limit_reset", headers.Get("X-RateLimit-Reset"),
 		"default_seconds", 60)
 	return 60
 }

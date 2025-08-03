@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"math"
 	"math/rand"
+	"os"
+	"strconv"
 	"time"
 )
 
@@ -16,16 +18,52 @@ type RetryConfig struct {
 }
 
 func DefaultRetryConfig() RetryConfig {
+	// Get max retries from environment variable, default to 3
+	maxRetries := 3
+	if envRetries := os.Getenv("STEAM_MAX_RETRIES"); envRetries != "" {
+		if parsed, err := strconv.Atoi(envRetries); err == nil && parsed >= 0 {
+			maxRetries = parsed
+		}
+	}
+
 	return RetryConfig{
-		MaxAttempts: 2, // Retry once for rate limits
-		BaseDelay:   1 * time.Second,    // Start with 1 second for rate limits
-		MaxDelay:    5 * time.Second,    // Max 5 seconds for rate limits
-		Multiplier:  2.0,
+		MaxAttempts: maxRetries,
+		BaseDelay:   500 * time.Millisecond, // Start with 500ms for exponential backoff
+		MaxDelay:    10 * time.Second,       // Cap at 10 seconds
+		Multiplier:  2.0,                    // Exponential backoff: 500ms → 1s → 2s → 4s → 8s
 		Jitter:      true,
 	}
 }
 
 type RetryableFunc func() (*APIError, bool)
+
+// shouldRetryError determines if an error is worth retrying based on its type and status code
+func shouldRetryError(err *APIError) bool {
+	if err == nil {
+		return false
+	}
+
+	// Don't retry validation errors or not found errors
+	if err.Type == ErrorTypeValidation || err.Type == ErrorTypeNotFound {
+		return false
+	}
+
+	// Check status codes - only retry on 429 and 5xx errors
+	if err.StatusCode > 0 {
+		switch err.StatusCode {
+		case 429: // Too Many Requests - always retryable
+			return true
+		case 403, 404: // Forbidden, Not Found - permanent failures
+			return false
+		default:
+			// Retry on 5xx server errors
+			return err.StatusCode >= 500 && err.StatusCode < 600
+		}
+	}
+
+	// For other error types, use the existing Retryable field
+	return err.Retryable
+}
 
 // WithRetry executes a function with exponential backoff retry logic
 func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
@@ -58,6 +96,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 				slog.Int("attempt", attempt+1),
 				slog.Int("max_attempts", config.MaxAttempts),
 				slog.String("last_error_type", string(lastErr.Type)),
+				slog.Int("last_status_code", lastErr.StatusCode),
 				slog.String("last_error", lastErr.Message))
 		}
 		
@@ -76,29 +115,21 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 		
 		lastErr = err
 		
-		// Don't retry if explicitly told to stop or error is not retryable
-		if shouldStop || !err.Retryable {
+		// Check if we should retry this error type
+		if shouldStop || !shouldRetryError(err) {
 			if operation != "" {
 				slog.Info("Operation failed with non-retryable error",
 					slog.String("operation", operation),
 					slog.String("error_type", string(err.Type)),
-					slog.Bool("retryable", err.Retryable))
+					slog.Int("status_code", err.StatusCode),
+					slog.Bool("retryable", shouldRetryError(err)))
 			}
 			break
 		}
 		
 		// Don't sleep after the last attempt
 		if attempt < config.MaxAttempts-1 {
-			delay := calculateBackoffDelay(attempt, config)
-			
-			// Use RetryAfter value for rate limit errors when available
-			if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {
-				delay = time.Duration(err.RetryAfter) * time.Second
-				// Cap the delay to max delay to prevent extremely long waits
-				if delay > config.MaxDelay {
-					delay = config.MaxDelay
-				}
-			}
+			delay := calculateRetryDelay(attempt, config, err)
 			
 			if operation != "" {
 				slog.Debug("Waiting before retry",
@@ -127,6 +158,23 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 	}
 	
 	return lastErr
+}
+
+// calculateRetryDelay determines the delay before next retry attempt
+// Respects API headers (Retry-After) or uses exponential backoff
+func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Duration {
+	// If we have a rate limit error with RetryAfter, use it
+	if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {
+		delay := time.Duration(err.RetryAfter) * time.Second
+		// Cap the delay to max delay to prevent extremely long waits
+		if delay > config.MaxDelay {
+			delay = config.MaxDelay
+		}
+		return delay
+	}
+
+	// Otherwise use exponential backoff
+	return calculateBackoffDelay(attempt, config)
 }
 
 // calculateBackoffDelay implements exponential backoff with optional jitter

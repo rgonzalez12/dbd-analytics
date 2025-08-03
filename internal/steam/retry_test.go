@@ -94,10 +94,11 @@ func TestRetryLogic_ExhaustAllAttempts(t *testing.T) {
 
 func TestRetryLogic_SpecificStatusCodes(t *testing.T) {
 	retryableCodes := []int{
-		http.StatusTooManyRequests, // 429
-		http.StatusBadGateway,      // 502
-		http.StatusServiceUnavailable, // 503
-		http.StatusGatewayTimeout,     // 504
+		http.StatusTooManyRequests,     // 429
+		http.StatusInternalServerError, // 500 - now retryable in enhanced implementation
+		http.StatusBadGateway,          // 502
+		http.StatusServiceUnavailable,  // 503
+		http.StatusGatewayTimeout,      // 504
 	}
 
 	nonRetryableCodes := []int{
@@ -105,7 +106,7 @@ func TestRetryLogic_SpecificStatusCodes(t *testing.T) {
 		http.StatusUnauthorized,        // 401
 		http.StatusForbidden,           // 403
 		http.StatusNotFound,            // 404
-		http.StatusInternalServerError, // 500
+		// Note: 500 is now retryable in our enhanced implementation
 	}
 
 	config := steam.RetryConfig{
@@ -286,7 +287,7 @@ func TestRetryLogic_HTTP429Failures(t *testing.T) {
 }
 
 func TestRetryLogic_HTTP500Failures(t *testing.T) {
-	// Test specific HTTP 500 (Internal Server Error) - should NOT retry by default
+	// Test specific HTTP 500 (Internal Server Error) - should retry in enhanced implementation
 	requestCount := 0
 	
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -322,9 +323,9 @@ func TestRetryLogic_HTTP500Failures(t *testing.T) {
 		t.Error("Expected API error for 500 status")
 	}
 
-	// Should only make 1 request since 500 errors are not retryable
-	if requestCount != 1 {
-		t.Errorf("Expected 1 HTTP request (no retry for 500), got %d", requestCount)
+	// Should make all retry attempts since 500 errors are now retryable
+	if requestCount != 3 { // MaxAttempts = 3 total attempts
+		t.Errorf("Expected 3 HTTP requests (MaxAttempts) for 500), got %d", requestCount)
 	}
 
 	if err.Type != steam.ErrorTypeAPIError {
@@ -336,8 +337,8 @@ func TestRetryLogic_ExponentialBackoffTiming(t *testing.T) {
 	// Test that exponential backoff timing works correctly
 	config := steam.RetryConfig{
 		MaxAttempts: 3,
-		BaseDelay:   10 * time.Millisecond,
-		MaxDelay:    100 * time.Millisecond,
+		BaseDelay:   100 * time.Millisecond, // Match our enhanced implementation
+		MaxDelay:    2 * time.Second,
 		Multiplier:  2.0,
 		Jitter:      false, // Disable jitter for predictable timing
 	}
@@ -351,9 +352,9 @@ func TestRetryLogic_ExponentialBackoffTiming(t *testing.T) {
 		attempts++
 		attemptTimes = append(attemptTimes, time.Now())
 		
-		// Fail on first two attempts, succeed on third
+		// Fail on first two attempts, succeed on third (use 500 error to force exponential backoff)
 		if attempts < 3 {
-			return steam.NewRateLimitError(), false
+			return steam.NewAPIError(500, "test error"), false
 		}
 		return nil, false
 	})
@@ -368,25 +369,25 @@ func TestRetryLogic_ExponentialBackoffTiming(t *testing.T) {
 
 	// Check timing between attempts
 	if len(attemptTimes) >= 2 {
-		// First retry delay should be around baseDelay (10ms)
+		// First retry delay should be around baseDelay (100ms)
 		firstDelay := attemptTimes[1].Sub(attemptTimes[0])
-		if firstDelay < 8*time.Millisecond || firstDelay > 15*time.Millisecond {
-			t.Errorf("First retry delay should be ~10ms, got %v", firstDelay)
+		if firstDelay < 90*time.Millisecond || firstDelay > 150*time.Millisecond {
+			t.Errorf("First retry delay should be ~100ms, got %v", firstDelay)
 		}
 	}
 
 	if len(attemptTimes) >= 3 {
-		// Second retry delay should be around baseDelay * multiplier (20ms)
+		// Second retry delay should be around baseDelay * multiplier (200ms)
 		secondDelay := attemptTimes[2].Sub(attemptTimes[1])
-		if secondDelay < 18*time.Millisecond || secondDelay > 25*time.Millisecond {
-			t.Errorf("Second retry delay should be ~20ms, got %v", secondDelay)
+		if secondDelay < 180*time.Millisecond || secondDelay > 250*time.Millisecond {
+			t.Errorf("Second retry delay should be ~200ms, got %v", secondDelay)
 		}
 	}
 
 	totalTime := time.Since(start)
-	// Total time should be at least the sum of delays (~30ms) but not too much more
-	if totalTime < 25*time.Millisecond || totalTime > 50*time.Millisecond {
-		t.Errorf("Total retry time should be ~30ms, got %v", totalTime)
+	// Total time should be at least the sum of delays (~300ms) but not too much more
+	if totalTime < 250*time.Millisecond || totalTime > 500*time.Millisecond {
+		t.Errorf("Total retry time should be ~300ms, got %v", totalTime)
 	}
 }
 
