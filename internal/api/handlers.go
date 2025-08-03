@@ -440,19 +440,29 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting: only allow one eviction per 30 seconds
 	if !h.checkEvictionRateLimit(r) {
-		writeErrorResponse(w, steam.NewRateLimitErrorWithRetryAfter(30))
+		w.Header().Set("Retry-After", "30")
+		http.Error(w, "rate limit exceeded. Try again in 30 seconds.", http.StatusTooManyRequests)
 		return
 	}
 	
 	// Basic admin check - in production, replace with proper auth
 	adminToken := r.Header.Get("X-Admin-Token")
-	if adminToken == "" || adminToken != "test-token" {
-		log.Warn("Unauthorized cache eviction attempt",
+	if adminToken == "" {
+		log.Warn("Unauthorized cache eviction attempt - missing token",
+			"client_ip", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
+			"path", r.URL.Path)
+		http.Error(w, "Admin token required", http.StatusUnauthorized)
+		return
+	}
+	
+	if adminToken != "test-token" {
+		log.Warn("Unauthorized cache eviction attempt - invalid token",
 			"client_ip", r.RemoteAddr,
 			"user_agent", r.UserAgent(),
 			"path", r.URL.Path,
-			"token_provided", adminToken != "")
-		writeErrorResponse(w, steam.NewValidationError("valid admin token required"))
+			"token_provided", true)
+		http.Error(w, "Invalid admin token", http.StatusForbidden)
 		return
 	}
 	
@@ -505,7 +515,16 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 	// Simple IP allowlist check (in production, use proper CIDR matching)
 	for _, allowedIP := range allowedIPs {
 		if strings.Contains(allowedIP, "/") {
-			// CIDR range - would need proper parsing in production
+			// CIDR range - simple prefix check for common private ranges
+			if allowedIP == "10.0.0.0/8" && strings.HasPrefix(clientIP, "10.") {
+				return true
+			}
+			if allowedIP == "172.16.0.0/12" && strings.HasPrefix(clientIP, "172.16.") {
+				return true
+			}
+			if allowedIP == "192.168.0.0/16" && strings.HasPrefix(clientIP, "192.168.") {
+				return true
+			}
 			continue
 		}
 		if clientIP == allowedIP {
@@ -515,7 +534,8 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 	
 	// For development/testing, allow all local traffic
 	if strings.HasPrefix(clientIP, "127.") || strings.HasPrefix(clientIP, "192.168.") || 
-	   strings.HasPrefix(clientIP, "10.") || clientIP == "::1" {
+	   strings.HasPrefix(clientIP, "10.") || strings.HasPrefix(clientIP, "172.16.") ||
+	   clientIP == "::1" {
 		return true
 	}
 	

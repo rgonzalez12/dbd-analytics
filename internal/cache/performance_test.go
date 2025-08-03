@@ -273,7 +273,95 @@ func BenchmarkValidatorVsBuiltIn(b *testing.B) {
 	})
 }
 
-// generateTestValue creates test data of varying complexity
+// BenchmarkCacheWarmVsCold tests performance difference between warm and cold cache
+func BenchmarkCacheWarmVsCold(b *testing.B) {
+	cache := NewMemoryCache(MemoryCacheConfig{
+		MaxEntries:      5000,
+		DefaultTTL:      5 * time.Minute,
+		CleanupInterval: 1 * time.Minute,
+	})
+	defer cache.Close()
+	
+	// Pre-populate keys for warm cache test
+	warmKeys := make([]string, 1000)
+	for i := 0; i < 1000; i++ {
+		key := fmt.Sprintf("warm_key_%d", i)
+		warmKeys[i] = key
+		cache.Set(key, generateTestValue(i), 5*time.Minute)
+	}
+	
+	b.Run("ColdCache_Misses", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			key := fmt.Sprintf("cold_key_%d", i%1000)
+			cache.Get(key) // Will be cache misses
+		}
+	})
+	
+	b.Run("WarmCache_Hits", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			key := warmKeys[i%len(warmKeys)]
+			cache.Get(key) // Will be cache hits
+		}
+	})
+}
+
+// BenchmarkConcurrentReadWrite tests concurrent read/write contention
+func BenchmarkConcurrentReadWrite(b *testing.B) {
+	cache := NewMemoryCache(MemoryCacheConfig{
+		MaxEntries:      10000,
+		DefaultTTL:      5 * time.Minute,
+		CleanupInterval: 1 * time.Minute,
+	})
+	defer cache.Close()
+	
+	// Pre-populate cache
+	for i := 0; i < 1000; i++ {
+		key := fmt.Sprintf("concurrent_key_%d", i)
+		cache.Set(key, generateTestValue(i), 5*time.Minute)
+	}
+	
+	b.Run("ConcurrentReads", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			i := 0
+			for pb.Next() {
+				key := fmt.Sprintf("concurrent_key_%d", i%1000)
+				cache.Get(key)
+				i++
+			}
+		})
+	})
+	
+	b.Run("ConcurrentWrites", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			i := 0
+			for pb.Next() {
+				key := fmt.Sprintf("write_key_%d", i)
+				cache.Set(key, generateTestValue(i), 5*time.Minute)
+				i++
+			}
+		})
+	})
+	
+	b.Run("ConcurrentReadWrite", func(b *testing.B) {
+		b.RunParallel(func(pb *testing.PB) {
+			i := 0
+			for pb.Next() {
+				if i%3 == 0 {
+					// 33% writes
+					key := fmt.Sprintf("mixed_key_%d", i)
+					cache.Set(key, generateTestValue(i), 5*time.Minute)
+				} else {
+					// 67% reads
+					key := fmt.Sprintf("concurrent_key_%d", i%1000)
+					cache.Get(key)
+				}
+				i++
+			}
+		})
+	})
+}
 func generateTestValue(i int) interface{} {
 	switch i % 4 {
 	case 0:

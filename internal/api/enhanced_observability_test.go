@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,6 +60,179 @@ func TestGetCacheStatsJSON(t *testing.T) {
 	}
 }
 
+func TestMetricsCardinalityAndLabels(t *testing.T) {
+	handler := NewHandler()
+	defer handler.Close()
+
+	// Generate some cache activity to populate metrics
+	if handler.cacheManager != nil {
+		cache := handler.cacheManager.GetCache()
+		
+		// Create activity across different metric dimensions
+		for i := 0; i < 100; i++ {
+			key := fmt.Sprintf("cardinality_test_%d", i)
+			cache.Set(key, fmt.Sprintf("value_%d", i), time.Minute)
+			
+			// Mix of hits and misses
+			if i%3 == 0 {
+				cache.Get(key)              // hit
+				cache.Get("nonexistent")    // miss
+			}
+		}
+		
+		// Force some evictions
+		cache.EvictExpired()
+	}
+
+	req, err := http.NewRequest("GET", "/metrics", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.RemoteAddr = "127.0.0.1:12345"
+
+	rr := httptest.NewRecorder()
+	handler.GetMetrics(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("Expected status code 200, got %d", status)
+	}
+
+	body := rr.Body.String()
+	lines := strings.Split(body, "\n")
+	
+	// Validate metric structure and cardinality
+	metricCounts := make(map[string]int)
+	helpComments := make(map[string]bool)
+	typeComments := make(map[string]bool)
+	
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		
+		if strings.HasPrefix(line, "# HELP") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				metricName := parts[2]
+				helpComments[metricName] = true
+			}
+		} else if strings.HasPrefix(line, "# TYPE") {
+			parts := strings.Fields(line)
+			if len(parts) >= 3 {
+				metricName := parts[2]
+				typeComments[metricName] = true
+			}
+		} else if !strings.HasPrefix(line, "#") {
+			// Actual metric line
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				metricName := parts[0]
+				// Extract base metric name (without labels)
+				if idx := strings.Index(metricName, "{"); idx != -1 {
+					metricName = metricName[:idx]
+				}
+				metricCounts[metricName]++
+			}
+		}
+	}
+	
+	// Validate that each metric has HELP and TYPE comments
+	expectedMetrics := []string{
+		"cache_hits_total",
+		"cache_misses_total", 
+		"cache_evictions_total",
+		"cache_lru_evictions_total",
+		"cache_corruption_events_total",
+		"cache_recovery_events_total",
+		"cache_entries",
+		"cache_memory_usage_bytes",
+		"cache_hit_rate_percent",
+		"cache_uptime_seconds",
+	}
+	
+	for _, metric := range expectedMetrics {
+		if !helpComments[metric] {
+			t.Errorf("Missing HELP comment for metric: %s", metric)
+		}
+		if !typeComments[metric] {
+			t.Errorf("Missing TYPE comment for metric: %s", metric)
+		}
+		if metricCounts[metric] == 0 {
+			t.Errorf("Missing metric data for: %s", metric)
+		}
+		
+		// Check cardinality - each metric should have exactly 1 value (no labels currently)
+		if metricCounts[metric] > 1 {
+			t.Logf("Warning: Metric %s has %d values - potential cardinality issue", 
+				metric, metricCounts[metric])
+		}
+	}
+	
+	t.Logf("Metrics validation completed: %d unique metrics found", len(metricCounts))
+}
+
+func TestRateLimitingMetrics(t *testing.T) {
+	handler := NewHandler()
+	defer handler.Close()
+	
+	// Trigger rate limiting by making rapid admin requests
+	adminToken := "test-token"
+	
+	// First request should succeed
+	req1, err := http.NewRequest("POST", "/api/cache/evict", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req1.Header.Set("X-Admin-Token", adminToken)
+	
+	rr1 := httptest.NewRecorder()
+	handler.EvictExpiredEntries(rr1, req1)
+	
+	if status := rr1.Code; status != http.StatusOK {
+		t.Errorf("Expected first admin request to succeed, got status %d", status)
+	}
+	
+	// Second request should be rate limited
+	req2, err := http.NewRequest("POST", "/api/cache/evict", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req2.Header.Set("X-Admin-Token", adminToken)
+	
+	rr2 := httptest.NewRecorder()
+	handler.EvictExpiredEntries(rr2, req2)
+	
+	if status := rr2.Code; status != http.StatusTooManyRequests {
+		t.Errorf("Expected second request to be rate limited, got status %d", status)
+	}
+	
+	// Verify rate limit headers are set appropriately
+	retryAfter := rr2.Header().Get("Retry-After")
+	if retryAfter == "" {
+		t.Error("Expected Retry-After header in rate limited response")
+	}
+	
+	// Check that metrics endpoint shows the activity
+	req3, err := http.NewRequest("GET", "/metrics", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req3.RemoteAddr = "127.0.0.1:12345"
+	
+	rr3 := httptest.NewRecorder()
+	handler.GetMetrics(rr3, req3)
+	
+	body := rr3.Body.String()
+	
+	// Verify that eviction metrics show the successful operation
+	if !strings.Contains(body, "cache_evictions_total") {
+		t.Error("Expected eviction metrics to be present after admin operation")
+	}
+	
+	t.Logf("Rate limiting validation completed successfully")
+}
+
 func TestEvictExpiredEntriesWithAuth(t *testing.T) {
 	handler := NewHandler()
 	defer handler.Close()
@@ -72,8 +246,8 @@ func TestEvictExpiredEntriesWithAuth(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.EvictExpiredEntries(rr, req)
 
-	if status := rr.Code; status != http.StatusBadRequest {
-		t.Errorf("Expected status code %d without admin token, got %d", http.StatusBadRequest, status)
+	if status := rr.Code; status != http.StatusUnauthorized {
+		t.Errorf("Expected status code %d without admin token, got %d", http.StatusUnauthorized, status)
 	}
 
 	// Create a new handler for the second test to avoid rate limiting

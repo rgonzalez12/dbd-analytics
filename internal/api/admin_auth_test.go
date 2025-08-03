@@ -24,8 +24,8 @@ func TestAdminAuthEnforcement(t *testing.T) {
 			name:           "EvictExpiredEntries_NoAuth",
 			method:         "POST",
 			path:           "/api/cache/evict",
-			expectedStatus: http.StatusBadRequest,
-			description:    "Should reject eviction without admin token",
+			expectedStatus: http.StatusUnauthorized,
+			description:    "Should return 401 Unauthorized without admin token",
 		},
 	}
 	
@@ -44,10 +44,10 @@ func TestAdminAuthEnforcement(t *testing.T) {
 					tc.expectedStatus, tc.description, status)
 			}
 			
-			// Verify error response structure
-			var response map[string]interface{}
-			if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
-				t.Errorf("Expected JSON error response for %s", tc.description)
+			// Verify error message contains expected auth failure indication
+			body := rr.Body.String()
+			if !strings.Contains(strings.ToLower(body), "token") {
+				t.Errorf("Expected token-related error message for %s", tc.description)
 			}
 		})
 	}
@@ -84,15 +84,19 @@ func TestAdminAuthWithValidToken(t *testing.T) {
 }
 
 func TestAdminAuthWithInvalidToken(t *testing.T) {
-	invalidTokens := []string{
-		"",              // Empty token
-		"invalid-token", // Wrong token
-		"test",          // Partial token
-		"TEST-TOKEN",    // Case sensitive
+	invalidTokens := []struct {
+		token          string
+		expectedStatus int
+		description    string
+	}{
+		{"", http.StatusUnauthorized, "Empty token should return 401"},
+		{"invalid-token", http.StatusForbidden, "Wrong token should return 403"},
+		{"test", http.StatusForbidden, "Partial token should return 403"},
+		{"TEST-TOKEN", http.StatusForbidden, "Case sensitive token should return 403"},
 	}
 	
-	for _, token := range invalidTokens {
-		t.Run("InvalidToken_"+token, func(t *testing.T) {
+	for _, tc := range invalidTokens {
+		t.Run("InvalidToken_"+tc.token, func(t *testing.T) {
 			// Create a fresh handler for each test to avoid rate limiting
 			handler := NewHandler()
 			defer handler.Close()
@@ -102,16 +106,28 @@ func TestAdminAuthWithInvalidToken(t *testing.T) {
 				t.Fatal(err)
 			}
 			
-			if token != "" {
-				req.Header.Set("X-Admin-Token", token)
+			if tc.token != "" {
+				req.Header.Set("X-Admin-Token", tc.token)
 			}
 			
 			rr := httptest.NewRecorder()
 			handler.EvictExpiredEntries(rr, req)
 			
-			if status := rr.Code; status != http.StatusBadRequest {
-				t.Errorf("Expected status code %d for invalid token '%s', got %d", 
-					http.StatusBadRequest, token, status)
+			if status := rr.Code; status != tc.expectedStatus {
+				t.Errorf("Expected status code %d for invalid token '%s', got %d (%s)", 
+					tc.expectedStatus, tc.token, status, tc.description)
+			}
+			
+			// Verify appropriate error message
+			body := rr.Body.String()
+			if tc.expectedStatus == http.StatusUnauthorized {
+				if !strings.Contains(strings.ToLower(body), "required") {
+					t.Error("Expected 'required' in unauthorized response")
+				}
+			} else if tc.expectedStatus == http.StatusForbidden {
+				if !strings.Contains(strings.ToLower(body), "invalid") {
+					t.Error("Expected 'invalid' in forbidden response")
+				}
 			}
 		})
 	}
@@ -185,24 +201,77 @@ func TestMetricsEndpointBlocking(t *testing.T) {
 	handler := NewHandler()
 	defer handler.Close()
 	
-	// Test metrics access from external IP (should be blocked in production)
-	req, err := http.NewRequest("GET", "/metrics", nil)
-	if err != nil {
-		t.Fatal(err)
+	// Test metrics access from external IP (should be blocked)
+	externalIPs := []string{
+		"8.8.8.8:12345",      // Google DNS
+		"1.1.1.1:54321",      // Cloudflare DNS
+		"203.0.113.1:8080",   // Test IP range
+		"198.51.100.5:443",   // Test IP range
 	}
-	req.RemoteAddr = "8.8.8.8:12345" // External IP
 	
-	rr := httptest.NewRecorder()
-	handler.GetMetrics(rr, req)
+	for _, ip := range externalIPs {
+		t.Run("ExternalIP_"+ip, func(t *testing.T) {
+			req, err := http.NewRequest("GET", "/metrics", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = ip
+			
+			rr := httptest.NewRecorder()
+			handler.GetMetrics(rr, req)
+			
+			// In our current implementation, external IPs are allowed for development
+			// In production, this should return 403 Forbidden
+			if status := rr.Code; status == http.StatusForbidden {
+				// This is the expected production behavior
+				body := rr.Body.String()
+				if !strings.Contains(strings.ToLower(body), "denied") {
+					t.Error("Expected access denied message for external IP")
+				}
+			} else if status == http.StatusOK {
+				// Current development behavior - log for visibility
+				t.Logf("External IP %s allowed (development mode)", ip)
+			} else {
+				t.Errorf("Unexpected status %d for external IP %s", status, ip)
+			}
+		})
+	}
+}
+
+func TestMetricsEndpointAllowedIPs(t *testing.T) {
+	handler := NewHandler()
+	defer handler.Close()
 	
-	// Note: Our current implementation allows external IPs for development
-	// In production, this would return 403
-	if status := rr.Code; status == http.StatusForbidden {
-		// This is the expected production behavior
-		body := rr.Body.String()
-		if !strings.Contains(body, "access denied") {
-			t.Error("Expected access denied message for external IP")
-		}
+	// Test metrics access from allowed IPs
+	allowedIPs := []string{
+		"127.0.0.1:12345",    // localhost IPv4
+		"::1:12345",          // localhost IPv6
+		"192.168.1.100:8080", // Private network
+		"10.0.0.5:443",       // Private network
+		"172.16.0.10:9090",   // Private network
+	}
+	
+	for _, ip := range allowedIPs {
+		t.Run("AllowedIP_"+ip, func(t *testing.T) {
+			req, err := http.NewRequest("GET", "/metrics", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.RemoteAddr = ip
+			
+			rr := httptest.NewRecorder()
+			handler.GetMetrics(rr, req)
+			
+			if status := rr.Code; status != http.StatusOK {
+				t.Errorf("Expected allowed IP %s to get status 200, got %d", ip, status)
+			}
+			
+			// Verify metrics format
+			body := rr.Body.String()
+			if !strings.Contains(body, "cache_hits_total") {
+				t.Error("Expected Prometheus metrics format in allowed IP response")
+			}
+		})
 	}
 }
 
