@@ -11,6 +11,12 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
+var (
+	// Pre-compiled regex patterns for performance
+	digitOnlyRegex   = regexp.MustCompile(`^\d+$`)
+	vanityURLRegex   = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+)
+
 type Handler struct {
 	steamClient *steam.Client
 }
@@ -44,9 +50,8 @@ func isValidVanityURL(vanity string) bool {
 		return false
 	}
 	
-	// Match allowed characters for Steam vanity URLs
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, vanity)
-	return matched
+	// Use pre-compiled regex for performance
+	return vanityURLRegex.MatchString(vanity)
 }
 
 // validateSteamIDOrVanity validates the input as either a Steam ID or vanity URL
@@ -64,7 +69,7 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 	}
 	
 	// If it's all digits but doesn't start with Steam prefix, it's an invalid Steam ID
-	if matched, _ := regexp.MatchString(`^\d+$`, input); matched {
+	if digitOnlyRegex.MatchString(input) {
 		return steam.NewValidationError("Invalid Steam ID format. Must be 17 digits starting with 7656119")
 	}
 	
@@ -84,7 +89,9 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("Invalid Steam ID format in GetPlayerSummary",
 			slog.String("steam_id", steamID),
 			slog.String("client_ip", r.RemoteAddr),
-			slog.String("error", err.Message))
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("error", err.Message),
+			slog.String("validation_type", string(err.Type)))
 		writeErrorResponse(w, err)
 		return
 	}
@@ -118,7 +125,9 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("Invalid Steam ID format in GetPlayerStats",
 			slog.String("steam_id", steamID),
 			slog.String("client_ip", r.RemoteAddr),
-			slog.String("error", err.Message))
+			slog.String("user_agent", r.UserAgent()),
+			slog.String("error", err.Message),
+			slog.String("validation_type", string(err.Type)))
 		writeErrorResponse(w, err)
 		return
 	}
