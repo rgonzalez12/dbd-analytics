@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -26,6 +28,16 @@ func NewHandler() *Handler {
 	return &Handler{
 		steamClient: steam.NewClient(),
 	}
+}
+
+// generateRequestID creates a unique request ID for error tracing
+func generateRequestID() string {
+	bytes := make([]byte, 8)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a simple counter if crypto/rand fails
+		return fmt.Sprintf("req_%d", len(bytes))
+	}
+	return hex.EncodeToString(bytes)
 }
 
 // validateSteamID validates that a Steam ID is exactly 17 digits
@@ -212,16 +224,21 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 // writeErrorResponse writes a structured error response to the client
 func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
+	// Generate a unique request ID for tracing
+	requestID := generateRequestID()
+	
 	// Determine the appropriate HTTP status code
 	statusCode := determineStatusCode(apiErr)
 	
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Request-ID", requestID)
 	w.WriteHeader(statusCode)
 	
 	// Create enhanced error response format
 	errorResponse := map[string]interface{}{
-		"error": apiErr.Message,
-		"type":  string(apiErr.Type),
+		"error":      apiErr.Message,
+		"type":       string(apiErr.Type),
+		"request_id": requestID,
 	}
 	
 	// Add details for specific error types
@@ -232,7 +249,13 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 		
 	case steam.ErrorTypeAPIError:
 		if apiErr.StatusCode != 0 {
-			errorResponse["details"] = fmt.Sprintf("%d %s", apiErr.StatusCode, http.StatusText(apiErr.StatusCode))
+			errorResponse["details"] = fmt.Sprintf("Steam API returned %d %s", apiErr.StatusCode, http.StatusText(apiErr.StatusCode))
+			// Differentiate client vs server errors from Steam
+			if apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 {
+				errorResponse["source"] = "client_error"
+			} else {
+				errorResponse["source"] = "steam_api_error"
+			}
 		}
 		if apiErr.Retryable {
 			errorResponse["retry_after"] = 30 // Retry after 30 seconds for API errors
@@ -240,16 +263,20 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 		
 	case steam.ErrorTypeNetwork:
 		errorResponse["details"] = "Network connection to Steam API failed"
+		errorResponse["source"] = "steam_api_error"
 		errorResponse["retry_after"] = 30
 		
 	case steam.ErrorTypeNotFound:
 		errorResponse["details"] = "Requested resource not found on Steam"
+		errorResponse["source"] = "client_error"
 		
 	case steam.ErrorTypeValidation:
 		errorResponse["details"] = "Invalid request parameters"
+		errorResponse["source"] = "client_error"
 		
 	case steam.ErrorTypeInternal:
 		errorResponse["details"] = "Internal server error occurred"
+		errorResponse["source"] = "server_error"
 	}
 	
 	// Add retryable flag for client guidance
@@ -257,8 +284,16 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 		errorResponse["retryable"] = true
 	}
 	
+	// Log the error with request ID for tracing
+	slog.Error("API error response generated",
+		slog.String("request_id", requestID),
+		slog.String("error_type", string(apiErr.Type)),
+		slog.Int("status_code", statusCode),
+		slog.String("error_message", apiErr.Message))
+	
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
 		slog.Error("Failed to encode error response", 
+			slog.String("request_id", requestID),
 			slog.String("error", err.Error()),
 			slog.String("original_error", apiErr.Message))
 		// Fallback to plain text if JSON encoding fails
@@ -268,12 +303,30 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 
 // determineStatusCode maps API error types to appropriate HTTP status codes
 func determineStatusCode(apiErr *steam.APIError) int {
-	// If the error already has a status code, use it
+	// If the error already has a status code, use it but map appropriately
 	if apiErr.StatusCode != 0 {
-		return apiErr.StatusCode
+		switch apiErr.Type {
+		case steam.ErrorTypeAPIError:
+			// For Steam API errors, differentiate client vs server issues
+			if apiErr.StatusCode == http.StatusForbidden || apiErr.StatusCode == http.StatusNotFound {
+				// Steam returned 403/404 - pass through as client error
+				return apiErr.StatusCode
+			} else if apiErr.StatusCode >= 500 {
+				// Steam server errors - return 502 Bad Gateway
+				return http.StatusBadGateway
+			} else if apiErr.StatusCode == http.StatusTooManyRequests {
+				// Rate limiting - pass through
+				return apiErr.StatusCode
+			} else {
+				// Other 4xx from Steam - return 502 as it's likely Steam API issue
+				return http.StatusBadGateway
+			}
+		default:
+			return apiErr.StatusCode
+		}
 	}
 	
-	// Map error types to status codes
+	// Map error types to status codes when no status code is set
 	switch apiErr.Type {
 	case steam.ErrorTypeValidation:
 		return http.StatusBadRequest // 400

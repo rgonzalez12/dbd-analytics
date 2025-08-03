@@ -49,7 +49,14 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		return nil, err
+		// Wrap the error with context
+		wrappedErr := &APIError{
+			Type:       err.Type,
+			Message:    fmt.Sprintf("GetPlayerSummary failed during Steam ID resolution: %s", err.Message),
+			StatusCode: err.StatusCode,
+			Retryable:  err.Retryable,
+		}
+		return nil, wrappedErr
 	}
 
 	endpoint := fmt.Sprintf("%s/ISteamUser/GetPlayerSummaries/v0002/", BaseURL)
@@ -62,7 +69,14 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 	// Retry logic for Steam API calls with structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			return err, false // Don't stop retrying unless it's not retryable
+			// Wrap API request errors with context
+			wrappedErr := &APIError{
+				Type:       err.Type,
+				Message:    fmt.Sprintf("GetPlayerSummary API request failed: %s", err.Message),
+				StatusCode: err.StatusCode,
+				Retryable:  err.Retryable,
+			}
+			return wrappedErr, false // Don't stop retrying unless it's not retryable
 		}
 		return nil, false
 	}, "GetPlayerSummary")
@@ -72,7 +86,9 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 	}
 
 	if len(resp.Response.Players) == 0 {
-		return nil, NewNotFoundError("Player")
+		notFoundErr := NewNotFoundError("Player")
+		notFoundErr.Message = fmt.Sprintf("GetPlayerSummary: player not found for Steam ID %s", steamID64)
+		return nil, notFoundErr
 	}
 
 	slog.Info("Successfully retrieved player summary", 
@@ -91,7 +107,14 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		return nil, err
+		// Wrap the error with context
+		wrappedErr := &APIError{
+			Type:       err.Type,
+			Message:    fmt.Sprintf("GetPlayerStats failed during Steam ID resolution: %s", err.Message),
+			StatusCode: err.StatusCode,
+			Retryable:  err.Retryable,
+		}
+		return nil, wrappedErr
 	}
 
 	endpoint := fmt.Sprintf("%s/ISteamUserStats/GetUserStatsForGame/v2/", BaseURL)
@@ -105,7 +128,14 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 	// Retry logic for Steam API calls with structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			return err, false
+			// Wrap API request errors with context
+			wrappedErr := &APIError{
+				Type:       err.Type,
+				Message:    fmt.Sprintf("GetPlayerStats API request failed: %s", err.Message),
+				StatusCode: err.StatusCode,
+				Retryable:  err.Retryable,
+			}
+			return wrappedErr, false
 		}
 		return nil, false
 	}, "GetPlayerStats")
