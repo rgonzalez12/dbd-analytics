@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
+	"github.com/rgonzalez12/dbd-analytics/internal/models"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
@@ -28,6 +29,58 @@ type Handler struct {
 func NewHandler() *Handler {
 	return &Handler{
 		steamClient: steam.NewClient(),
+	}
+}
+
+// convertToPlayerStats converts the nested steam.DBDPlayerStats to the flat models.PlayerStats structure
+func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
+	return models.PlayerStats{
+		// Core player identification
+		SteamID:     dbdStats.SteamID,
+		DisplayName: dbdStats.DisplayName,
+		
+		// Progression metrics
+		KillerPips:   dbdStats.Killer.KillerPips,
+		SurvivorPips: dbdStats.Survivor.SurvivorPips,
+		
+		// Killer statistics
+		KilledCampers:     dbdStats.Killer.TotalKills,
+		SacrificedCampers: dbdStats.Killer.SacrificedVictims,
+		MoriKills:         dbdStats.Killer.MoriKills,
+		HooksPerformed:    dbdStats.Killer.HooksPerformed,
+		UncloakAttacks:    dbdStats.Killer.UncloakAttacks,
+		
+		// Survivor statistics
+		GeneratorPct:         dbdStats.Survivor.GeneratorsCompleted,
+		HealPct:              dbdStats.Survivor.HealingCompleted,
+		EscapesKO:            dbdStats.Survivor.EscapesKnockedOut,
+		Escapes:              dbdStats.Survivor.TotalEscapes,
+		SkillCheckSuccess:    dbdStats.Survivor.SkillChecksHit,
+		HookedAndEscape:      dbdStats.Survivor.HookedAndEscaped,
+		UnhookOrHeal:         dbdStats.Survivor.UnhooksPerformed,
+		HealsPerformed:       dbdStats.Survivor.HealsPerformed,
+		UnhookOrHealPostExit: dbdStats.Survivor.PostExitActions,
+		PostExitActions:      dbdStats.Survivor.PostExitActions,
+		EscapeThroughHatch:   dbdStats.Survivor.EscapesThroughHatch,
+		
+		// Game progression
+		BloodwebPoints: dbdStats.General.BloodwebPoints,
+		
+		// Achievement counters
+		CamperPerfectGames: dbdStats.Survivor.PerfectGames,
+		KillerPerfectGames: dbdStats.Killer.PerfectGames,
+		
+		// Equipment tracking
+		CamperFullLoadout: dbdStats.Survivor.FullLoadoutGames,
+		KillerFullLoadout: dbdStats.Killer.FullLoadoutGames,
+		CamperNewItem:     dbdStats.Survivor.NewItemsFound,
+		
+		// General game statistics
+		TotalMatches: dbdStats.General.TotalMatches,
+		TimePlayed:   dbdStats.General.TimePlayed,
+		
+		// Metadata
+		LastUpdated: dbdStats.General.LastUpdated,
 	}
 }
 
@@ -183,11 +236,15 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
+	
+	// Convert nested structure to flat API response format
+	flatPlayerStats := convertToPlayerStats(playerStats)
+	
 	requestLogger.Info("Successfully processed player stats request",
 		"raw_stats_count", len(rawStats.Stats),
 		"persona_name", summary.PersonaName,
 		"duration", time.Since(start))
-	writeJSONResponse(w, playerStats)
+	writeJSONResponse(w, flatPlayerStats)
 }
 
 // writeErrorResponse writes a structured error response to the client

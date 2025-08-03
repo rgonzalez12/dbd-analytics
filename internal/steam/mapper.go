@@ -38,6 +38,11 @@ var statMapping = map[string]string{
 	"DBD_LastUpdated":           "general.last_updated",
 }
 
+// GetDBDPlayerStats returns the nested structure for backward compatibility
+func GetDBDPlayerStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
+	return MapSteamStats(raw, steamID, displayName)
+}
+
 // MapSteamStats converts raw Steam API statistics into organized Dead by Daylight player data
 func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
 	// Initialize player stats structure with default values and basic information
@@ -145,4 +150,47 @@ func GetMappedStatNames() []string {
 // AddStatMapping allows dynamic addition of new stat mappings
 func AddStatMapping(steamKey, fieldPath string) {
 	statMapping[steamKey] = fieldPath
+}
+
+// ConvertToFlatPlayerStats converts the nested DBDPlayerStats structure to the flat models.PlayerStats structure
+func ConvertToFlatPlayerStats(dbdStats DBDPlayerStats) interface{} {
+	// This would need to import models package, but to avoid circular imports,
+	// we'll return a map that can be easily converted
+	return map[string]interface{}{
+		"steam_id":                  dbdStats.SteamID,
+		"display_name":             dbdStats.DisplayName,
+		
+		// Killer statistics
+		"killed_campers":           dbdStats.Killer.TotalKills,
+		"sacrificed_campers":       dbdStats.Killer.SacrificedVictims,
+		"mori_kills":               dbdStats.Killer.MoriKills,
+		"hooks_performed":          dbdStats.Killer.HooksPerformed,
+		"uncloak_attacks":          dbdStats.Killer.UncloakAttacks,
+		"killer_pips":              dbdStats.Killer.KillerPips,
+		"killer_perfect_games":     dbdStats.Killer.PerfectGames,
+		"killer_full_loadout":      dbdStats.Killer.FullLoadoutGames,
+		
+		// Survivor statistics
+		"escapes":                  dbdStats.Survivor.TotalEscapes,
+		"escapes_ko":               dbdStats.Survivor.EscapesKnockedOut,
+		"escape_through_hatch":     dbdStats.Survivor.EscapesThroughHatch,
+		"hooked_and_escape":        dbdStats.Survivor.HookedAndEscaped,
+		"generator_pct":            dbdStats.Survivor.GeneratorsCompleted,
+		"heal_pct":                 dbdStats.Survivor.HealingCompleted,
+		"skill_check_success":      dbdStats.Survivor.SkillChecksHit,
+		"unhook_or_heal":           dbdStats.Survivor.UnhooksPerformed,
+		"heals_performed":          dbdStats.Survivor.HealsPerformed,
+		"post_exit_actions":        dbdStats.Survivor.PostExitActions,
+		"unhook_or_heal_post_exit": dbdStats.Survivor.PostExitActions, // Same as post_exit_actions
+		"survivor_pips":            dbdStats.Survivor.SurvivorPips,
+		"camper_perfect_games":     dbdStats.Survivor.PerfectGames,
+		"camper_full_loadout":      dbdStats.Survivor.FullLoadoutGames,
+		"camper_new_item":          dbdStats.Survivor.NewItemsFound,
+		
+		// General statistics
+		"bloodweb_points":          dbdStats.General.BloodwebPoints,
+		"total_matches":            dbdStats.General.TotalMatches,
+		"time_played_hours":        dbdStats.General.TimePlayed,
+		"last_updated":             dbdStats.General.LastUpdated,
+	}
 }
