@@ -28,17 +28,16 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 func main() {
-	// Initialize centralized structured logging system
 	log.Initialize()
 	
-	// Set working directory if specified in environment (useful for Docker deployments)
+	// Set working directory if specified in environment
 	if workDir := os.Getenv("WORKDIR"); workDir != "" {
 		if err := os.Chdir(workDir); err != nil {
 			log.Warn("Failed to change working directory", "dir", workDir, "error", err.Error())
 		}
 	}
 
-	// Load environment variables from multiple possible file locations
+	// Load environment variables from possible file locations
 	envFiles := []string{".env", ".env.local", "../.env"}
 	envLoaded := false
 	
@@ -54,27 +53,24 @@ func main() {
 		log.Warn("No environment file found, continuing with system environment variables")
 	}
 
-	// Configure server port with fallback to default
+	// Configure server port with fallback
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"  // Default HTTP port
+		port = "8080"
 	}
 	if port[0] != ':' {
-		port = ":" + port  // Ensure port has colon prefix
+		port = ":" + port
 	}
 
-	// Initialize HTTP router
 	r := mux.NewRouter()
 
-	// Add comprehensive request logging middleware
+	// Add request logging middleware
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			start := time.Now()
 			
-			// Wrap response writer to capture HTTP status code
 			wrappedWriter := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			
-			// Extract Steam ID from URL path variables for logging context
 			vars := mux.Vars(req)
 			steamID := vars["steamid"]
 			
@@ -87,7 +83,6 @@ func main() {
 				"remote_addr", req.RemoteAddr,
 				"request_id", req.Header.Get("X-Request-ID"))
 			
-			// Process request
 			next.ServeHTTP(wrappedWriter, req)
 			
 			// Log response
@@ -102,15 +97,12 @@ func main() {
 		})
 	})
 
-	// Initialize handlers
 	h := api.NewHandler()
 
 	// Home route
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Get the current host for dynamic URLs
 		host := r.Host
 		if host == "" {
-			// If host is empty, use localhost with the configured port
 			if strings.HasPrefix(port, ":") {
 				host = "localhost" + port
 			} else {
@@ -150,23 +142,18 @@ func main() {
 		}
 	}).Methods("GET")
 
-	// Player routes (make sure these are exactly right)
 	r.HandleFunc("/api/player/{steamid}/summary", h.GetPlayerSummary).Methods("GET")
 	r.HandleFunc("/api/player/{steamid}/stats", h.GetPlayerStats).Methods("GET")
 
-	// Start server with graceful shutdown
-	// Port is already configured above
-	
 	server := &http.Server{
 		Addr:    port,
 		Handler: r,
 	}
 
-	// Channel to listen for interrupt signals
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// Start server in a goroutine
+	// Start server in goroutine
 	go func() {
 		log.Info("Starting Dead by Daylight Analytics server", 
 			"port", port,
@@ -183,7 +170,6 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal
 	<-quit
 	log.Info("Shutting down server gracefully...")
 

@@ -5,6 +5,7 @@
 *.out
 app
 dbd-analytics
+bin/
 
 # Test coverage
 *.cover

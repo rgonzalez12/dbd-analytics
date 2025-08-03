@@ -11,24 +11,42 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/rgonzalez12/dbd-analytics/internal/cache"
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 	"github.com/rgonzalez12/dbd-analytics/internal/models"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
 var (
-	// Pre-compiled regex patterns for performance
-	digitOnlyRegex   = regexp.MustCompile(`^\d+$`)
-	vanityURLRegex   = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	digitOnlyRegex = regexp.MustCompile(`^\d+$`)
+	vanityURLRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
 
 type Handler struct {
-	steamClient *steam.Client
+	steamClient  *steam.Client
+	cacheManager *cache.Manager
 }
 
 func NewHandler() *Handler {
+	// Initialize cache with player stats configuration
+	cacheManager, err := cache.NewManager(cache.PlayerStatsConfig())
+	if err != nil {
+		log.Error("Failed to initialize cache manager, proceeding without cache",
+			"error", err,
+			"fallback", "direct_steam_api_calls")
+		return &Handler{
+			steamClient: steam.NewClient(),
+		}
+	}
+
+	log.Info("API handler initialized with caching enabled",
+		"cache_type", string(cacheManager.GetConfig().Type),
+		"max_entries", cacheManager.GetConfig().Memory.MaxEntries,
+		"default_ttl", cacheManager.GetConfig().Memory.DefaultTTL)
+	
 	return &Handler{
-		steamClient: steam.NewClient(),
+		steamClient:  steam.NewClient(),
+		cacheManager: cacheManager,
 	}
 }
 
@@ -170,7 +188,29 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestLogger.Info("Processing player summary request")
+	// Check cache first if caching is enabled
+	var cacheKey string
+	var cacheHit bool
+	if h.cacheManager != nil {
+		cacheKey = cache.GenerateKey(cache.PlayerSummaryPrefix, steamID)
+		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
+			if summary, ok := cached.(*steam.SteamPlayer); ok {
+				cacheHit = true
+				requestLogger.Info("Cache hit for player summary",
+					"persona_name", summary.PersonaName,
+					"duration", time.Since(start),
+					"cache_key", cacheKey)
+				writeJSONResponse(w, summary)
+				return
+			} else {
+				// Invalid cache entry, remove it
+				h.cacheManager.GetCache().Delete(cacheKey)
+				requestLogger.Warn("Invalid cache entry type, removed", "cache_key", cacheKey)
+			}
+		}
+	}
+
+	requestLogger.Info("Processing player summary request", "cache_hit", cacheHit)
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
@@ -184,9 +224,19 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Store in cache if caching is enabled
+	if h.cacheManager != nil && cacheKey != "" {
+		if err := h.cacheManager.GetCache().Set(cacheKey, summary, cache.PlayerSummaryTTL); err != nil {
+			requestLogger.Warn("Failed to cache player summary", "error", err, "cache_key", cacheKey)
+		} else {
+			requestLogger.Debug("Player summary cached", "cache_key", cacheKey, "ttl", cache.PlayerSummaryTTL)
+		}
+	}
+
 	requestLogger.Info("Successfully processed player summary request",
 		"persona_name", summary.PersonaName,
-		"duration", time.Since(start))
+		"duration", time.Since(start),
+		"cache_hit", cacheHit)
 	writeJSONResponse(w, summary)
 }
 
@@ -212,7 +262,34 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	requestLogger.Info("Processing player stats request")
+	// Check cache first if caching is enabled
+	var cacheKey string
+	var cacheHit bool
+	if h.cacheManager != nil {
+		cacheKey = cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
+		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
+			if playerStats, ok := cached.(models.PlayerStats); ok {
+				cacheHit = true
+				requestLogger.Info("Cache hit for player stats",
+					"display_name", playerStats.DisplayName,
+					"duration", time.Since(start),
+					"cache_key", cacheKey)
+				writeJSONResponse(w, playerStats)
+				return
+			} else {
+				// Invalid cache entry type - log and remove
+				requestLogger.Warn("Invalid cache entry type, removing",
+					"cache_key", cacheKey,
+					"expected", "models.PlayerStats",
+					"actual", fmt.Sprintf("%T", cached))
+				if err := h.cacheManager.GetCache().Delete(cacheKey); err != nil {
+					requestLogger.Error("Failed to delete invalid cache entry", "error", err)
+				}
+			}
+		}
+	}
+
+	requestLogger.Info("Processing player stats request", "cache_hit", cacheHit)
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
@@ -239,12 +316,85 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	
 	// Convert nested structure to flat API response format
 	flatPlayerStats := convertToPlayerStats(playerStats)
+
+	// Store in cache if caching is enabled
+	if h.cacheManager != nil && cacheKey != "" {
+		if err := h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, cache.PlayerStatsTTL); err != nil {
+			requestLogger.Error("Failed to cache player stats",
+				"error", err,
+				"cache_key", cacheKey,
+				"stats_size", len(fmt.Sprintf("%+v", flatPlayerStats)))
+			// Don't fail the request if caching fails - log and continue
+		} else {
+			requestLogger.Debug("Player stats cached successfully",
+				"cache_key", cacheKey,
+				"ttl", cache.PlayerStatsTTL,
+				"display_name", flatPlayerStats.DisplayName)
+		}
+	}
 	
 	requestLogger.Info("Successfully processed player stats request",
 		"raw_stats_count", len(rawStats.Stats),
 		"persona_name", summary.PersonaName,
-		"duration", time.Since(start))
+		"duration", time.Since(start),
+		"cache_hit", cacheHit)
 	writeJSONResponse(w, flatPlayerStats)
+}
+
+// GetCacheStats returns cache performance metrics for monitoring
+func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
+	if h.cacheManager == nil {
+		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
+		return
+	}
+
+	stats := h.cacheManager.GetCache().Stats()
+	
+	// Add additional metadata
+	response := map[string]interface{}{
+		"cache_stats": stats,
+		"cache_type":  string(h.cacheManager.GetConfig().Type),
+		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+	}
+
+	log.Info("Cache stats requested",
+		"hits", stats.Hits,
+		"misses", stats.Misses,
+		"hit_rate", stats.HitRate,
+		"entries", stats.Entries)
+
+	writeJSONResponse(w, response)
+}
+
+// EvictExpiredEntries manually triggers cache cleanup and returns statistics
+func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
+	if h.cacheManager == nil {
+		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
+		return
+	}
+
+	evicted := h.cacheManager.GetCache().EvictExpired()
+	stats := h.cacheManager.GetCache().Stats()
+
+	response := map[string]interface{}{
+		"evicted_entries": evicted,
+		"remaining_entries": stats.Entries,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+
+	log.Info("Manual cache eviction completed",
+		"evicted", evicted,
+		"remaining", stats.Entries)
+
+	writeJSONResponse(w, response)
+}
+
+// Close gracefully shuts down the handler and its dependencies
+func (h *Handler) Close() error {
+	if h.cacheManager != nil {
+		return h.cacheManager.Close()
+	}
+	return nil
 }
 
 // writeErrorResponse writes a structured error response to the client
