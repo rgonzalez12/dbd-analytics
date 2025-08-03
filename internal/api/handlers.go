@@ -199,14 +199,22 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 				requestLogger.Info("Cache hit for player summary",
 					"persona_name", summary.PersonaName,
 					"duration", time.Since(start),
-					"cache_key", cacheKey)
+					"cache_key", cacheKey,
+					"cache_status", "hit")
 				writeJSONResponse(w, summary)
 				return
 			} else {
-				// Invalid cache entry, remove it
+				// Invalid cache entry type - this indicates a cache corruption issue
 				h.cacheManager.GetCache().Delete(cacheKey)
-				requestLogger.Warn("Invalid cache entry type, removed", "cache_key", cacheKey)
+				requestLogger.Error("Cache corruption detected: invalid entry type",
+					"cache_key", cacheKey,
+					"expected_type", "*steam.SteamPlayer",
+					"action", "cache_entry_removed")
 			}
+		} else {
+			requestLogger.Debug("Cache miss for player summary",
+				"cache_key", cacheKey,
+				"cache_status", "miss")
 		}
 	}
 
@@ -227,9 +235,23 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
 		if err := h.cacheManager.GetCache().Set(cacheKey, summary, cache.PlayerSummaryTTL); err != nil {
-			requestLogger.Warn("Failed to cache player summary", "error", err, "cache_key", cacheKey)
+			requestLogger.Error("Failed to cache player summary", 
+				"error", err, 
+				"cache_key", cacheKey,
+				"cache_status", "set_failed")
 		} else {
-			requestLogger.Debug("Player summary cached", "cache_key", cacheKey, "ttl", cache.PlayerSummaryTTL)
+			requestLogger.Debug("Player summary cached", 
+				"cache_key", cacheKey, 
+				"ttl", cache.PlayerSummaryTTL,
+				"cache_status", "set_success")
+		}
+		
+		// Log cache performance stats periodically
+		if stats := h.cacheManager.GetCache().Stats(); (stats.Hits+stats.Misses)%100 == 0 {
+			requestLogger.Info("Cache performance snapshot",
+				"hit_rate", fmt.Sprintf("%.1f%%", stats.HitRate),
+				"total_operations", stats.Hits+stats.Misses,
+				"entries", stats.Entries)
 		}
 	}
 
@@ -341,7 +363,7 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, flatPlayerStats)
 }
 
-// GetCacheStats returns cache performance metrics for monitoring
+// GetCacheStats returns comprehensive cache performance metrics for monitoring
 func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 	if h.cacheManager == nil {
 		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
@@ -350,18 +372,63 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 
 	stats := h.cacheManager.GetCache().Stats()
 	
-	// Add additional metadata
+	// Calculate additional derived metrics
+	totalRequests := stats.Hits + stats.Misses
+	
+	// Performance assessment
+	performance := "excellent"
+	if stats.HitRate < 90 && totalRequests > 1000 {
+		performance = "good"
+	}
+	if stats.HitRate < 70 && totalRequests > 100 {
+		performance = "poor"
+	}
+	if stats.HitRate < 50 && totalRequests > 50 {
+		performance = "critical"
+	}
+	
+	// Create comprehensive response with enhanced metadata
 	response := map[string]interface{}{
 		"cache_stats": stats,
 		"cache_type":  string(h.cacheManager.GetConfig().Type),
 		"timestamp":   time.Now().UTC().Format(time.RFC3339),
+		"performance": map[string]interface{}{
+			"assessment":        performance,
+			"total_requests":    totalRequests,
+			"memory_usage_mb":   float64(stats.MemoryUsage) / 1024 / 1024,
+			"uptime_hours":      float64(stats.UptimeSeconds) / 3600,
+			"ops_per_second":    func() float64 {
+				if stats.UptimeSeconds > 0 {
+					return float64(totalRequests) / float64(stats.UptimeSeconds)
+				}
+				return 0
+			}(),
+		},
+		"recommendations": func() []string {
+			var recs []string
+			if stats.HitRate < 70 && totalRequests > 100 {
+				recs = append(recs, "Consider increasing TTL values or reviewing cache key strategy")
+			}
+			if stats.LRUEvictions > stats.ExpiredKeys*2 {
+				recs = append(recs, "High LRU eviction rate - consider increasing cache capacity")
+			}
+			if performance == "critical" {
+				recs = append(recs, "Critical: Cache not providing benefits - review implementation")
+			}
+			if len(recs) == 0 {
+				recs = append(recs, "Cache performance is optimal")
+			}
+			return recs
+		}(),
 	}
 
 	log.Info("Cache stats requested",
 		"hits", stats.Hits,
 		"misses", stats.Misses,
-		"hit_rate", stats.HitRate,
-		"entries", stats.Entries)
+		"hit_rate", fmt.Sprintf("%.1f%%", stats.HitRate),
+		"entries", stats.Entries,
+		"performance", performance,
+		"total_requests", totalRequests)
 
 	writeJSONResponse(w, response)
 }

@@ -144,6 +144,10 @@ func main() {
 
 	r.HandleFunc("/api/player/{steamid}/summary", h.GetPlayerSummary).Methods("GET")
 	r.HandleFunc("/api/player/{steamid}/stats", h.GetPlayerStats).Methods("GET")
+	
+	// Cache management endpoints
+	r.HandleFunc("/api/cache/stats", h.GetCacheStats).Methods("GET")
+	r.HandleFunc("/api/cache/evict", h.EvictExpiredEntries).Methods("POST")
 
 	server := &http.Server{
 		Addr:    port,
