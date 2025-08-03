@@ -8,20 +8,20 @@ import (
 
 var Logger *slog.Logger
 
-// Initialize sets up the global structured logger
+// Initialize sets up the global structured logger with JSON output format
 func Initialize() {
 	logLevel := getLogLevel()
 	
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:     logLevel,
-		AddSource: true, // Add source file and line for debugging
+		AddSource: true, // Include source file and line number for debugging
 	}))
 	
 	Logger = logger
 	slog.SetDefault(logger)
 }
 
-// getLogLevel returns the appropriate log level from environment
+// getLogLevel determines the appropriate log level from LOG_LEVEL environment variable
 func getLogLevel() slog.Level {
 	level := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	switch level {
@@ -34,7 +34,7 @@ func getLogLevel() slog.Level {
 	case "error":
 		return slog.LevelError
 	default:
-		return slog.LevelInfo
+		return slog.LevelInfo // Default to info level if not specified
 	}
 }
 

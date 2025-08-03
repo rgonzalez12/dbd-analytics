@@ -53,7 +53,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		// Wrap the error with context
+		// Wrap Steam ID resolution errors with additional context for debugging
 		wrappedErr := &APIError{
 			Type:       err.Type,
 			Message:    fmt.Sprintf("GetPlayerSummary failed during Steam ID resolution: %s", err.Message),
@@ -74,17 +74,17 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 
 	var resp playerSummaryResponse
 	
-	// Retry logic for Steam API calls with structured logging
+	// Execute API request with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			// Wrap API request errors with context
+			// Wrap API request errors with additional context for troubleshooting
 			wrappedErr := &APIError{
 				Type:       err.Type,
 				Message:    fmt.Sprintf("GetPlayerSummary API request failed: %s", err.Message),
 				StatusCode: err.StatusCode,
 				Retryable:  err.Retryable,
 			}
-			return wrappedErr, false // Don't stop retrying unless it's not retryable
+			return wrappedErr, false // Allow retry logic to determine if request should be retried
 		}
 		return nil, false
 	}, "GetPlayerSummary")
@@ -119,7 +119,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		// Wrap the error with context
+		// Wrap Steam ID resolution errors with additional context for debugging
 		wrappedErr := &APIError{
 			Type:       err.Type,
 			Message:    fmt.Sprintf("GetPlayerStats failed during Steam ID resolution: %s", err.Message),
@@ -137,10 +137,10 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	var resp playerStatsResponse
 	
-	// Retry logic for Steam API calls with structured logging
+	// Execute API request with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			// Wrap API request errors with context
+			// Wrap API request errors with additional context for troubleshooting
 			wrappedErr := &APIError{
 				Type:       err.Type,
 				Message:    fmt.Sprintf("GetPlayerStats API request failed: %s", err.Message),
@@ -177,7 +177,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 
 	var resp VanityURLResponse
 	
-	// Retry logic for vanity URL with structured logging
+	// Execute vanity URL resolution with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
 			return err, false

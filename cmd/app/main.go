@@ -28,17 +28,17 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 func main() {
-	// Initialize centralized structured logging
+	// Initialize centralized structured logging system
 	log.Initialize()
 	
-	// Set working directory (helpful for Docker/deployment)
+	// Set working directory if specified in environment (useful for Docker deployments)
 	if workDir := os.Getenv("WORKDIR"); workDir != "" {
 		if err := os.Chdir(workDir); err != nil {
 			log.Warn("Failed to change working directory", "dir", workDir, "error", err.Error())
 		}
 	}
 
-	// Load environment variables from multiple possible locations
+	// Load environment variables from multiple possible file locations
 	envFiles := []string{".env", ".env.local", "../.env"}
 	envLoaded := false
 	
@@ -54,27 +54,27 @@ func main() {
 		log.Warn("No environment file found, continuing with system environment variables")
 	}
 
-	// Get port configuration early
+	// Configure server port with fallback to default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"  // Default port
+		port = "8080"  // Default HTTP port
 	}
 	if port[0] != ':' {
-		port = ":" + port  // Add colon if missing
+		port = ":" + port  // Ensure port has colon prefix
 	}
 
-	// Initialize router
+	// Initialize HTTP router
 	r := mux.NewRouter()
 
-	// Add comprehensive logging middleware
+	// Add comprehensive request logging middleware
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			start := time.Now()
 			
-			// Create a response writer wrapper to capture status code
+			// Wrap response writer to capture HTTP status code
 			wrappedWriter := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			
-			// Extract Steam ID from URL if present
+			// Extract Steam ID from URL path variables for logging context
 			vars := mux.Vars(req)
 			steamID := vars["steamid"]
 			

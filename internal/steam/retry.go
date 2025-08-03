@@ -18,7 +18,7 @@ type RetryConfig struct {
 }
 
 func DefaultRetryConfig() RetryConfig {
-	// Get max retries from environment variable, default to 3
+	// Read max retries from STEAM_MAX_RETRIES environment variable, default to 3
 	maxRetries := 3
 	if envRetries := os.Getenv("STEAM_MAX_RETRIES"); envRetries != "" {
 		if parsed, err := strconv.Atoi(envRetries); err == nil && parsed >= 0 {
@@ -28,10 +28,10 @@ func DefaultRetryConfig() RetryConfig {
 
 	return RetryConfig{
 		MaxAttempts: maxRetries,
-		BaseDelay:   500 * time.Millisecond, // Start with 500ms for exponential backoff
-		MaxDelay:    10 * time.Second,       // Cap at 10 seconds
+		BaseDelay:   500 * time.Millisecond, // Initial delay for exponential backoff
+		MaxDelay:    10 * time.Second,       // Maximum delay cap to prevent excessive waiting
 		Multiplier:  2.0,                    // Exponential backoff: 500ms → 1s → 2s → 4s → 8s
-		Jitter:      true,
+		Jitter:      true,                   // Add randomization to prevent thundering herd
 	}
 }
 
@@ -48,15 +48,15 @@ func shouldRetryError(err *APIError) bool {
 		return false
 	}
 
-	// Check status codes - only retry on 429 and 5xx errors
+	// Evaluate status codes to determine retry eligibility - only retry on 429 and 5xx errors
 	if err.StatusCode > 0 {
 		switch err.StatusCode {
 		case 429: // Too Many Requests - always retryable
 			return true
-		case 403, 404: // Forbidden, Not Found - permanent failures
+		case 403, 404: // Forbidden, Not Found - permanent failures that should not be retried
 			return false
 		default:
-			// Retry on 5xx server errors
+			// Only retry on 5xx server errors (500-599)
 			return err.StatusCode >= 500 && err.StatusCode < 600
 		}
 	}
@@ -70,11 +70,11 @@ func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
 	return withRetryAndLogging(config, fn, "")
 }
 
-// WithRetryAndLogging executes a function with retry logic and structured logging
+// WithRetryAndLogging executes a function with enhanced retry logic and structured logging
 func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string) *APIError {
 	var lastErr *APIError
 	
-	// Validate retry configuration
+	// Validate and sanitize retry configuration parameters
 	if config.MaxAttempts <= 0 {
 		config.MaxAttempts = 1
 	}
@@ -89,7 +89,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 	}
 	
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
-		// Log retry attempt if this is not the first attempt
+		// Log retry attempt details if this is not the initial attempt
 		if attempt > 0 && operation != "" {
 			slog.Warn("Retrying operation after failure",
 				slog.String("operation", operation),

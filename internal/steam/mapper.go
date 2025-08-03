@@ -3,7 +3,7 @@ package steam
 import "time"
 
 // statMapping maps Steam API stat keys to human-readable field names
-// This mapping can be expanded as new DBD stats are discovered
+// This mapping can be expanded as new Dead by Daylight statistics are discovered
 var statMapping = map[string]string{
 	// Killer Statistics
 	"DBD_KilledCampers":         "killer.total_kills",
@@ -38,9 +38,9 @@ var statMapping = map[string]string{
 	"DBD_LastUpdated":           "general.last_updated",
 }
 
-// MapSteamStats converts raw Steam API stats into organized DBD player statistics
+// MapSteamStats converts raw Steam API statistics into organized Dead by Daylight player data
 func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
-	// Initialize the player stats struct with default values
+	// Initialize player stats structure with default values and basic information
 	stats := DBDPlayerStats{
 		SteamID:     steamID,
 		DisplayName: displayName,
