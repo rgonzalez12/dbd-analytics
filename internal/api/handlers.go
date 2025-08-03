@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -102,11 +103,27 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		slog.Error("Failed to get player summary", 
-			slog.String("steam_id", steamID), 
-			slog.String("error", err.Message), 
+		// Enhanced error logging with more context
+		baseLog := slog.With(
+			slog.String("steam_id", steamID),
+			slog.String("client_ip", r.RemoteAddr),
+			slog.String("error", err.Message),
 			slog.String("error_type", string(err.Type)),
-			slog.Bool("retryable", err.Retryable))
+			slog.Bool("retryable", err.Retryable),
+		)
+		
+		// Add additional context based on error type
+		switch err.Type {
+		case steam.ErrorTypeRateLimit:
+			baseLog.Warn("Steam API rate limit hit for player summary")
+		case steam.ErrorTypeNotFound:
+			baseLog.Info("Player not found in Steam API")
+		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
+			baseLog.Error("Steam API unavailable for player summary")
+		default:
+			baseLog.Error("Failed to get player summary")
+		}
+		
 		writeErrorResponse(w, err)
 		return
 	}
@@ -138,20 +155,49 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		slog.Error("Failed to get player summary for stats request", 
-			slog.String("steam_id", steamID), 
-			slog.String("error", err.Message), 
-			slog.String("error_type", string(err.Type)))
+		baseLog := slog.With(
+			slog.String("steam_id", steamID),
+			slog.String("client_ip", r.RemoteAddr),
+			slog.String("error", err.Message),
+			slog.String("error_type", string(err.Type)),
+		)
+		
+		switch err.Type {
+		case steam.ErrorTypeRateLimit:
+			baseLog.Warn("Steam API rate limit hit for player stats summary")
+		case steam.ErrorTypeNotFound:
+			baseLog.Info("Player not found for stats request")
+		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
+			baseLog.Error("Steam API unavailable for player stats summary")
+		default:
+			baseLog.Error("Failed to get player summary for stats request")
+		}
+		
 		writeErrorResponse(w, err)
 		return
 	}
 
 	rawStats, err := h.steamClient.GetPlayerStats(steamID)
 	if err != nil {
-		slog.Error("Failed to get player stats", 
-			slog.String("steam_id", steamID), 
-			slog.String("error", err.Message), 
-			slog.String("error_type", string(err.Type)))
+		baseLog := slog.With(
+			slog.String("steam_id", steamID),
+			slog.String("client_ip", r.RemoteAddr),
+			slog.String("persona_name", summary.PersonaName),
+			slog.String("error", err.Message),
+			slog.String("error_type", string(err.Type)),
+		)
+		
+		switch err.Type {
+		case steam.ErrorTypeRateLimit:
+			baseLog.Warn("Steam API rate limit hit for player stats")
+		case steam.ErrorTypeNotFound:
+			baseLog.Info("Player stats not found or private profile")
+		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
+			baseLog.Error("Steam API unavailable for player stats")
+		default:
+			baseLog.Error("Failed to get player stats")
+		}
+		
 		writeErrorResponse(w, err)
 		return
 	}
@@ -166,18 +212,49 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 // writeErrorResponse writes a structured error response to the client
 func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
-	statusCode := http.StatusInternalServerError
-	if apiErr.StatusCode != 0 {
-		statusCode = apiErr.StatusCode
-	}
-
+	// Determine the appropriate HTTP status code
+	statusCode := determineStatusCode(apiErr)
+	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	
-	// Create consistent error response format
+	// Create enhanced error response format
 	errorResponse := map[string]interface{}{
 		"error": apiErr.Message,
-		"type":  apiErr.Type,
+		"type":  string(apiErr.Type),
+	}
+	
+	// Add details for specific error types
+	switch apiErr.Type {
+	case steam.ErrorTypeRateLimit:
+		errorResponse["details"] = "Steam API rate limit exceeded"
+		errorResponse["retry_after"] = 60 // Default retry after 60 seconds
+		
+	case steam.ErrorTypeAPIError:
+		if apiErr.StatusCode != 0 {
+			errorResponse["details"] = fmt.Sprintf("%d %s", apiErr.StatusCode, http.StatusText(apiErr.StatusCode))
+		}
+		if apiErr.Retryable {
+			errorResponse["retry_after"] = 30 // Retry after 30 seconds for API errors
+		}
+		
+	case steam.ErrorTypeNetwork:
+		errorResponse["details"] = "Network connection to Steam API failed"
+		errorResponse["retry_after"] = 30
+		
+	case steam.ErrorTypeNotFound:
+		errorResponse["details"] = "Requested resource not found on Steam"
+		
+	case steam.ErrorTypeValidation:
+		errorResponse["details"] = "Invalid request parameters"
+		
+	case steam.ErrorTypeInternal:
+		errorResponse["details"] = "Internal server error occurred"
+	}
+	
+	// Add retryable flag for client guidance
+	if apiErr.Retryable {
+		errorResponse["retryable"] = true
 	}
 	
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
@@ -186,6 +263,30 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 			slog.String("original_error", apiErr.Message))
 		// Fallback to plain text if JSON encoding fails
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// determineStatusCode maps API error types to appropriate HTTP status codes
+func determineStatusCode(apiErr *steam.APIError) int {
+	// If the error already has a status code, use it
+	if apiErr.StatusCode != 0 {
+		return apiErr.StatusCode
+	}
+	
+	// Map error types to status codes
+	switch apiErr.Type {
+	case steam.ErrorTypeValidation:
+		return http.StatusBadRequest // 400
+	case steam.ErrorTypeNotFound:
+		return http.StatusNotFound // 404
+	case steam.ErrorTypeRateLimit:
+		return http.StatusTooManyRequests // 429
+	case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
+		return http.StatusBadGateway // 502 - Steam API is down/unreachable
+	case steam.ErrorTypeInternal:
+		return http.StatusInternalServerError // 500
+	default:
+		return http.StatusInternalServerError // 500 - Safe default
 	}
 }
 
