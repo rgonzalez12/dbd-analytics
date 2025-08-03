@@ -213,7 +213,12 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	switch apiErr.Type {
 	case steam.ErrorTypeRateLimit:
 		errorResponse["details"] = "Steam API rate limit exceeded"
-		errorResponse["retry_after"] = 60 // Default retry after 60 seconds
+		// Use the actual retry_after value from the Steam API response
+		retryAfter := 60 // Default fallback
+		if apiErr.RetryAfter > 0 {
+			retryAfter = apiErr.RetryAfter
+		}
+		errorResponse["retry_after"] = retryAfter
 		
 	case steam.ErrorTypeAPIError:
 		if apiErr.StatusCode != 0 {

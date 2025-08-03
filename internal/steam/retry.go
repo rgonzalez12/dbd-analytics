@@ -17,9 +17,9 @@ type RetryConfig struct {
 
 func DefaultRetryConfig() RetryConfig {
 	return RetryConfig{
-		MaxAttempts: 3,
-		BaseDelay:   500 * time.Millisecond,
-		MaxDelay:    10 * time.Second,
+		MaxAttempts: 2, // Retry once for rate limits
+		BaseDelay:   1 * time.Second,    // Start with 1 second for rate limits
+		MaxDelay:    5 * time.Second,    // Max 5 seconds for rate limits
 		Multiplier:  2.0,
 		Jitter:      true,
 	}
@@ -90,11 +90,27 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 		// Don't sleep after the last attempt
 		if attempt < config.MaxAttempts-1 {
 			delay := calculateBackoffDelay(attempt, config)
+			
+			// Use RetryAfter value for rate limit errors when available
+			if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {
+				delay = time.Duration(err.RetryAfter) * time.Second
+				// Cap the delay to max delay to prevent extremely long waits
+				if delay > config.MaxDelay {
+					delay = config.MaxDelay
+				}
+			}
+			
 			if operation != "" {
 				slog.Debug("Waiting before retry",
 					slog.String("operation", operation),
 					slog.Duration("delay", delay),
-					slog.Int("attempt", attempt+1))
+					slog.Int("attempt", attempt+1),
+					slog.String("delay_source", func() string {
+						if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {
+							return "retry_after_header"
+						}
+						return "exponential_backoff"
+					}()))
 			}
 			time.Sleep(delay)
 		}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
@@ -230,13 +231,15 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 		"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
 		"content_length", resp.Header.Get("Content-Length"))
 
-	// Handle rate limiting with structured error
+	// Handle rate limiting with Retry-After header parsing
 	if resp.StatusCode == http.StatusTooManyRequests {
+		retryAfter := c.parseRetryAfterHeader(resp.Header.Get("Retry-After"))
 		log.Warn("steam_api_rate_limited",
 			"status_code", resp.StatusCode,
 			"endpoint", endpoint,
-			"duration", requestDuration)
-		return NewRateLimitError()
+			"duration", requestDuration,
+			"retry_after", retryAfter)
+		return NewRateLimitErrorWithRetryAfter(retryAfter)
 	}
 
 	// Handle other HTTP errors using specific retryable status codes
@@ -275,6 +278,29 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 		"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
 		"response_size", len(body))
 	return nil
+}
+
+// parseRetryAfterHeader parses the Retry-After header value
+// Returns retry time in seconds, defaulting to 60 if parsing fails
+func (c *Client) parseRetryAfterHeader(retryAfterValue string) int {
+	if retryAfterValue == "" {
+		return 60 // Default to 60 seconds if no header present
+	}
+	
+	// Try to parse as seconds (integer)
+	if seconds, err := strconv.Atoi(retryAfterValue); err == nil && seconds > 0 {
+		// Cap at reasonable maximum (5 minutes)
+		if seconds > 300 {
+			return 300
+		}
+		return seconds
+	}
+	
+	// If parsing fails, default to 60 seconds
+	log.Debug("Failed to parse Retry-After header, using default",
+		"retry_after_value", retryAfterValue,
+		"default_seconds", 60)
+	return 60
 }
 
 func isNumeric(s string) bool {

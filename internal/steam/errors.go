@@ -12,6 +12,7 @@ var (
 		Message:    "Steam API rate-limited, try again later",
 		StatusCode: http.StatusTooManyRequests,
 		Retryable:  true,
+		RetryAfter: 60,
 	}
 	ErrUpstream = &APIError{
 		Type:      ErrorTypeAPIError,
@@ -36,6 +37,7 @@ type APIError struct {
 	Message    string    `json:"error"`
 	StatusCode int       `json:"status_code,omitempty"`
 	Retryable  bool      `json:"retryable,omitempty"`
+	RetryAfter int       `json:"retry_after,omitempty"` // seconds to wait before retrying
 }
 
 func (e *APIError) Error() string {
@@ -43,11 +45,16 @@ func (e *APIError) Error() string {
 }
 
 func NewRateLimitError() *APIError {
+	return NewRateLimitErrorWithRetryAfter(60) // Default 60 seconds
+}
+
+func NewRateLimitErrorWithRetryAfter(retryAfter int) *APIError {
 	return &APIError{
 		Type:       ErrorTypeRateLimit,
 		Message:    "Steam API rate-limited, try again later",
 		StatusCode: http.StatusTooManyRequests,
 		Retryable:  true,
+		RetryAfter: retryAfter,
 	}
 }
 

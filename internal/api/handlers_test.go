@@ -550,3 +550,70 @@ func TestErrorResponseFormatting(t *testing.T) {
 		})
 	}
 }
+
+func TestRateLimitRetryAfterValue(t *testing.T) {
+	// Initialize logging for tests
+	log.Initialize()
+
+	tests := []struct {
+		name              string
+		retryAfterValue   int
+		expectedRetryAfter int
+	}{
+		{
+			name:              "Custom retry after value",
+			retryAfterValue:   120,
+			expectedRetryAfter: 120,
+		},
+		{
+			name:              "Default retry after when zero",
+			retryAfterValue:   0,
+			expectedRetryAfter: 60, // Default fallback
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			
+			// Create rate limit error with specific retry after value
+			var rateLimitError *steam.APIError
+			if tt.retryAfterValue > 0 {
+				rateLimitError = steam.NewRateLimitErrorWithRetryAfter(tt.retryAfterValue)
+			} else {
+				rateLimitError = steam.NewRateLimitError()
+			}
+
+			writeErrorResponse(w, rateLimitError)
+
+			// Check status code
+			if w.Code != http.StatusTooManyRequests {
+				t.Errorf("Expected status 429, got %d", w.Code)
+			}
+
+			// Parse response
+			var response map[string]interface{}
+			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+				t.Fatalf("Failed to parse response: %v", err)
+			}
+
+			// Check retry_after value
+			retryAfter, ok := response["retry_after"]
+			if !ok {
+				t.Error("Expected 'retry_after' field in response")
+			}
+
+			// Convert to int for comparison
+			retryAfterInt, ok := retryAfter.(float64) // JSON numbers are float64
+			if !ok {
+				t.Errorf("Expected retry_after to be a number, got %T", retryAfter)
+			}
+
+			if int(retryAfterInt) != tt.expectedRetryAfter {
+				t.Errorf("Expected retry_after %d, got %d", tt.expectedRetryAfter, int(retryAfterInt))
+			}
+
+			t.Logf("Test '%s': retry_after correctly set to %d seconds", tt.name, int(retryAfterInt))
+		})
+	}
+}
