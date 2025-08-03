@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/rgonzalez12/dbd-analytics/internal/api"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
@@ -13,14 +12,14 @@ func main() {
 	fmt.Printf("Length: %d\n", len(steamID))
 	fmt.Printf("First 7: %s\n", steamID[:7])
 	
-	// Test the validation function
-	err := api.ValidateSteamIDOrVanity(steamID)
-	if err != nil {
-		fmt.Printf("Validation error: %s\n", err.Message)
-		fmt.Printf("Error type: %s\n", err.Type)
-	} else {
-		fmt.Println("Validation passed!")
-	}
+	// Test the validation function (note: this is private, just testing Steam client directly)
+	// err := api.validateSteamIDOrVanity(steamID)
+	// if err != nil {
+	//	fmt.Printf("Validation error: %s\n", err.Message)
+	//	fmt.Printf("Error type: %s\n", err.Type)
+	// } else {
+	//	fmt.Println("Validation passed!")
+	// }
 	
 	// Test Steam client
 	client := steam.NewClient()

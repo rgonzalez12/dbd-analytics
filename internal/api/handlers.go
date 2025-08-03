@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/rgonzalez12/dbd-analytics/internal/log"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
@@ -95,130 +96,97 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 }
 
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
+	
+	// Create logger with request context
+	requestLogger := log.WithContext(
+		"steam_id", steamID,
+		"client_ip", r.RemoteAddr,
+		"method", r.Method,
+		"path", r.URL.Path,
+	)
 	
 	// Validate Steam ID format before processing
 	if err := validateSteamIDOrVanity(steamID); err != nil {
-		slog.Warn("Invalid Steam ID format in GetPlayerSummary",
-			slog.String("steam_id", steamID),
-			slog.String("client_ip", r.RemoteAddr),
-			slog.String("user_agent", r.UserAgent()),
-			slog.String("error", err.Message),
-			slog.String("validation_type", string(err.Type)))
+		requestLogger.Warn("Invalid Steam ID format in GetPlayerSummary",
+			"user_agent", r.UserAgent(),
+			"error", err.Message,
+			"validation_type", string(err.Type))
 		writeErrorResponse(w, err)
 		return
 	}
 
-	slog.Info("Processing player summary request", 
-		slog.String("steam_id", steamID),
-		slog.String("client_ip", r.RemoteAddr))
+	requestLogger.Info("Processing player summary request")
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
 		// Enhanced error logging with more context
-		baseLog := slog.With(
-			slog.String("steam_id", steamID),
-			slog.String("client_ip", r.RemoteAddr),
-			slog.String("error", err.Message),
-			slog.String("error_type", string(err.Type)),
-			slog.Bool("retryable", err.Retryable),
-		)
-		
-		// Add additional context based on error type
-		switch err.Type {
-		case steam.ErrorTypeRateLimit:
-			baseLog.Warn("Steam API rate limit hit for player summary")
-		case steam.ErrorTypeNotFound:
-			baseLog.Info("Player not found in Steam API")
-		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
-			baseLog.Error("Steam API unavailable for player summary")
-		default:
-			baseLog.Error("Failed to get player summary")
-		}
-		
+		requestLogger.Error("Failed to get player summary",
+			"error", err.Message,
+			"error_type", string(err.Type),
+			"retryable", err.Retryable,
+			"duration", time.Since(start))
 		writeErrorResponse(w, err)
 		return
 	}
 
-	slog.Info("Successfully processed player summary request", 
-		slog.String("steam_id", steamID), 
-		slog.String("persona_name", summary.PersonaName))
+	requestLogger.Info("Successfully processed player summary request",
+		"persona_name", summary.PersonaName,
+		"duration", time.Since(start))
 	writeJSONResponse(w, summary)
 }
 
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
+	
+	// Create logger with request context
+	requestLogger := log.WithContext(
+		"steam_id", steamID,
+		"client_ip", r.RemoteAddr,
+		"method", r.Method,
+		"path", r.URL.Path,
+	)
 	
 	// Validate Steam ID format before processing
 	if err := validateSteamIDOrVanity(steamID); err != nil {
-		slog.Warn("Invalid Steam ID format in GetPlayerStats",
-			slog.String("steam_id", steamID),
-			slog.String("client_ip", r.RemoteAddr),
-			slog.String("user_agent", r.UserAgent()),
-			slog.String("error", err.Message),
-			slog.String("validation_type", string(err.Type)))
+		requestLogger.Warn("Invalid Steam ID format in GetPlayerStats",
+			"user_agent", r.UserAgent(),
+			"error", err.Message,
+			"validation_type", string(err.Type))
 		writeErrorResponse(w, err)
 		return
 	}
 
-	slog.Info("Processing player stats request", 
-		slog.String("steam_id", steamID),
-		slog.String("client_ip", r.RemoteAddr))
+	requestLogger.Info("Processing player stats request")
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		baseLog := slog.With(
-			slog.String("steam_id", steamID),
-			slog.String("client_ip", r.RemoteAddr),
-			slog.String("error", err.Message),
-			slog.String("error_type", string(err.Type)),
-		)
-		
-		switch err.Type {
-		case steam.ErrorTypeRateLimit:
-			baseLog.Warn("Steam API rate limit hit for player stats summary")
-		case steam.ErrorTypeNotFound:
-			baseLog.Info("Player not found for stats request")
-		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
-			baseLog.Error("Steam API unavailable for player stats summary")
-		default:
-			baseLog.Error("Failed to get player summary for stats request")
-		}
-		
+		requestLogger.Error("Failed to get player summary for stats request",
+			"error", err.Message,
+			"error_type", string(err.Type),
+			"duration", time.Since(start))
 		writeErrorResponse(w, err)
 		return
 	}
 
 	rawStats, err := h.steamClient.GetPlayerStats(steamID)
 	if err != nil {
-		baseLog := slog.With(
-			slog.String("steam_id", steamID),
-			slog.String("client_ip", r.RemoteAddr),
-			slog.String("persona_name", summary.PersonaName),
-			slog.String("error", err.Message),
-			slog.String("error_type", string(err.Type)),
-		)
-		
-		switch err.Type {
-		case steam.ErrorTypeRateLimit:
-			baseLog.Warn("Steam API rate limit hit for player stats")
-		case steam.ErrorTypeNotFound:
-			baseLog.Info("Player stats not found or private profile")
-		case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
-			baseLog.Error("Steam API unavailable for player stats")
-		default:
-			baseLog.Error("Failed to get player stats")
-		}
-		
+		requestLogger.Error("Failed to get player stats",
+			"persona_name", summary.PersonaName,
+			"error", err.Message,
+			"error_type", string(err.Type),
+			"duration", time.Since(start))
 		writeErrorResponse(w, err)
 		return
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
-	slog.Info("Successfully processed player stats request", 
-		slog.String("steam_id", steamID), 
-		slog.Int("raw_stats_count", len(rawStats.Stats)),
-		slog.String("persona_name", summary.PersonaName))
+	requestLogger.Info("Successfully processed player stats request",
+		"raw_stats_count", len(rawStats.Stats),
+		"persona_name", summary.PersonaName,
+		"duration", time.Since(start))
 	writeJSONResponse(w, playerStats)
 }
 
@@ -285,17 +253,17 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	}
 	
 	// Log the error with request ID for tracing
-	slog.Error("API error response generated",
-		slog.String("request_id", requestID),
-		slog.String("error_type", string(apiErr.Type)),
-		slog.Int("status_code", statusCode),
-		slog.String("error_message", apiErr.Message))
+	log.Error("API error response generated",
+		"request_id", requestID,
+		"error_type", string(apiErr.Type),
+		"status_code", statusCode,
+		"error_message", apiErr.Message)
 	
 	if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
-		slog.Error("Failed to encode error response", 
-			slog.String("request_id", requestID),
-			slog.String("error", err.Error()),
-			slog.String("original_error", apiErr.Message))
+		log.Error("Failed to encode error response", 
+			"request_id", requestID,
+			"error", err.Error(),
+			"original_error", apiErr.Message)
 		// Fallback to plain text if JSON encoding fails
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
@@ -350,23 +318,23 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	// Marshal to get response size for logging
 	responseBytes, err := json.Marshal(data)
 	if err != nil {
-		slog.Error("Failed to marshal JSON response", 
-			slog.String("error", err.Error()))
+		log.Error("Failed to marshal JSON response", 
+			"error", err.Error())
 		writeErrorResponse(w, steam.NewInternalError(err))
 		return
 	}
 	
 	// Log successful response
-	slog.Info("successful_response_sent",
-		slog.Int("status_code", http.StatusOK),
-		slog.Int("response_size", len(responseBytes)),
-		slog.String("content_type", "application/json"))
+	log.Info("successful_response_sent",
+		"status_code", http.StatusOK,
+		"response_size", len(responseBytes),
+		"content_type", "application/json")
 	
 	// Write the response
 	if _, err := w.Write(responseBytes); err != nil {
-		slog.Error("Failed to write JSON response", 
-			slog.String("error", err.Error()),
-			slog.Int("response_size", len(responseBytes)))
+		log.Error("Failed to write JSON response", 
+			"error", err.Error(),
+			"response_size", len(responseBytes))
 		// Can't call writeErrorResponse here as headers are already sent
 		return
 	}

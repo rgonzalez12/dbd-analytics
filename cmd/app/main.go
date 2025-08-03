@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rgonzalez12/dbd-analytics/internal/api"
+	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
 // responseWriter wraps http.ResponseWriter to capture status code
@@ -29,24 +28,15 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 func main() {
+	// Initialize centralized structured logging
+	log.Initialize()
+	
 	// Set working directory (helpful for Docker/deployment)
 	if workDir := os.Getenv("WORKDIR"); workDir != "" {
 		if err := os.Chdir(workDir); err != nil {
-			slog.Warn("Failed to change working directory", slog.String("dir", workDir), slog.String("error", err.Error()))
+			log.Warn("Failed to change working directory", "dir", workDir, "error", err.Error())
 		}
 	}
-
-	// Initialize structured logging with JSON output for better observability
-	logLevel := slog.LevelInfo
-	if os.Getenv("LOG_LEVEL") == "debug" {
-		logLevel = slog.LevelDebug
-	}
-	
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
-		AddSource: true, // Add source file and line for debugging
-	}))
-	slog.SetDefault(logger)
 
 	// Load environment variables from multiple possible locations
 	envFiles := []string{".env", ".env.local", "../.env"}
@@ -54,14 +44,14 @@ func main() {
 	
 	for _, envFile := range envFiles {
 		if err := godotenv.Load(envFile); err == nil {
-			slog.Info("Loaded environment file", slog.String("file", envFile))
+			log.Info("Loaded environment file", "file", envFile)
 			envLoaded = true
 			break
 		}
 	}
 	
 	if !envLoaded {
-		slog.Warn("No environment file found, continuing with system environment variables")
+		log.Warn("No environment file found, continuing with system environment variables")
 	}
 
 	// Get port configuration early
@@ -89,26 +79,26 @@ func main() {
 			steamID := vars["steamid"]
 			
 			// Log incoming request
-			slog.Info("incoming_request",
-				slog.String("method", req.Method),
-				slog.String("path", req.URL.Path),
-				slog.String("steam_id", steamID),
-				slog.String("user_agent", req.UserAgent()),
-				slog.String("remote_addr", req.RemoteAddr),
-				slog.String("request_id", req.Header.Get("X-Request-ID")))
+			log.Info("incoming_request",
+				"method", req.Method,
+				"path", req.URL.Path,
+				"steam_id", steamID,
+				"user_agent", req.UserAgent(),
+				"remote_addr", req.RemoteAddr,
+				"request_id", req.Header.Get("X-Request-ID"))
 			
 			// Process request
 			next.ServeHTTP(wrappedWriter, req)
 			
 			// Log response
 			duration := time.Since(start)
-			slog.Info("request_completed",
-				slog.String("method", req.Method),
-				slog.String("path", req.URL.Path),
-				slog.String("steam_id", steamID),
-				slog.Int("status_code", wrappedWriter.statusCode),
-				slog.Duration("duration", duration),
-				slog.String("duration_ms", fmt.Sprintf("%.2f", duration.Seconds()*1000)))
+			log.Info("request_completed",
+				"method", req.Method,
+				"path", req.URL.Path,
+				"steam_id", steamID,
+				"status_code", wrappedWriter.statusCode,
+				"duration", duration,
+				"duration_ms", fmt.Sprintf("%.2f", duration.Seconds()*1000))
 		})
 	})
 
@@ -178,9 +168,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		slog.Info("Starting Dead by Daylight Analytics server", 
-			slog.String("port", port),
-			slog.String("version", "1.0.0"))
+		log.Info("Starting Dead by Daylight Analytics server", 
+			"port", port,
+			"version", "1.0.0")
 		
 		fmt.Printf("🚀 Server running on http://localhost%s\n", port)
 		fmt.Printf("💡 Try: http://localhost%s/api/player/76561198000000000/summary\n", port)
@@ -188,23 +178,23 @@ func main() {
 		fmt.Println("⏹️  Press Ctrl+C to stop the server gracefully")
 		
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Server failed to start", slog.String("error", err.Error()))
-			log.Fatal("Server failed to start:", err)
+			log.Error("Server failed to start", "error", err.Error())
+			os.Exit(1)
 		}
 	}()
 
 	// Wait for interrupt signal
 	<-quit
-	slog.Info("Shutting down server gracefully...")
+	log.Info("Shutting down server gracefully...")
 
 	// Give outstanding requests 30 seconds to complete
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		slog.Error("Server forced to shutdown", slog.String("error", err.Error()))
-		log.Fatal("Server forced to shutdown:", err)
+		log.Error("Server forced to shutdown", "error", err.Error())
+		os.Exit(1)
 	}
 
-	slog.Info("Server stopped gracefully")
+	log.Info("Server stopped gracefully")
 }
