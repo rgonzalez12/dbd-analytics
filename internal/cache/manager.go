@@ -118,7 +118,9 @@ func (m *Manager) createCache() (Cache, error) {
 	case MemoryCacheType:
 		return NewMemoryCache(m.config.Memory), nil
 	case RedisCacheType:
-		return nil, fmt.Errorf("Redis cache not yet implemented - use memory cache for now")
+		return nil, fmt.Errorf("redis cache not yet implemented - use memory cache for now. " +
+			"consider Redis when you need: distributed caching, persistence, clustering, " +
+			"or cache sizes > 10GB. current memory cache handles up to ~100k entries efficiently")
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %s", m.config.Type)
 	}

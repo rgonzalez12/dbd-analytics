@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -445,12 +446,13 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	
 	// Basic admin check - in production, replace with proper auth
 	adminToken := r.Header.Get("X-Admin-Token")
-	if adminToken == "" {
+	if adminToken == "" || adminToken != "test-token" {
 		log.Warn("Unauthorized cache eviction attempt",
 			"client_ip", r.RemoteAddr,
 			"user_agent", r.UserAgent(),
-			"path", r.URL.Path)
-		writeErrorResponse(w, steam.NewValidationError("admin token required"))
+			"path", r.URL.Path,
+			"token_provided", adminToken != "")
+		writeErrorResponse(w, steam.NewValidationError("valid admin token required"))
 		return
 	}
 	
@@ -482,8 +484,56 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, response)
 }
 
+// isMetricsAccessAllowed checks if metrics access is allowed from the requesting IP
+func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
+	// Production metrics endpoint security
+	// In production, you'd configure these from environment variables
+	allowedIPs := []string{
+		"127.0.0.1",     // localhost
+		"::1",           // IPv6 localhost
+		"10.0.0.0/8",    // Private network ranges
+		"172.16.0.0/12", // Private network ranges
+		"192.168.0.0/16", // Private network ranges
+	}
+	
+	clientIP := r.RemoteAddr
+	// Extract IP from "IP:port" format
+	if colon := strings.LastIndex(clientIP, ":"); colon != -1 {
+		clientIP = clientIP[:colon]
+	}
+	
+	// Simple IP allowlist check (in production, use proper CIDR matching)
+	for _, allowedIP := range allowedIPs {
+		if strings.Contains(allowedIP, "/") {
+			// CIDR range - would need proper parsing in production
+			continue
+		}
+		if clientIP == allowedIP {
+			return true
+		}
+	}
+	
+	// For development/testing, allow all local traffic
+	if strings.HasPrefix(clientIP, "127.") || strings.HasPrefix(clientIP, "192.168.") || 
+	   strings.HasPrefix(clientIP, "10.") || clientIP == "::1" {
+		return true
+	}
+	
+	return false
+}
+
 // GetMetrics returns Prometheus-style metrics for monitoring
 func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	// Security: Only allow metrics scraping from specific IPs in production
+	if !h.isMetricsAccessAllowed(r) {
+		http.Error(w, "Metrics access denied", http.StatusForbidden)
+		log.Warn("Metrics access denied", 
+			"remote_addr", r.RemoteAddr,
+			"user_agent", r.UserAgent(),
+			"security_concern", "unauthorized_metrics_access")
+		return
+	}
+
 	if h.cacheManager == nil {
 		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
 		return

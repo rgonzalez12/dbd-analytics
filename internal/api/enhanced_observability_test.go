@@ -157,6 +157,8 @@ func TestGetMetricsPrometheusFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Set localhost IP to pass IP allowlisting
+	req.RemoteAddr = "127.0.0.1:12345"
 
 	rr := httptest.NewRecorder()
 	handler.GetMetrics(rr, req)
