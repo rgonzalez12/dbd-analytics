@@ -29,9 +29,9 @@ func TestProcessAchievements(t *testing.T) {
 		{
 			name: "some unlocked achievements",
 			achievements: []SteamAchievement{
-				{APIName: "ACH_DLC2_50", Achieved: 1}, // dwight
-				{APIName: "ACH_DLC2_00", Achieved: 1}, // trapper
-				{APIName: "ACH_DLC2_51", Achieved: 0}, // meg (not unlocked)
+				{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1}, // dwight
+				{APIName: "ACH_UNLOCK_CHUCKLES_PERKS", Achieved: 1}, // trapper
+				{APIName: "ACH_UNLOCK_MEG_PERKS", Achieved: 0}, // meg (not unlocked)
 			},
 			expectSurvivors: map[string]bool{
 				"dwight": true,
@@ -46,7 +46,7 @@ func TestProcessAchievements(t *testing.T) {
 			name: "unknown achievements ignored",
 			achievements: []SteamAchievement{
 				{APIName: "UNKNOWN_ACHIEVEMENT", Achieved: 1},
-				{APIName: "ACH_DLC2_50", Achieved: 1}, // dwight
+				{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1}, // dwight
 			},
 			expectSurvivors: map[string]bool{
 				"dwight": true,
