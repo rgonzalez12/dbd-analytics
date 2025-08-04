@@ -221,12 +221,12 @@ type TTLConfig struct {
 // This ensures production deployments can override TTL values without code changes
 func GetTTLFromEnv() TTLConfig {
 	config := TTLConfig{
-		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
-		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
+		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", PlayerStatsTTL),
+		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", PlayerSummaryTTL),
 		PlayerAchievements: getEnvDuration("CACHE_PLAYER_ACHIEVEMENTS_TTL", 30*time.Minute),
 		PlayerCombined:     getEnvDuration("CACHE_PLAYER_COMBINED_TTL", 10*time.Minute),
-		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", 2*time.Minute),  // Increased from 3min to 2min for better Steam API protection
-		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", 90*time.Second),   // Increased from 3min to 90s for production safety
+		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", SteamAPITTL),   // Use deprecated constant for backward compatibility
+		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", DefaultTTL),     // Use deprecated constant for backward compatibility
 	}
 
 	// Log TTL configuration source for debugging

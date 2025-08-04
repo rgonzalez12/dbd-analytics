@@ -30,6 +30,7 @@ type UnknownAchievement struct {
 
 // AchievementMapper handles achievement mapping with caching and monitoring
 type AchievementMapper struct {
+	config          *AchievementConfig             // Configurable achievement mapping
 	mapping         map[string]AchievementMapping
 	unknownAchievs  map[string]*UnknownAchievement
 	cacheDuration   time.Duration
@@ -37,9 +38,24 @@ type AchievementMapper struct {
 	unknownsMutex   sync.RWMutex
 }
 
-// NewAchievementMapper creates a new achievement mapper with caching and monitoring
+// NewAchievementMapper creates a new achievement mapper with configurable mapping
 func NewAchievementMapper() *AchievementMapper {
+	config, err := LoadAchievementConfig()
+	if err != nil {
+		log.Error("Failed to load achievement config, using hardcoded fallback",
+			"error", err)
+		config = buildHardcodedConfig()
+	}
+
+	log.Info("Achievement mapper initialized",
+		"survivors_mapped", len(config.Survivors),
+		"killers_mapped", len(config.Killers),
+		"general_mapped", len(config.General),
+		"total_mapped", config.Metadata.TotalCount,
+		"config_source", config.Metadata.Source)
+
 	return &AchievementMapper{
+		config:         config,
 		mapping:        make(map[string]AchievementMapping),
 		unknownAchievs: make(map[string]*UnknownAchievement),
 		cacheDuration:  24 * time.Hour, // Cache for 24 hours

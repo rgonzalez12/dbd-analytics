@@ -102,6 +102,88 @@ func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 	}
 }
 
+// ResponseBuilder helps create standardized API responses
+type ResponseBuilder struct {
+	data      map[string]interface{}
+	timestamp string
+}
+
+// NewResponseBuilder creates a new response builder with timestamp
+func NewResponseBuilder() *ResponseBuilder {
+	return &ResponseBuilder{
+		data:      make(map[string]interface{}),
+		timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+// AddData adds key-value data to the response
+func (rb *ResponseBuilder) AddData(key string, value interface{}) *ResponseBuilder {
+	rb.data[key] = value
+	return rb
+}
+
+// AddCacheStats adds standardized cache statistics
+func (rb *ResponseBuilder) AddCacheStats(stats cache.CacheStats, cacheType string) *ResponseBuilder {
+	rb.data["cache_stats"] = stats
+	rb.data["cache_type"] = cacheType
+	return rb
+}
+
+// AddPerformanceMetrics adds performance assessment
+func (rb *ResponseBuilder) AddPerformanceMetrics(stats cache.CacheStats) *ResponseBuilder {
+	totalRequests := stats.Hits + stats.Misses
+	performance := "excellent"
+	if stats.HitRate < 75 && totalRequests > 10 {
+		performance = "good"
+	}
+	if stats.HitRate < 50 && totalRequests > 50 {
+		performance = "critical"
+	}
+
+	rb.data["performance"] = map[string]interface{}{
+		"assessment":      performance,
+		"total_requests":  totalRequests,
+		"memory_usage_mb": float64(stats.MemoryUsage) / 1024 / 1024,
+		"uptime_hours":    float64(stats.UptimeSeconds) / 3600,
+		"ops_per_second": func() float64 {
+			if stats.UptimeSeconds > 0 {
+				return float64(totalRequests) / float64(stats.UptimeSeconds)
+			}
+			return 0
+		}(),
+	}
+
+	// Add performance recommendations
+	var recs []string
+	if stats.HitRate < 70 && totalRequests > 100 {
+		recs = append(recs, "Consider increasing TTL values or reviewing cache key strategy")
+	}
+	if stats.LRUEvictions > stats.ExpiredKeys*2 {
+		recs = append(recs, "High LRU eviction rate - consider increasing cache capacity")
+	}
+	if performance == "critical" {
+		recs = append(recs, "Critical: Cache not providing benefits - review implementation")
+	}
+	if len(recs) == 0 {
+		recs = append(recs, "Cache performance is optimal")
+	}
+	rb.data["recommendations"] = recs
+	
+	return rb
+}
+
+// AddTimestamp adds timestamp to response
+func (rb *ResponseBuilder) AddTimestamp() *ResponseBuilder {
+	rb.data["timestamp"] = rb.timestamp
+	return rb
+}
+
+// Build returns the final response map
+func (rb *ResponseBuilder) Build() map[string]interface{} {
+	rb.AddTimestamp()
+	return rb.data
+}
+
 // validateSteamID validates that a Steam ID follows Steam's 64-bit ID format
 func validateSteamID(steamID string) bool {
 	// Steam ID must be exactly 17 digits in length
@@ -371,40 +453,11 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 		performance = "critical"
 	}
 
-	// Create comprehensive response with enhanced metadata
-	response := map[string]interface{}{
-		"cache_stats": stats,
-		"cache_type":  string(h.cacheManager.GetConfig().Type),
-		"timestamp":   time.Now().UTC().Format(time.RFC3339),
-		"performance": map[string]interface{}{
-			"assessment":      performance,
-			"total_requests":  totalRequests,
-			"memory_usage_mb": float64(stats.MemoryUsage) / 1024 / 1024,
-			"uptime_hours":    float64(stats.UptimeSeconds) / 3600,
-			"ops_per_second": func() float64 {
-				if stats.UptimeSeconds > 0 {
-					return float64(totalRequests) / float64(stats.UptimeSeconds)
-				}
-				return 0
-			}(),
-		},
-		"recommendations": func() []string {
-			var recs []string
-			if stats.HitRate < 70 && totalRequests > 100 {
-				recs = append(recs, "Consider increasing TTL values or reviewing cache key strategy")
-			}
-			if stats.LRUEvictions > stats.ExpiredKeys*2 {
-				recs = append(recs, "High LRU eviction rate - consider increasing cache capacity")
-			}
-			if performance == "critical" {
-				recs = append(recs, "Critical: Cache not providing benefits - review implementation")
-			}
-			if len(recs) == 0 {
-				recs = append(recs, "Cache performance is optimal")
-			}
-			return recs
-		}(),
-	}
+	// Create comprehensive response using ResponseBuilder
+	response := NewResponseBuilder().
+		AddCacheStats(stats, string(h.cacheManager.GetConfig().Type)).
+		AddPerformanceMetrics(stats).
+		Build()
 
 	log.Info("Cache stats requested",
 		"hits", stats.Hits,
@@ -458,13 +511,12 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	stats := h.cacheManager.GetCache().Stats()
 	duration := time.Since(start)
 
-	response := map[string]interface{}{
-		"evicted_entries":   evicted,
-		"remaining_entries": stats.Entries,
-		"duration_ms":       duration.Milliseconds(),
-		"timestamp":         time.Now().UTC().Format(time.RFC3339),
-		"admin_initiated":   true,
-	}
+	response := NewResponseBuilder().
+		AddData("evicted_entries", evicted).
+		AddData("remaining_entries", stats.Entries).
+		AddData("duration_ms", duration.Milliseconds()).
+		AddData("admin_initiated", true).
+		Build()
 
 	log.Info("Manual cache eviction completed",
 		"evicted", evicted,
@@ -742,6 +794,11 @@ func determineStatusCode(apiErr *steam.APIError) int {
 
 // writeJSONResponse writes a successful JSON response to the client
 func writeJSONResponse(w http.ResponseWriter, data interface{}) {
+	writeJSONResponseWithStatus(w, data, http.StatusOK)
+}
+
+// writeJSONResponseWithStatus writes JSON response with custom status code
+func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 
 	// Marshal to get response size for logging
@@ -753,9 +810,12 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 		return
 	}
 
+	// Set status code
+	w.WriteHeader(statusCode)
+
 	// Log successful response
 	log.Info("successful_response_sent",
-		"status_code", http.StatusOK,
+		"status_code", statusCode,
 		"response_size", len(responseBytes),
 		"content_type", "application/json")
 
@@ -766,6 +826,31 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 			"response_size", len(responseBytes))
 		// Can't call writeErrorResponse here as headers are already sent
 		return
+	}
+}
+
+// writePartialDataResponse handles responses where some data was retrieved but with warnings
+func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings []string) {
+	// Convert to map to add warnings
+	var responseData map[string]interface{}
+	
+	// Convert data to map
+	dataBytes, _ := json.Marshal(data)
+	json.Unmarshal(dataBytes, &responseData)
+	
+	if responseData == nil {
+		responseData = make(map[string]interface{})
+		responseData["data"] = data
+	}
+	
+	// Add warnings to response
+	if len(warnings) > 0 {
+		responseData["warnings"] = warnings
+		responseData["status"] = "partial_success"
+		// Use 206 Partial Content for partial data scenarios
+		writeJSONResponseWithStatus(w, responseData, http.StatusPartialContent)
+	} else {
+		writeJSONResponseWithStatus(w, data, http.StatusOK)
 	}
 }
 
@@ -956,7 +1041,17 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		"achievements_success", result.achError == nil,
 		"duration", time.Since(start))
 
-	writeJSONResponse(w, response)
+	// Use appropriate response based on whether we have partial data
+	if result.achError != nil {
+		// Partial data - stats succeeded but achievements failed
+		warnings := []string{
+			"Achievement data unavailable: " + result.achError.Error(),
+		}
+		writePartialDataResponse(w, response, warnings)
+	} else {
+		// Complete data - both stats and achievements succeeded
+		writeJSONResponse(w, response)
+	}
 }
 
 // fetchPlayerStatsWithSource fetches player stats and returns the data source information
