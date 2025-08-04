@@ -14,6 +14,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rgonzalez12/dbd-analytics/internal/api"
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
+	"github.com/rgonzalez12/dbd-analytics/internal/security"
 )
 
 type responseWriter struct {
@@ -28,6 +29,12 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func main() {
 	log.Initialize()
+
+	// Validate security configuration on startup
+	if err := security.ValidateEnvironment(); err != nil {
+		log.Error("Security validation failed", "error", err.Error())
+		os.Exit(1)
+	}
 
 	if workDir := os.Getenv("WORKDIR"); workDir != "" {
 		if err := os.Chdir(workDir); err != nil {
@@ -68,6 +75,15 @@ func getPort() string {
 
 func setupRouter() *mux.Router {
 	r := mux.NewRouter()
+	
+	// Apply security middleware first
+	r.Use(api.SecurityMiddleware())
+	
+	// Apply rate limiting middleware
+	limiter := api.NewRequestLimiter(100, time.Minute) // 100 requests per minute
+	r.Use(api.RateLimitMiddleware(limiter))
+	
+	// Apply logging middleware last for complete request logging
 	r.Use(loggingMiddleware)
 
 	h := api.NewHandler()
