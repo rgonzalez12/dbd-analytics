@@ -193,6 +193,14 @@ const (
 	SteamAPIPrefix     = "steam_api"
 )
 
+// Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
+const (
+	PlayerStatsTTL   = 5 * time.Minute  // Deprecated: use config.TTL.PlayerStats
+	PlayerSummaryTTL = 10 * time.Minute // Deprecated: use config.TTL.PlayerSummary
+	SteamAPITTL      = 3 * time.Minute  // Deprecated: use config.TTL.SteamAPI
+	DefaultTTL       = 3 * time.Minute  // Deprecated: use config.TTL.DefaultTTL
+)
+
 // TTLConfig holds configurable TTL values for different data types
 type TTLConfig struct {
 	PlayerStats   time.Duration `json:"player_stats_ttl"`

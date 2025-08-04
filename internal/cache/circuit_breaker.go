@@ -13,7 +13,7 @@ type CircuitState int
 
 const (
 	CircuitClosed CircuitState = iota // Normal operation
-	CircuitOpen                       // Failing, blocking requests
+	CircuitOpen                       // Failing, blocking requests  
 	CircuitHalfOpen                   // Testing if service recovered
 )
 
@@ -113,7 +113,7 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 		cb.openCircuit()
 	}
 	
-	switch cb.state {
+	switch state := cb.state; state {
 	case CircuitOpen:
 		// Circuit is open, check if we should try half-open
 		if time.Since(cb.lastFailureTime) > cb.config.ResetTimeout {
@@ -134,6 +134,10 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 		
 	case CircuitClosed:
 		// Normal operation
+		
+	default:
+		// Should not happen, but handle gracefully
+		log.Warn("Circuit breaker in unknown state, treating as closed")
 	}
 	
 	// Execute the function
@@ -238,7 +242,8 @@ func (cb *CircuitBreaker) handleFailure(err error) {
 		// Failure in half-open state, go back to open
 		cb.state = CircuitOpen
 		cb.successes = 0
-		log.Warn("Circuit breaker returned to open state after half-open failure")
+		log.Warn("Circuit breaker returned to open state after half-open failure", 
+			"error", err)
 	}
 }
 
@@ -309,7 +314,7 @@ func (cb *CircuitBreaker) GetState() CircuitState {
 
 // getStateString returns human-readable state
 func (cb *CircuitBreaker) getStateString() string {
-	switch cb.state {
+	switch state := cb.state; state {
 	case CircuitClosed:
 		return "closed"
 	case CircuitOpen:
