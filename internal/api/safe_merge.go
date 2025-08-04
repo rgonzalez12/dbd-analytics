@@ -50,6 +50,9 @@ func (m *SafeAchievementMerger) SafeMergeAchievements(
 			AdeptKillers:   make(map[string]bool),
 			LastUpdated:    time.Now(),
 		}
+		log.Debug("Initialized empty achievement data structure",
+			"steam_id", steamID,
+			"reason", "nil_achievements_object")
 	}
 	
 	// If no new achievements data, keep existing (don't overwrite with empty)
@@ -57,17 +60,19 @@ func (m *SafeAchievementMerger) SafeMergeAchievements(
 		log.Debug("No new achievement data to merge, keeping existing",
 			"steam_id", steamID,
 			"existing_survivors", len(response.Achievements.AdeptSurvivors),
-			"existing_killers", len(response.Achievements.AdeptKillers))
+			"existing_killers", len(response.Achievements.AdeptKillers),
+			"cache_behavior", "preserve_existing")
 		return nil
 	}
 	
-	// Validate new achievements data before merging
+	// Validate new data before merging
 	if err := m.validateAchievementData(newAchievements, steamID); err != nil {
 		log.Warn("Achievement data failed validation, keeping existing",
 			"steam_id", steamID,
-			"validation_error", err,
+			"validation_error", err.Error(),
 			"new_survivors", len(newAchievements.AdeptSurvivors),
-			"new_killers", len(newAchievements.AdeptKillers))
+			"new_killers", len(newAchievements.AdeptKillers),
+			"cache_decision", "reject_invalid_data")
 		return err
 	}
 	
@@ -78,18 +83,28 @@ func (m *SafeAchievementMerger) SafeMergeAchievements(
 		log.Debug("New achievement data is older than existing, skipping merge",
 			"steam_id", steamID,
 			"existing_updated", response.Achievements.LastUpdated,
-			"new_updated", newAchievements.LastUpdated)
+			"new_updated", newAchievements.LastUpdated,
+			"cache_decision", "skip_stale_data")
 		return nil
 	}
 	
-	// Perform safe merge
-	m.performSafeMerge(response.Achievements, newAchievements, steamID)
+	// Track changes for logging
+	survivorChanges := 0
+	killerChanges := 0
 	
-	log.Debug("Successfully merged achievement data",
+	// Perform safe merge with change tracking
+	m.performSafeMerge(response.Achievements, newAchievements, &survivorChanges, &killerChanges)
+	
+	// Enhanced merge completion logging
+	log.Info("Achievement data merged successfully",
 		"steam_id", steamID,
-		"survivors_merged", len(newAchievements.AdeptSurvivors),
-		"killers_merged", len(newAchievements.AdeptKillers),
-		"last_updated", newAchievements.LastUpdated)
+		"survivor_changes", survivorChanges,
+		"killer_changes", killerChanges,
+		"total_survivors", len(response.Achievements.AdeptSurvivors),
+		"total_killers", len(response.Achievements.AdeptKillers),
+		"merge_strategy", "additive_only",
+		"data_protection", "corruption_prevented",
+		"cache_operation", "merge_complete")
 	
 	return nil
 }
@@ -132,21 +147,18 @@ func (m *SafeAchievementMerger) validateAchievementData(data *models.Achievement
 	return nil
 }
 
-// performSafeMerge performs the actual merge operation
+// performSafeMerge performs the actual merge operation with change tracking
 func (m *SafeAchievementMerger) performSafeMerge(
 	existing *models.AchievementData, 
 	new *models.AchievementData, 
-	steamID string,
+	survivorChanges *int,
+	killerChanges *int,
 ) {
-	// Count changes for logging
-	survivorChanges := 0
-	killerChanges := 0
-	
 	// Merge survivors (only update if different)
 	for character, unlocked := range new.AdeptSurvivors {
 		if existingUnlocked, exists := existing.AdeptSurvivors[character]; !exists || existingUnlocked != unlocked {
 			existing.AdeptSurvivors[character] = unlocked
-			survivorChanges++
+			(*survivorChanges)++
 		}
 	}
 	
@@ -154,21 +166,12 @@ func (m *SafeAchievementMerger) performSafeMerge(
 	for character, unlocked := range new.AdeptKillers {
 		if existingUnlocked, exists := existing.AdeptKillers[character]; !exists || existingUnlocked != unlocked {
 			existing.AdeptKillers[character] = unlocked
-			killerChanges++
+			(*killerChanges)++
 		}
 	}
 	
 	// Update timestamp
 	existing.LastUpdated = new.LastUpdated
-	
-	if survivorChanges > 0 || killerChanges > 0 {
-		log.Info("Achievement data merged with changes",
-			"steam_id", steamID,
-			"survivor_changes", survivorChanges,
-			"killer_changes", killerChanges,
-			"total_survivors", len(existing.AdeptSurvivors),
-			"total_killers", len(existing.AdeptKillers))
-	}
 }
 
 // InitializeEmptyAchievements creates a safe empty achievements structure

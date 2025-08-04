@@ -88,6 +88,29 @@ func LoadAPIConfigFromEnv() APIConfig {
 	config.RateLimit = getEnvInt("RATE_LIMIT_PER_MIN", config.RateLimit)
 	config.BurstLimit = getEnvInt("BURST_LIMIT", config.BurstLimit)
 	
+	// Apply validation and fix invalid values
+	if config.CBMaxFails <= 0 {
+		config.CBMaxFails = 5
+	}
+	if config.CBResetTimeoutSecs <= 0 {
+		config.CBResetTimeoutSecs = 60
+	}
+	if config.APITimeoutSecs <= 0 {
+		config.APITimeoutSecs = 10
+	}
+	if config.MaxRetries < 0 {
+		config.MaxRetries = 3
+	}
+	if config.BaseBackoffMs <= 0 {
+		config.BaseBackoffMs = 250
+	}
+	if config.MaxBackoffMs <= config.BaseBackoffMs {
+		config.MaxBackoffMs = config.BaseBackoffMs * 10
+	}
+	if config.RateLimit <= 0 {
+		config.RateLimit = 100
+	}
+	
 	// Compute derived fields
 	config.APITimeout = time.Duration(config.APITimeoutSecs) * time.Second
 	config.OverallTimeout = time.Duration(config.OverallTimeoutSecs) * time.Second

@@ -35,18 +35,19 @@ func NewParallelFetcher(config APIConfig, steamClient SteamClientInterface) *Par
 	}
 }
 
-// FetchResult holds the results of parallel fetch operations
+// FetchResult holds the results of parallel fetch operations with guaranteed shape consistency
 type FetchResult struct {
 	Stats        models.PlayerStats
-	Achievements *models.AchievementData
+	Achievements *models.AchievementData // Always non-nil, may be empty on failure
 	StatsError   error
 	AchError     error
-	StatsSource  string
-	AchSource    string
+	StatsSource  string // "cache" | "api" | "fallback"
+	AchSource    string // "cache" | "api" | "fallback" | "unavailable"
 	Duration     time.Duration
+	DataSources  models.DataSourceStatus // Detailed source tracking
 }
 
-// FetchPlayerDataParallel fetches stats and achievements in parallel with enhanced error handling
+// FetchPlayerDataParallel fetches stats and achievements with fail-soft error handling
 func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID string) (*FetchResult, error) {
 	start := time.Now()
 	
@@ -54,62 +55,129 @@ func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID s
 	ctx, cancel := context.WithTimeout(ctx, f.config.OverallTimeout)
 	defer cancel()
 	
-	result := &FetchResult{}
+	// Initialize result with safe defaults - ensures consistent data shape
+	result := &FetchResult{
+		Achievements: &models.AchievementData{
+			AdeptSurvivors: make(map[string]bool),
+			AdeptKillers:   make(map[string]bool),
+			LastUpdated:    time.Now(),
+		},
+		DataSources: models.DataSourceStatus{
+			Stats: models.DataSourceInfo{
+				Success:   false,
+				Source:    "unknown",
+				FetchedAt: time.Now(),
+			},
+			Achievements: models.DataSourceInfo{
+				Success:   false,
+				Source:    "unknown", 
+				FetchedAt: time.Now(),
+			},
+		},
+	}
 	
 	// Use errgroup for safer parallel execution
 	g, gCtx := errgroup.WithContext(ctx)
 	
-	// Fetch player stats with retry and backoff
+	// Fetch player stats - CRITICAL PATH
 	g.Go(func() error {
 		result.Stats, result.StatsError, result.StatsSource = f.fetchStatsWithRetry(gCtx, steamID)
 		
-		// Stats are critical - if they fail, fail the whole operation
+		// Update data source tracking
+		result.DataSources.Stats = models.DataSourceInfo{
+			Success:   result.StatsError == nil,
+			Source:    result.StatsSource,
+			FetchedAt: time.Now(),
+		}
+		
 		if result.StatsError != nil {
-			log.Error("Critical: Stats fetch failed",
+			result.DataSources.Stats.Error = result.StatsError.Error()
+			log.Error("Critical: Stats fetch failed - blocking operation",
 				"steam_id", steamID,
 				"error", result.StatsError,
 				"error_type", classifyError(result.StatsError),
-				"source", result.StatsSource)
+				"source", result.StatsSource,
+				"impact", "user_will_see_error")
 			return fmt.Errorf("stats fetch failed: %w", result.StatsError)
 		}
+		
+		log.Info("Stats fetch successful",
+			"steam_id", steamID,
+			"source", result.StatsSource,
+			"duration_ms", time.Since(start).Milliseconds())
 		
 		return nil
 	})
 	
-	// Fetch achievements with retry and backoff (non-critical)
+	// Fetch achievements - NON-CRITICAL PATH (fail-soft)
 	g.Go(func() error {
-		result.Achievements, result.AchError, result.AchSource = f.fetchAchievementsWithRetry(gCtx, steamID)
+		achievementData, achErr, achSource := f.fetchAchievementsWithRetry(gCtx, steamID)
 		
-		// Achievements are not critical - log error but don't fail operation
-		if result.AchError != nil {
-			errorType := classifyError(result.AchError)
-			log.Warn("Non-critical: Achievements fetch failed",
-				"steam_id", steamID,
-				"error", result.AchError,
-				"error_type", errorType,
-				"source", result.AchSource,
-				"impact", "partial_data_will_be_served")
+		result.AchError = achErr
+		result.AchSource = achSource
+		
+		// Update data source tracking
+		result.DataSources.Achievements = models.DataSourceInfo{
+			Success:   achErr == nil,
+			Source:    achSource,
+			FetchedAt: time.Now(),
 		}
 		
-		// Never return error for achievements - allow partial success
+		if achErr != nil {
+			// FAIL-SOFT: Log warning but continue with empty achievements
+			result.DataSources.Achievements.Error = achErr.Error()
+			result.AchSource = "unavailable"
+			
+			errorType := classifyError(achErr)
+			log.Warn("Non-critical: Achievements fetch failed - continuing with empty data",
+				"steam_id", steamID,
+				"error", achErr,
+				"error_type", errorType,
+				"source", achSource,
+				"impact", "user_gets_stats_without_achievements",
+				"fallback_behavior", "empty_achievement_data")
+		} else {
+			// Success: Use fetched data
+			if achievementData != nil {
+				result.Achievements = achievementData
+			}
+			log.Info("Achievements fetch successful",
+				"steam_id", steamID,
+				"source", achSource,
+				"survivor_count", len(result.Achievements.AdeptSurvivors),
+				"killer_count", len(result.Achievements.AdeptKillers))
+		}
+		
+		// Never return error for achievements - always allow graceful degradation
 		return nil
 	})
 	
 	// Wait for all operations to complete
 	if err := g.Wait(); err != nil {
 		result.Duration = time.Since(start)
+		
+		// Even on stats failure, ensure achievements object exists
+		if result.Achievements == nil {
+			result.Achievements = &models.AchievementData{
+				AdeptSurvivors: make(map[string]bool),
+				AdeptKillers:   make(map[string]bool),
+				LastUpdated:    time.Now(),
+			}
+		}
+		
 		return result, err
 	}
 	
 	result.Duration = time.Since(start)
 	
-	log.Info("Parallel fetch completed",
+	log.Info("Parallel fetch completed successfully",
 		"steam_id", steamID,
 		"stats_success", result.StatsError == nil,
 		"achievements_success", result.AchError == nil,
 		"stats_source", result.StatsSource,
 		"achievements_source", result.AchSource,
-		"total_duration", result.Duration)
+		"total_duration_ms", result.Duration.Milliseconds(),
+		"data_consistency", "guaranteed")
 	
 	return result, nil
 }
