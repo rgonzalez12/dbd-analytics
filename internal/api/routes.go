@@ -1,11 +1,21 @@
 package api
 
 import (
+	"time"
 	"github.com/gorilla/mux"
 )
 
 func RegisterRoutes(router *mux.Router) {
 	handler := NewHandler()
+
+	// Create rate limiter (100 requests per minute per client)
+	rateLimiter := NewRequestLimiter(100, time.Minute)
+
+	// Apply global middleware for all routes
+	router.Use(RequestIDMiddleware())
+	router.Use(SecurityMiddleware())
+	router.Use(RateLimitMiddleware(rateLimiter))
+	router.Use(APIKeyMiddleware())
 
 	// Player data endpoints
 	router.HandleFunc("/player/{steamid}/summary", handler.GetPlayerSummary).Methods("GET")
@@ -15,4 +25,8 @@ func RegisterRoutes(router *mux.Router) {
 	// Cache management endpoints (useful for monitoring and debugging)
 	router.HandleFunc("/cache/stats", handler.GetCacheStats).Methods("GET")
 	router.HandleFunc("/cache/evict", handler.EvictExpiredEntries).Methods("POST")
+
+	// Health and metrics endpoints
+	router.HandleFunc("/health", handler.HealthCheck).Methods("GET")
+	router.HandleFunc("/metrics", handler.GetMetrics).Methods("GET")
 }

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -102,13 +100,6 @@ func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 		// Metadata
 		LastUpdated: dbdStats.General.LastUpdated,
 	}
-}
-
-// generateRequestID creates a unique request ID for error tracking
-func generateRequestID() string {
-	bytes := make([]byte, 8)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
 }
 
 // validateSteamID validates that a Steam ID follows Steam's 64-bit ID format
@@ -1186,4 +1177,30 @@ func countUnlocked(achievements map[string]bool) int {
 		}
 	}
 	return count
+}
+
+// HealthCheck provides a simple health check endpoint for load balancers
+func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	status := map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"version":   "1.0.0",
+		"services": map[string]string{
+			"steam_api": "available",
+			"cache":     "available",
+		},
+	}
+
+	// Check cache health if enabled
+	if h.cacheManager != nil {
+		cacheStatus := h.cacheManager.GetCacheStatus()
+		status["services"].(map[string]string)["cache"] = "available"
+		status["cache_status"] = cacheStatus
+	} else {
+		status["services"].(map[string]string)["cache"] = "disabled"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(status)
 }

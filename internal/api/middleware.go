@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,6 +14,38 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
+
+// RequestIDMiddleware adds a unique request ID to each request for tracing
+func RequestIDMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestID := generateRequestID()
+			
+			// Add to response headers for client reference
+			w.Header().Set("X-Request-ID", requestID)
+			
+			// Add to request context for handler access
+			ctx := context.WithValue(r.Context(), "request_id", requestID)
+			
+			// Log request start with ID
+			log.Info("Request started",
+				"request_id", requestID,
+				"method", r.Method,
+				"path", r.URL.Path,
+				"remote_addr", r.RemoteAddr,
+				"user_agent", r.Header.Get("User-Agent"))
+			
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// generateRequestID creates a unique request identifier
+func generateRequestID() string {
+	bytes := make([]byte, 8)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
 
 // RequestLimiter implements token bucket rate limiting
 type RequestLimiter struct {
@@ -96,23 +131,31 @@ func (rl *RequestLimiter) cleanupRoutine() {
 	}
 }
 
-// RateLimitMiddleware creates HTTP middleware for rate limiting
+// RateLimitMiddleware creates HTTP middleware for rate limiting with enhanced client identification
 func RateLimitMiddleware(limiter *RequestLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Extract client identifier (prefer real IP over proxy headers)
-			clientID := getClientIP(r)
+			// Use client fingerprint for more accurate rate limiting
+			clientFingerprint, ok := r.Context().Value("client_fingerprint").(string)
+			if !ok {
+				// Fallback to IP if fingerprint not available
+				clientFingerprint = getClientIP(r)
+			}
 
-			if !limiter.Allow(clientID) {
+			if !limiter.Allow(clientFingerprint) {
 				log.Warn("Rate limit exceeded",
-					"client_ip", clientID,
+					"client_fingerprint", clientFingerprint,
 					"user_agent", r.UserAgent(),
 					"endpoint", r.URL.Path,
-					"method", r.Method)
+					"method", r.Method,
+					"max_requests", limiter.maxReqs,
+					"window", limiter.window)
 
-				// Return structured error response consistent with our API
+				// Enhanced rate limit headers
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", strconv.Itoa(int(limiter.window.Seconds())))
+				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limiter.maxReqs))
+				w.Header().Set("X-RateLimit-Window", limiter.window.String())
 
 				// Use our existing error response structure
 				apiErr := steam.NewRateLimitErrorWithRetryAfter(int(limiter.window.Seconds()))
@@ -164,29 +207,76 @@ func parseIPFromRemoteAddr(addr string) string {
 	return addr
 }
 
-// SecurityMiddleware adds security headers
+// SecurityMiddleware adds security headers and enhanced protection
 func SecurityMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Security headers
+			// Enhanced security headers
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
 
-			// CORS headers for API
-			w.Header().Set("Access-Control-Allow-Origin", "*") // Configure appropriately for production
+			// CORS headers for API (restrict in production)
+			allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
+			if allowedOrigins == "" {
+				allowedOrigins = "*" // Development fallback
+			}
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigins)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+			w.Header().Set("Access-Control-Max-Age", "3600")
 
+			// Block suspicious requests
+			userAgent := r.Header.Get("User-Agent")
+			if userAgent == "" || len(userAgent) > 512 {
+				http.Error(w, "Invalid request", http.StatusBadRequest)
+				return
+			}
+
+			// Rate limit per user agent + IP combination for better protection
+			clientFingerprint := getClientFingerprint(r)
+			
+			// Add client fingerprint to context for downstream middleware
+			ctx := context.WithValue(r.Context(), "client_fingerprint", clientFingerprint)
+			
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
 
-			next.ServeHTTP(w, r)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// getClientFingerprint creates a unique identifier for rate limiting
+func getClientFingerprint(r *http.Request) string {
+	// Combine IP, User-Agent hash, and API key for unique fingerprinting
+	clientIP := getClientIP(r)
+	userAgent := r.Header.Get("User-Agent")
+	apiKey := r.Header.Get("X-API-Key")
+	
+	// Create a simple hash for privacy
+	fingerprint := clientIP
+	if len(userAgent) > 0 {
+		fingerprint += "_" + userAgent[:min(50, len(userAgent))] // Truncate for security
+	}
+	if len(apiKey) > 0 {
+		fingerprint += "_" + apiKey[:8] // Use first 8 chars of API key
+	}
+	
+	return fingerprint
+}
+
+// min returns the smaller of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // APIKeyMiddleware provides optional API key authentication for public endpoints
