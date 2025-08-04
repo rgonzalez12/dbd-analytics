@@ -8,6 +8,10 @@ import (
 )
 
 func TestLiveSteamAPI(t *testing.T) {
+    if testing.Short() {
+        t.Skip("Skipping live API tests in short mode")
+    }
+    
     key := os.Getenv("STEAM_API_KEY")
     if key == "" {
         t.Skip("Skipping live API tests: STEAM_API_KEY not set")

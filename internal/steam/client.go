@@ -244,6 +244,7 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 	params.Set("key", c.apiKey)
 	params.Set("steamid", steamID64)
 	params.Set("appid", appID)
+	params.Set("l", "english") // Add language parameter for localized names
 
 	var resp playerAchievementsResponse
 	
