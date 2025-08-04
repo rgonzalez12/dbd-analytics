@@ -75,14 +75,17 @@ func getPort() string {
 
 func setupRouter() *mux.Router {
 	r := mux.NewRouter()
-	
+
 	// Apply security middleware first
 	r.Use(api.SecurityMiddleware())
-	
+
+	// Apply API key middleware (optional, only if API_KEY env var is set)
+	r.Use(api.APIKeyMiddleware())
+
 	// Apply rate limiting middleware
 	limiter := api.NewRequestLimiter(100, time.Minute) // 100 requests per minute
 	r.Use(api.RateLimitMiddleware(limiter))
-	
+
 	// Apply logging middleware last for complete request logging
 	r.Use(loggingMiddleware)
 

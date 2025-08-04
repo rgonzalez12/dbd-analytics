@@ -58,6 +58,24 @@ func NewRateLimitErrorWithRetryAfter(retryAfter int) *APIError {
 	}
 }
 
+func NewUnauthorizedError(message string) *APIError {
+	return &APIError{
+		Type:       ErrorTypeValidation,
+		Message:    message,
+		StatusCode: http.StatusUnauthorized,
+		Retryable:  false,
+	}
+}
+
+func NewForbiddenError(message string) *APIError {
+	return &APIError{
+		Type:       ErrorTypeValidation,
+		Message:    message,
+		StatusCode: http.StatusForbidden,
+		Retryable:  false,
+	}
+}
+
 func NewNotFoundError(resource string) *APIError {
 	return &APIError{
 		Type:       ErrorTypeNotFound,

@@ -432,7 +432,7 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting: only allow one eviction per 30 seconds
 	if !h.checkEvictionRateLimit(r) {
 		w.Header().Set("Retry-After", "30")
-		http.Error(w, "rate limit exceeded. Try again in 30 seconds.", http.StatusTooManyRequests)
+		writeErrorResponse(w, steam.NewRateLimitErrorWithRetryAfter(30))
 		return
 	}
 
@@ -443,7 +443,7 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 			"client_ip", r.RemoteAddr,
 			"user_agent", r.UserAgent(),
 			"path", r.URL.Path)
-		http.Error(w, "Admin token required", http.StatusUnauthorized)
+		writeErrorResponse(w, steam.NewUnauthorizedError("Admin token required"))
 		return
 	}
 
@@ -453,7 +453,7 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 			"user_agent", r.UserAgent(),
 			"path", r.URL.Path,
 			"token_provided", true)
-		http.Error(w, "Invalid admin token", http.StatusForbidden)
+		writeErrorResponse(w, steam.NewForbiddenError("Invalid admin token"))
 		return
 	}
 
@@ -537,11 +537,11 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	// Security: Only allow metrics scraping from specific IPs in production
 	if !h.isMetricsAccessAllowed(r) {
-		http.Error(w, "Metrics access denied", http.StatusForbidden)
 		log.Warn("Metrics access denied",
 			"remote_addr", r.RemoteAddr,
 			"user_agent", r.UserAgent(),
 			"security_concern", "unauthorized_metrics_access")
+		writeErrorResponse(w, steam.NewForbiddenError("Metrics access denied"))
 		return
 	}
 
@@ -1073,8 +1073,52 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
 	}
 
-	// Process achievements into our format
-	processedAchievements := steam.ProcessAchievements(rawAchievements.Achievements)
+	// Map achievements using the new mapping service
+	mappedData := steam.GetMappedAchievements(rawAchievements)
+	mappedAchievements := mappedData["achievements"].([]steam.AchievementMapping)
+	summary := mappedData["summary"].(map[string]interface{})
+
+	// Convert to models format
+	processedAchievements := &models.AchievementData{
+		AdeptSurvivors:     make(map[string]bool), // Legacy format
+		AdeptKillers:       make(map[string]bool), // Legacy format
+		MappedAchievements: make([]models.MappedAchievement, len(mappedAchievements)),
+		Summary: models.AchievementSummary{
+			TotalAchievements: summary["total_achievements"].(int),
+			UnlockedCount:     summary["unlocked_count"].(int),
+			SurvivorCount:     summary["survivor_count"].(int),
+			KillerCount:       summary["killer_count"].(int),
+			GeneralCount:      summary["general_count"].(int),
+			AdeptSurvivors:    summary["adept_survivors"].([]string),
+			AdeptKillers:      summary["adept_killers"].([]string),
+			CompletionRate:    summary["completion_rate"].(float64),
+		},
+		LastUpdated: time.Now(),
+	}
+
+	// Convert mapped achievements to models format and populate legacy maps
+	for i, mapped := range mappedAchievements {
+		processedAchievements.MappedAchievements[i] = models.MappedAchievement{
+			ID:          mapped.ID,
+			Name:        mapped.Name,
+			DisplayName: mapped.DisplayName,
+			Description: mapped.Description,
+			Character:   mapped.Character,
+			Type:        mapped.Type,
+			Unlocked:    mapped.Unlocked,
+			UnlockTime:  mapped.UnlockTime,
+		}
+
+		// Populate legacy maps for backward compatibility
+		if mapped.Character != "" && mapped.Unlocked {
+			switch mapped.Type {
+			case "survivor":
+				processedAchievements.AdeptSurvivors[mapped.Character] = true
+			case "killer":
+				processedAchievements.AdeptKillers[mapped.Character] = true
+			}
+		}
+	}
 
 	// Cache the achievements with longer TTL
 	if h.cacheManager != nil {

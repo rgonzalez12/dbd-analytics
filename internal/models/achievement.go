@@ -4,9 +4,39 @@ import "time"
 
 // AchievementData represents processed achievement information for a player
 type AchievementData struct {
+	// Legacy format for backward compatibility
 	AdeptSurvivors map[string]bool `json:"adept_survivors"` // character name -> unlocked status
 	AdeptKillers   map[string]bool `json:"adept_killers"`   // character name -> unlocked status
-	LastUpdated    time.Time       `json:"last_updated"`
+
+	// Enhanced achievement data with mapping
+	MappedAchievements []MappedAchievement `json:"mapped_achievements,omitempty"`
+	Summary            AchievementSummary  `json:"summary,omitempty"`
+
+	LastUpdated time.Time `json:"last_updated"`
+}
+
+// MappedAchievement represents a single achievement with human-readable information
+type MappedAchievement struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Description string `json:"description"`
+	Character   string `json:"character,omitempty"`
+	Type        string `json:"type"` // "survivor", "killer", or "general"
+	Unlocked    bool   `json:"unlocked"`
+	UnlockTime  int64  `json:"unlock_time,omitempty"`
+}
+
+// AchievementSummary provides statistical overview of achievements
+type AchievementSummary struct {
+	TotalAchievements int      `json:"total_achievements"`
+	UnlockedCount     int      `json:"unlocked_count"`
+	SurvivorCount     int      `json:"survivor_count"`
+	KillerCount       int      `json:"killer_count"`
+	GeneralCount      int      `json:"general_count"`
+	AdeptSurvivors    []string `json:"adept_survivors"`
+	AdeptKillers      []string `json:"adept_killers"`
+	CompletionRate    float64  `json:"completion_rate"`
 }
 
 // PlayerStatsWithAchievements represents the enhanced response with both stats and achievements

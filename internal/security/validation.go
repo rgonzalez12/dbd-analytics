@@ -10,9 +10,9 @@ import (
 
 // SecurityConfig holds security-related configuration
 type SecurityConfig struct {
-	SteamAPIKey       string
-	RequiredEnvVars   []string
-	SensitiveEnvVars  []string
+	SteamAPIKey      string
+	RequiredEnvVars  []string
+	SensitiveEnvVars []string
 }
 
 // ValidateEnvironment performs security checks on environment variables
@@ -42,7 +42,7 @@ func ValidateEnvironment() error {
 			log.Warn("Steam API key length is not standard (expected 32 characters)",
 				"actual_length", len(steamKey))
 		}
-		
+
 		// Check if it contains only alphanumeric characters
 		for _, char := range steamKey {
 			if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')) {
@@ -54,7 +54,7 @@ func ValidateEnvironment() error {
 
 	// Log security audit (without sensitive values)
 	logSecurityAudit(config)
-	
+
 	return nil
 }
 
@@ -67,7 +67,7 @@ func logSecurityAudit(config SecurityConfig) {
 		"cache_eviction_token_configured", os.Getenv("CACHE_EVICTION_TOKEN") != "",
 		"log_level", os.Getenv("LOG_LEVEL"),
 		"port", os.Getenv("PORT"))
-		
+
 	// Log environment variables that are set (excluding sensitive ones)
 	var setEnvVars []string
 	for _, envVar := range []string{"LOG_LEVEL", "PORT", "WORKDIR"} {
@@ -75,7 +75,7 @@ func logSecurityAudit(config SecurityConfig) {
 			setEnvVars = append(setEnvVars, envVar)
 		}
 	}
-	
+
 	if len(setEnvVars) > 0 {
 		log.Info("Non-sensitive environment variables configured",
 			"variables", strings.Join(setEnvVars, ", "))
@@ -93,28 +93,28 @@ func sanitizeForLogging(input string) string {
 // validateProductionReadiness checks if the application is ready for production
 func validateProductionReadiness() error {
 	warnings := []string{}
-	
+
 	// Check for debug configurations
 	if os.Getenv("LOG_LEVEL") == "debug" {
 		warnings = append(warnings, "DEBUG logging enabled in production")
 	}
-	
+
 	// Check for required security configurations
 	if os.Getenv("CACHE_EVICTION_TOKEN") == "" {
 		warnings = append(warnings, "CACHE_EVICTION_TOKEN not set - cache eviction endpoint will be unprotected")
 	}
-	
+
 	// Log warnings
 	for _, warning := range warnings {
 		log.Warn("Production readiness warning", "issue", warning)
 	}
-	
+
 	if len(warnings) > 0 {
 		log.Warn("Production readiness check completed with warnings",
 			"warning_count", len(warnings))
 	} else {
 		log.Info("Production readiness check passed")
 	}
-	
+
 	return nil
 }

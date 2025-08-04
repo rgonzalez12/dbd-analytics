@@ -17,28 +17,28 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 	}
 
 	scenarios := []struct {
-		name           string
-		steamID        string
-		expectedStatus int
+		name            string
+		steamID         string
+		expectedStatus  int
 		shouldHaveError bool
 	}{
 		{
-			name:           "Invalid Steam ID Format",
-			steamID:        "invalid_id",
-			expectedStatus: http.StatusBadRequest,
+			name:            "Invalid Steam ID Format",
+			steamID:         "invalid_id",
+			expectedStatus:  http.StatusBadRequest,
 			shouldHaveError: true,
 		},
 		{
-			name:           "Non-existent Steam ID",
-			steamID:        "76561198000000001", // Likely non-existent
-			expectedStatus: http.StatusNotFound,
+			name:            "Non-existent Steam ID",
+			steamID:         "76561198000000001", // Likely non-existent
+			expectedStatus:  http.StatusNotFound,
 			shouldHaveError: true,
 		},
 		{
-			name:           "Valid Steam ID Format",
-			steamID:        "76561198000000000", // Valid format but may not exist
-			expectedStatus: 0, // Status depends on Steam API response
-			shouldHaveError: false, // May or may not error depending on Steam
+			name:            "Valid Steam ID Format",
+			steamID:         "76561198000000000", // Valid format but may not exist
+			expectedStatus:  0,                   // Status depends on Steam API response
+			shouldHaveError: false,               // May or may not error depending on Steam
 		},
 	}
 
@@ -155,7 +155,7 @@ func TestConcurrentRequestHandling(t *testing.T) {
 	}
 
 	handler := NewHandler()
-	
+
 	// Create multiple concurrent requests
 	const numRequests = 50
 	results := make(chan int, numRequests)
