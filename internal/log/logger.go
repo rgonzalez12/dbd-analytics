@@ -77,3 +77,49 @@ func WithContext(args ...any) *slog.Logger {
 	}
 	return Logger.With(args...)
 }
+
+// Structured logging helpers for consistent field formatting
+
+// PlayerContext creates a structured logger with player-specific context
+func PlayerContext(playerID string) *slog.Logger {
+	return WithContext("player_id", playerID)
+}
+
+// SteamAPIContext creates a structured logger with Steam API context
+func SteamAPIContext(playerID, endpoint string) *slog.Logger {
+	return WithContext(
+		"player_id", playerID,
+		"endpoint", endpoint,
+		"api_provider", "steam",
+	)
+}
+
+// HTTPRequestContext creates a structured logger with HTTP request context
+func HTTPRequestContext(method, path, playerID, clientIP string) *slog.Logger {
+	return WithContext(
+		"method", method,
+		"path", path,
+		"player_id", playerID,
+		"client_ip", clientIP,
+		"request_type", "http",
+	)
+}
+
+// ErrorContext creates a structured logger with error context
+func ErrorContext(errorType, playerID string) *slog.Logger {
+	return WithContext(
+		"error_type", errorType,
+		"player_id", playerID,
+		"severity", "error",
+	)
+}
+
+// PerformanceContext creates a structured logger with performance metrics
+func PerformanceContext(operation, playerID string, durationMs float64) *slog.Logger {
+	return WithContext(
+		"operation", operation,
+		"player_id", playerID,
+		"duration_ms", durationMs,
+		"metric_type", "performance",
+	)
+}

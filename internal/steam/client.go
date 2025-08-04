@@ -30,31 +30,43 @@ func getAchievementsTimeout() time.Duration {
 
 // logSteamError provides consistent Steam API error logging with player context
 func logSteamError(level string, msg string, playerID string, err error, additionalFields ...interface{}) {
+	logger := log.SteamAPIContext(playerID, "steam_api")
+	
 	fields := []interface{}{
-		"player_id", playerID,
 		"error", err.Error(),
 	}
 	fields = append(fields, additionalFields...)
 	
 	switch level {
 	case "ERROR":
-		log.Error(msg, fields...)
+		logger.Error(msg, fields...)
 	case "WARN":
-		log.Warn(msg, fields...)
+		logger.Warn(msg, fields...)
 	case "DEBUG":
-		log.Debug(msg, fields...)
+		logger.Debug(msg, fields...)
 	default:
-		log.Info(msg, fields...)
+		logger.Info(msg, fields...)
 	}
 }
 
 // logSteamInfo provides consistent Steam API info logging with player context
 func logSteamInfo(msg string, playerID string, additionalFields ...interface{}) {
+	logger := log.SteamAPIContext(playerID, "steam_api")
+	logger.Info(msg, additionalFields...)
+}
+
+// logSteamPerformance provides performance-focused logging with metrics
+func logSteamPerformance(operation, playerID, endpoint string, durationMs float64, additionalFields ...interface{}) {
+	logger := log.PerformanceContext(operation, playerID, durationMs).With(
+		"endpoint", endpoint,
+		"api_provider", "steam",
+	)
+	
 	fields := []interface{}{
-		"player_id", playerID,
+		"operation_success", true,
 	}
 	fields = append(fields, additionalFields...)
-	log.Info(msg, fields...)
+	logger.Info("Steam API operation completed", fields...)
 }
 
 type Client struct {
@@ -89,7 +101,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	logSteamInfo("Starting player summary request", steamIDOrVanity, "steam_id_or_vanity", steamIDOrVanity)
+	log.PlayerContext(steamIDOrVanity).Info("Starting player summary request", "steam_id_or_vanity", steamIDOrVanity)
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
@@ -106,6 +118,10 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 	}
 
 	endpoint := fmt.Sprintf("%s/ISteamUser/GetPlayerSummaries/v0002/", BaseURL)
+	logger := log.SteamAPIContext(steamIDOrVanity, endpoint)
+	
+	logger.Info("Executing player summary request", "resolved_steam_id", steamID64)
+	
 	params := url.Values{}
 	params.Set("key", c.apiKey)
 	params.Set("steamids", steamID64)
@@ -139,9 +155,12 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, notFoundErr
 	}
 
-	logSteamInfo("Successfully retrieved player summary", steamID64,
+	// Log successful operation with performance metrics
+	durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+	logSteamPerformance("GetPlayerSummary", steamID64, endpoint, durationMs,
 		"persona_name", resp.Response.Players[0].PersonaName,
-		"duration", time.Since(start))
+		"status_code", 200)
+	
 	return &resp.Response.Players[0], nil
 }
 

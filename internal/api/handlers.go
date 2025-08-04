@@ -173,18 +173,13 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
 	
 	// Create structured logger with comprehensive request context
-	requestLogger := log.WithContext(
-		"steam_id", steamID,
-		"client_ip", r.RemoteAddr,
-		"method", r.Method,
-		"path", r.URL.Path,
-	)
+	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 	
 	// Validate Steam ID format before making any external API calls
 	if err := validateSteamIDOrVanity(steamID); err != nil {
-		requestLogger.Warn("Invalid Steam ID format in GetPlayerSummary",
+		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerSummary",
 			"user_agent", r.UserAgent(),
-			"error", err.Message,
+			"error_message", err.Message,
 			"validation_type", string(err.Type))
 		writeErrorResponse(w, err)
 		return
@@ -198,9 +193,9 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
 			if summary, ok := cached.(*steam.SteamPlayer); ok {
 				cacheHit = true
-				requestLogger.Info("Cache hit for player summary",
+				durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+				log.PerformanceContext("cache_hit", steamID, durationMs).Info("Cache hit for player summary",
 					"persona_name", summary.PersonaName,
-					"duration", time.Since(start),
 					"cache_key", cacheKey,
 					"cache_status", "hit")
 				writeJSONResponse(w, summary)
@@ -208,7 +203,7 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// Invalid cache entry type - this indicates a cache corruption issue
 				h.cacheManager.GetCache().Delete(cacheKey)
-				requestLogger.Error("Cache corruption detected: invalid entry type",
+				log.ErrorContext("cache_corruption", steamID).Error("Cache corruption detected: invalid entry type",
 					"cache_key", cacheKey,
 					"expected_type", "*steam.SteamPlayer",
 					"action", "cache_entry_removed")
@@ -220,16 +215,18 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	requestLogger.Info("Processing player summary request", "cache_hit", cacheHit)
+	requestLogger.Info("Processing player summary request", 
+		"cache_hit", cacheHit,
+		"operation", "steam_api_call")
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
 		// Log Steam API errors with comprehensive context for debugging
-		requestLogger.Error("Failed to get player summary",
-			"error", err.Message,
-			"error_type", string(err.Type),
+		durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+		log.ErrorContext(string(err.Type), steamID).Error("Failed to get player summary",
+			"error_message", err.Message,
 			"retryable", err.Retryable,
-			"duration", time.Since(start))
+			"duration_ms", durationMs)
 		writeErrorResponse(w, err)
 		return
 	}
@@ -258,9 +255,9 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	requestLogger.Info("Successfully processed player summary request",
+	durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+	log.PerformanceContext("player_summary_success", steamID, durationMs).Info("Successfully processed player summary request",
 		"persona_name", summary.PersonaName,
-		"duration", time.Since(start),
 		"cache_hit", cacheHit)
 	writeJSONResponse(w, summary)
 }
@@ -270,18 +267,13 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
 	
 	// Create structured logger with comprehensive request context
-	requestLogger := log.WithContext(
-		"steam_id", steamID,
-		"client_ip", r.RemoteAddr,
-		"method", r.Method,
-		"path", r.URL.Path,
-	)
+	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 	
 	// Validate Steam ID format before processing
 	if err := validateSteamIDOrVanity(steamID); err != nil {
-		requestLogger.Warn("Invalid Steam ID format in GetPlayerStats",
+		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerStats",
 			"user_agent", r.UserAgent(),
-			"error", err.Message,
+			"error_message", err.Message,
 			"validation_type", string(err.Type))
 		writeErrorResponse(w, err)
 		return
@@ -295,9 +287,9 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
 			if playerStats, ok := cached.(models.PlayerStats); ok {
 				cacheHit = true
-				requestLogger.Info("Cache hit for player stats",
+				durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+				log.PerformanceContext("cache_hit", steamID, durationMs).Info("Cache hit for player stats",
 					"display_name", playerStats.DisplayName,
-					"duration", time.Since(start),
 					"cache_key", cacheKey)
 				writeJSONResponse(w, playerStats)
 				return
