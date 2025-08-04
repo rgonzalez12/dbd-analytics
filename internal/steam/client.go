@@ -357,7 +357,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 				"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
 				"error_type", "network_error",
 				"attempt", attempt+1)
-			lastErr = NewNetworkError(err)
+			lastErr = NewNetworkError(fmt.Errorf("error making GET request to %s: %w", apiURL, err))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
 				return lastErr
 			}
@@ -400,7 +400,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 				"duration", requestDuration,
 				"error_type", "http_error",
 				"attempt", attempt+1)
-			lastErr = NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d", resp.StatusCode))
+			lastErr = NewAPIError(resp.StatusCode, fmt.Sprintf("HTTP %d from %s", resp.StatusCode, apiURL))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
 				return lastErr
 			}
@@ -414,7 +414,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 				"endpoint", endpoint,
 				"duration", requestDuration,
 				"attempt", attempt+1)
-			lastErr = NewInternalError(fmt.Errorf("failed to read response body: %w", err))
+			lastErr = NewInternalError(fmt.Errorf("failed to read response body from %s: %w", apiURL, err))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
 				return lastErr
 			}
@@ -429,7 +429,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 				"response_size", len(body),
 				"body_preview", string(body)[:min(len(body), 200)],
 				"attempt", attempt+1)
-			lastErr = NewInternalError(fmt.Errorf("failed to parse JSON response: %w", err))
+			lastErr = NewInternalError(fmt.Errorf("failed to parse JSON response from %s: %w", apiURL, err))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
 				return lastErr
 			}
