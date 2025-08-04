@@ -883,26 +883,61 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		},
 	}
 
-	// Handle different failure scenarios
+	// Handle different failure scenarios with detailed classification
 	if result.statsError != nil {
 		// Stats failed - this is critical, return error
 		response.DataSources.Stats.Error = result.statsError.Error()
-		requestLogger.Error("Failed to fetch player stats",
+		requestLogger.Error("Failed to fetch player stats - critical failure",
 			"error", result.statsError,
+			"error_type", classifyError(result.statsError),
+			"steam_id", steamID,
 			"duration", time.Since(start))
 		writeErrorResponse(w, steam.NewInternalError(result.statsError))
 		return
 	}
 
+	// Always initialize achievements to prevent frontend errors
+	response.Achievements = &models.AchievementData{
+		AdeptSurvivors: make(map[string]bool),
+		AdeptKillers:   make(map[string]bool),
+		LastUpdated:    time.Now(),
+	}
+
 	if result.achError != nil {
-		// Achievements failed but stats succeeded - return partial data
+		// Achievements failed but stats succeeded - return partial data with empty achievements
+		errorType := classifyError(result.achError)
 		response.DataSources.Achievements.Error = result.achError.Error()
-		requestLogger.Warn("Failed to fetch achievements, returning stats only",
-			"error", result.achError,
-			"persona_name", result.stats.DisplayName)
+		
+		// Log with different severity based on error type
+		if errorType == "steam_api_down" || errorType == "rate_limited" {
+			requestLogger.Error("Steam achievements API unavailable - returning stats only",
+				"error", result.achError,
+				"error_type", errorType,
+				"steam_id", steamID,
+				"persona_name", result.stats.DisplayName,
+				"impact", "partial_data_served")
+		} else if errorType == "private_profile" || errorType == "no_achievements" {
+			requestLogger.Info("Player achievements not accessible - returning stats only",
+				"error", result.achError,
+				"error_type", errorType,
+				"steam_id", steamID,
+				"persona_name", result.stats.DisplayName,
+				"reason", "expected_user_privacy_or_no_data")
+		} else {
+			requestLogger.Warn("Unexpected achievement fetch error - returning stats only",
+				"error", result.achError,
+				"error_type", errorType,
+				"steam_id", steamID,
+				"persona_name", result.stats.DisplayName)
+		}
 	} else {
-		// Both succeeded
+		// Both succeeded - populate with actual data
 		response.Achievements = result.achievements
+		requestLogger.Debug("Successfully fetched both stats and achievements",
+			"steam_id", steamID,
+			"persona_name", result.stats.DisplayName,
+			"survivor_unlocks", countUnlocked(result.achievements.AdeptSurvivors),
+			"killer_unlocks", countUnlocked(result.achievements.AdeptKillers))
 	}
 
 	// Cache the combined result
@@ -966,31 +1001,127 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 
 // fetchPlayerAchievementsWithSource fetches player achievements and returns the data source information
 func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, error, string) {
-	// Check achievements cache first
+	// Check achievements cache first - longer TTL since achievements change infrequently
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
 			if achievements, ok := cached.(*models.AchievementData); ok {
+				// Log cache hit with age information for monitoring
+				age := time.Since(achievements.LastUpdated)
+				log.Debug("Achievement cache hit",
+					"steam_id", steamID,
+					"cache_age", age,
+					"cache_key", cacheKey)
 				return achievements, nil, "cache"
+			} else {
+				// Invalid cache entry - clean it up
+				log.Warn("Invalid achievement cache entry type, removing",
+					"steam_id", steamID,
+					"cache_key", cacheKey,
+					"expected", "*models.AchievementData",
+					"actual", fmt.Sprintf("%T", cached))
+				h.cacheManager.GetCache().Delete(cacheKey)
 			}
 		}
 	}
 
-	// Fetch from Steam API
-	rawAchievements, err := h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
-	if err != nil {
-		return nil, fmt.Errorf("steam achievements failed: %w", err), "api"
+	// Use circuit breaker for Steam API protection
+	var rawAchievements *steam.PlayerAchievements
+	var apiErr error
+	
+	if h.cacheManager != nil && h.cacheManager.GetCircuitBreaker() != nil {
+		// Execute with circuit breaker protection
+		result, err := h.cacheManager.GetCircuitBreaker().ExecuteWithStaleCache(
+			cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID),
+			func() (interface{}, error) {
+				return h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
+			},
+		)
+		
+		if err != nil {
+			apiErr = err
+		} else if achievements, ok := result.(*steam.PlayerAchievements); ok {
+			rawAchievements = achievements
+		} else {
+			apiErr = fmt.Errorf("circuit breaker returned unexpected type: %T", result)
+		}
+	} else {
+		// Fallback to direct API call if no circuit breaker
+		rawAchievements, apiErr = h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
+	}
+
+	if apiErr != nil {
+		// Enhanced error logging with context
+		log.Error("Steam achievements API failed",
+			"steam_id", steamID,
+			"error", apiErr,
+			"error_type", classifyError(apiErr),
+			"circuit_breaker_active", h.cacheManager != nil && h.cacheManager.GetCircuitBreaker() != nil)
+		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
 	}
 
 	// Process achievements into our format
 	processedAchievements := steam.ProcessAchievements(rawAchievements.Achievements)
 
-	// Cache the achievements
+	// Cache the achievements with longer TTL
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
 		config := h.cacheManager.GetConfig()
-		h.cacheManager.GetCache().Set(cacheKey, processedAchievements, config.TTL.PlayerAchievements)
+		
+		if err := h.cacheManager.GetCache().Set(cacheKey, processedAchievements, config.TTL.PlayerAchievements); err != nil {
+			log.Error("Failed to cache achievements",
+				"steam_id", steamID,
+				"error", err,
+				"cache_key", cacheKey,
+				"ttl", config.TTL.PlayerAchievements)
+		} else {
+			log.Debug("Achievements cached successfully",
+				"steam_id", steamID,
+				"cache_key", cacheKey,
+				"ttl", config.TTL.PlayerAchievements,
+				"survivor_count", len(processedAchievements.AdeptSurvivors),
+				"killer_count", len(processedAchievements.AdeptKillers))
+		}
 	}
 
 	return processedAchievements, nil, "api"
+}
+
+// classifyError categorizes errors for better logging and monitoring
+func classifyError(err error) string {
+	if err == nil {
+		return "none"
+	}
+	
+	errStr := strings.ToLower(err.Error())
+	
+	switch {
+	case strings.Contains(errStr, "rate limit") || strings.Contains(errStr, "too many requests"):
+		return "rate_limited"
+	case strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded"):
+		return "timeout"
+	case strings.Contains(errStr, "private") || strings.Contains(errStr, "not found"):
+		return "private_profile"
+	case strings.Contains(errStr, "achievements not found") || strings.Contains(errStr, "no achievements"):
+		return "no_achievements"
+	case strings.Contains(errStr, "network") || strings.Contains(errStr, "connection"):
+		return "network_error"
+	case strings.Contains(errStr, "steam") && (strings.Contains(errStr, "api") || strings.Contains(errStr, "server")):
+		return "steam_api_down"
+	case strings.Contains(errStr, "invalid") || strings.Contains(errStr, "validation"):
+		return "validation_error"
+	default:
+		return "unknown_error"
+	}
+}
+
+// countUnlocked counts the number of unlocked achievements in a map
+func countUnlocked(achievements map[string]bool) int {
+	count := 0
+	for _, unlocked := range achievements {
+		if unlocked {
+			count++
+		}
+	}
+	return count
 }
