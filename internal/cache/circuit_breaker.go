@@ -115,11 +115,14 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 	
 	switch state := cb.state; state {
 	case CircuitOpen:
-		// Circuit is open, check if we should try half-open
-		if time.Since(cb.lastFailureTime) > cb.config.ResetTimeout {
+		// Circuit is open, check if we should try half-open with jitter to prevent thundering herd
+		timeoutWithJitter := addJitter(cb.config.ResetTimeout, 0.2) // 20% jitter
+		if time.Since(cb.lastFailureTime) > timeoutWithJitter {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0
-			log.Info("Circuit breaker entering half-open state")
+			log.Info("Circuit breaker entering half-open state with jitter",
+				"base_timeout", cb.config.ResetTimeout,
+				"actual_timeout", timeoutWithJitter)
 		} else {
 			// Circuit still open, return fallback data only if using generic fallback
 			if useGenericFallback {
