@@ -273,7 +273,11 @@ func (cb *CircuitBreaker) handleSuccess() {
 			cb.state = CircuitClosed
 			cb.failures = 0
 			cb.successes = 0
-			log.Info("Circuit breaker closed after successful recovery")
+			log.Info("Circuit breaker recovered and closed",
+				"recovery_successes", cb.config.SuccessReset,
+				"total_failures_cleared", cb.failures,
+				"downtime_duration", time.Since(cb.lastFailureTime),
+				"recovery_time", time.Now())
 		}
 	} else if cb.state == CircuitClosed {
 		// Reset failure count on success
