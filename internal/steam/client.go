@@ -162,6 +162,76 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 	return &resp.Playerstats, nil
 }
 
+// GetPlayerAchievements retrieves player achievements for a specific game
+func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievements, *APIError) {
+	start := time.Now()
+	if c.apiKey == "" {
+		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
+	}
+
+	log.Debug("Starting player achievements request", 
+		"steam_id", steamID,
+		"app_id", appID)
+
+	steamID64, err := c.resolveSteamID(steamID)
+	if err != nil {
+		wrappedErr := &APIError{
+			Type:       err.Type,
+			Message:    fmt.Sprintf("GetPlayerAchievements failed during Steam ID resolution: %s", err.Message),
+			StatusCode: err.StatusCode,
+			Retryable:  err.Retryable,
+		}
+		log.Error("Steam ID resolution failed for achievements", 
+			"steam_id", steamID,
+			"error", err.Message,
+			"duration", time.Since(start))
+		return nil, wrappedErr
+	}
+
+	endpoint := fmt.Sprintf("%s/ISteamUserStats/GetPlayerAchievements/v0001/", BaseURL)
+	params := url.Values{}
+	params.Set("key", c.apiKey)
+	params.Set("steamid", steamID64)
+	params.Set("appid", appID)
+
+	var resp playerAchievementsResponse
+	
+	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
+		if err := c.makeRequest(endpoint, params, &resp); err != nil {
+			wrappedErr := &APIError{
+				Type:       err.Type,
+				Message:    fmt.Sprintf("GetPlayerAchievements API request failed: %s", err.Message),
+				StatusCode: err.StatusCode,
+				Retryable:  err.Retryable,
+			}
+			return wrappedErr, false
+		}
+		return nil, false
+	}, "GetPlayerAchievements")
+	
+	if retryErr != nil {
+		return nil, retryErr
+	}
+
+	if !resp.Playerstats.Success {
+		notFoundErr := NewNotFoundError("Player Achievements")
+		notFoundErr.Message = fmt.Sprintf("GetPlayerAchievements: achievements not found for Steam ID %s", steamID64)
+		log.Warn("Player achievements not found or private", 
+			"steam_id", steamID64,
+			"app_id", appID,
+			"duration", time.Since(start))
+		return nil, notFoundErr
+	}
+
+	log.Info("Successfully retrieved player achievements", 
+		"steam_id", steamID64,
+		"app_id", appID,
+		"achievements_count", len(resp.Playerstats.Achievements),
+		"duration", time.Since(start))
+	
+	return &resp.Playerstats, nil
+}
+
 func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 	if len(steamIDOrVanity) == 17 && isNumeric(steamIDOrVanity) {
 		return steamIDOrVanity, nil

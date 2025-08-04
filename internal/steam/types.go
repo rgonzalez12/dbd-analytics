@@ -92,3 +92,24 @@ type GeneralStats struct {
 	TimePlayed       int `json:"time_played_hours"`
 	LastUpdated      time.Time `json:"last_updated"`
 }
+
+// Steam Achievement API Response Types
+
+type playerAchievementsResponse struct {
+	Playerstats PlayerAchievements `json:"playerstats"`
+}
+
+type PlayerAchievements struct {
+	SteamID      string            `json:"steamID"`
+	GameName     string            `json:"gameName"`
+	Achievements []SteamAchievement `json:"achievements"`
+	Success      bool              `json:"success"`
+}
+
+type SteamAchievement struct {
+	APIName     string `json:"apiname"`
+	Achieved    int    `json:"achieved"`    // 0 or 1
+	UnlockTime  int64  `json:"unlocktime"` // Unix timestamp
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}

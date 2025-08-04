@@ -78,10 +78,12 @@ func DevelopmentConfig() Config {
 	config.Memory.CleanupInterval = 5 * time.Second // Frequent cleanup
 	// Override TTL config for development
 	config.TTL = TTLConfig{
-		PlayerStats:   30 * time.Second,
-		PlayerSummary: 1 * time.Minute,
-		SteamAPI:      30 * time.Second,
-		DefaultTTL:    30 * time.Second,
+		PlayerStats:        30 * time.Second,
+		PlayerSummary:      1 * time.Minute,
+		PlayerAchievements: 2 * time.Minute,
+		PlayerCombined:     1 * time.Minute,
+		SteamAPI:           30 * time.Second,
+		DefaultTTL:         30 * time.Second,
 	}
 	return config
 }
@@ -189,9 +191,11 @@ func GenerateKey(prefix string, parts ...string) string {
 
 // Common cache key prefixes for different data types
 const (
-	PlayerStatsPrefix  = "player_stats"
-	PlayerSummaryPrefix = "player_summary"
-	SteamAPIPrefix     = "steam_api"
+	PlayerStatsPrefix       = "player_stats"
+	PlayerSummaryPrefix     = "player_summary"
+	PlayerAchievementsPrefix = "player_achievements"
+	PlayerCombinedPrefix    = "player_combined"
+	SteamAPIPrefix          = "steam_api"
 )
 
 // Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
@@ -204,10 +208,12 @@ const (
 
 // TTLConfig holds configurable TTL values for different data types
 type TTLConfig struct {
-	PlayerStats   time.Duration `json:"player_stats_ttl"`
-	PlayerSummary time.Duration `json:"player_summary_ttl"`
-	SteamAPI      time.Duration `json:"steam_api_ttl"`
-	DefaultTTL    time.Duration `json:"default_ttl"`
+	PlayerStats        time.Duration `json:"player_stats_ttl"`
+	PlayerSummary      time.Duration `json:"player_summary_ttl"`
+	PlayerAchievements time.Duration `json:"player_achievements_ttl"`
+	PlayerCombined     time.Duration `json:"player_combined_ttl"`
+	SteamAPI           time.Duration `json:"steam_api_ttl"`
+	DefaultTTL         time.Duration `json:"default_ttl"`
 }
 
 // GetTTLFromEnv returns TTL configuration from environment variables with fallbacks
@@ -215,16 +221,20 @@ type TTLConfig struct {
 // This ensures production deployments can override TTL values without code changes
 func GetTTLFromEnv() TTLConfig {
 	config := TTLConfig{
-		PlayerStats:   getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
-		PlayerSummary: getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
-		SteamAPI:      getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
-		DefaultTTL:    getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
+		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
+		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
+		PlayerAchievements: getEnvDuration("CACHE_PLAYER_ACHIEVEMENTS_TTL", 30*time.Minute),
+		PlayerCombined:     getEnvDuration("CACHE_PLAYER_COMBINED_TTL", 10*time.Minute),
+		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
+		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
 	}
 	
 	// Log TTL configuration source for debugging
 	internalLog.Info("Cache TTL configuration loaded",
 		"player_stats_ttl", config.PlayerStats,
 		"player_summary_ttl", config.PlayerSummary,
+		"player_achievements_ttl", config.PlayerAchievements,
+		"player_combined_ttl", config.PlayerCombined,
 		"steam_api_ttl", config.SteamAPI,
 		"default_ttl", config.DefaultTTL,
 		"source_priority", "env_vars > deprecated_constants > defaults")

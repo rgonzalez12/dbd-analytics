@@ -788,3 +788,209 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 		return
 	}
 }
+
+// GetPlayerStatsWithAchievements fetches both player stats and achievements in a single endpoint
+func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	steamID := mux.Vars(r)["steamid"]
+	
+	requestLogger := log.WithContext(
+		"steam_id", steamID,
+		"client_ip", r.RemoteAddr,
+		"method", r.Method,
+		"path", r.URL.Path,
+	)
+	
+	// Validate Steam ID format
+	if err := validateSteamIDOrVanity(steamID); err != nil {
+		requestLogger.Warn("Invalid Steam ID format",
+			"error", err.Message,
+			"validation_type", string(err.Type))
+		writeErrorResponse(w, err)
+		return
+	}
+
+	// Check combined cache first
+	var combinedCacheKey string
+	var combinedCacheHit bool
+	if h.cacheManager != nil {
+		combinedCacheKey = cache.GenerateKey(cache.PlayerCombinedPrefix, steamID)
+		if cached, found := h.cacheManager.GetCache().Get(combinedCacheKey); found {
+			if response, ok := cached.(models.PlayerStatsWithAchievements); ok {
+				combinedCacheHit = true
+				requestLogger.Info("Combined cache hit",
+					"display_name", response.DisplayName,
+					"has_achievements", response.Achievements != nil,
+					"duration", time.Since(start))
+				writeJSONResponse(w, response)
+				return
+			} else {
+				// Invalid cache entry - remove it
+				requestLogger.Warn("Invalid combined cache entry type, removing",
+					"expected", "models.PlayerStatsWithAchievements",
+					"actual", fmt.Sprintf("%T", cached))
+				h.cacheManager.GetCache().Delete(combinedCacheKey)
+			}
+		}
+	}
+
+	requestLogger.Info("Processing combined player data request", 
+		"combined_cache_hit", combinedCacheHit)
+
+	// Fetch data in parallel for better performance
+	type fetchResult struct {
+		stats        models.PlayerStats
+		achievements *models.AchievementData
+		statsError   error
+		achError     error
+		statsSource  string
+		achSource    string
+	}
+
+	result := fetchResult{}
+	resultChan := make(chan struct{}, 2)
+
+	// Fetch player stats
+	go func() {
+		defer func() { resultChan <- struct{}{} }()
+		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(steamID)
+	}()
+
+	// Fetch achievements
+	go func() {
+		defer func() { resultChan <- struct{}{} }()
+		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(steamID)
+	}()
+
+	// Wait for both to complete
+	<-resultChan
+	<-resultChan
+
+	// Determine response strategy based on what succeeded
+	response := models.PlayerStatsWithAchievements{
+		PlayerStats: result.stats,
+		DataSources: models.DataSourceStatus{
+			Stats: models.DataSourceInfo{
+				Success:   result.statsError == nil,
+				Source:    result.statsSource,
+				FetchedAt: time.Now(),
+			},
+			Achievements: models.DataSourceInfo{
+				Success:   result.achError == nil,
+				Source:    result.achSource,
+				FetchedAt: time.Now(),
+			},
+		},
+	}
+
+	// Handle different failure scenarios
+	if result.statsError != nil {
+		// Stats failed - this is critical, return error
+		response.DataSources.Stats.Error = result.statsError.Error()
+		requestLogger.Error("Failed to fetch player stats",
+			"error", result.statsError,
+			"duration", time.Since(start))
+		writeErrorResponse(w, steam.NewInternalError(result.statsError))
+		return
+	}
+
+	if result.achError != nil {
+		// Achievements failed but stats succeeded - return partial data
+		response.DataSources.Achievements.Error = result.achError.Error()
+		requestLogger.Warn("Failed to fetch achievements, returning stats only",
+			"error", result.achError,
+			"persona_name", result.stats.DisplayName)
+	} else {
+		// Both succeeded
+		response.Achievements = result.achievements
+	}
+
+	// Cache the combined result
+	if h.cacheManager != nil && combinedCacheKey != "" {
+		config := h.cacheManager.GetConfig()
+		if err := h.cacheManager.GetCache().Set(combinedCacheKey, response, config.TTL.PlayerCombined); err != nil {
+			requestLogger.Error("Failed to cache combined response",
+				"error", err,
+				"cache_key", combinedCacheKey)
+		} else {
+			requestLogger.Debug("Combined response cached successfully",
+				"cache_key", combinedCacheKey,
+				"ttl", config.TTL.PlayerCombined)
+		}
+	}
+
+	requestLogger.Info("Successfully processed combined player data request",
+		"persona_name", result.stats.DisplayName,
+		"stats_success", result.statsError == nil,
+		"achievements_success", result.achError == nil,
+		"duration", time.Since(start))
+
+	writeJSONResponse(w, response)
+}
+
+// fetchPlayerStatsWithSource fetches player stats and returns the data source information
+func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, error, string) {
+	// Check stats cache first
+	if h.cacheManager != nil {
+		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
+		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
+			if playerStats, ok := cached.(models.PlayerStats); ok {
+				return playerStats, nil, "cache"
+			}
+		}
+	}
+
+	// Fetch from Steam API
+	summary, err := h.steamClient.GetPlayerSummary(steamID)
+	if err != nil {
+		return models.PlayerStats{}, fmt.Errorf("steam summary failed: %w", err), "api"
+	}
+
+	rawStats, err := h.steamClient.GetPlayerStats(steamID)
+	if err != nil {
+		return models.PlayerStats{}, fmt.Errorf("steam stats failed: %w", err), "api"
+	}
+
+	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
+	flatPlayerStats := convertToPlayerStats(playerStats)
+
+	// Cache the stats
+	if h.cacheManager != nil {
+		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
+		config := h.cacheManager.GetConfig()
+		h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, config.TTL.PlayerStats)
+	}
+
+	return flatPlayerStats, nil, "api"
+}
+
+// fetchPlayerAchievementsWithSource fetches player achievements and returns the data source information
+func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, error, string) {
+	// Check achievements cache first
+	if h.cacheManager != nil {
+		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
+		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
+			if achievements, ok := cached.(*models.AchievementData); ok {
+				return achievements, nil, "cache"
+			}
+		}
+	}
+
+	// Fetch from Steam API
+	rawAchievements, err := h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
+	if err != nil {
+		return nil, fmt.Errorf("steam achievements failed: %w", err), "api"
+	}
+
+	// Process achievements into our format
+	processedAchievements := steam.ProcessAchievements(rawAchievements.Achievements)
+
+	// Cache the achievements
+	if h.cacheManager != nil {
+		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
+		config := h.cacheManager.GetConfig()
+		h.cacheManager.GetCache().Set(cacheKey, processedAchievements, config.TTL.PlayerAchievements)
+	}
+
+	return processedAchievements, nil, "api"
+}
