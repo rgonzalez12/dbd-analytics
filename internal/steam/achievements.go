@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"strings"
 	"time"
 
 	"github.com/rgonzalez12/dbd-analytics/internal/models"
@@ -8,86 +9,99 @@ import (
 
 // AdeptAchievementMapping maps Steam achievement API names to character names
 var AdeptAchievementMapping = map[string]AdeptCharacter{
-	// Survivor Adept Achievements
-	"ACH_DLC2_50": {Name: "dwight", Type: "survivor"},
-	"ACH_DLC2_51": {Name: "meg", Type: "survivor"},
-	"ACH_DLC2_52": {Name: "claudette", Type: "survivor"},
-	"ACH_DLC2_53": {Name: "jake", Type: "survivor"},
-	"ACH_DLC2_54": {Name: "nea", Type: "survivor"},
-	"ACH_DLC2_55": {Name: "laurie", Type: "survivor"},
-	"ACH_DLC2_56": {Name: "ace", Type: "survivor"},
-	"ACH_DLC2_57": {Name: "bill", Type: "survivor"},
-	"ACH_DLC2_58": {Name: "feng", Type: "survivor"},
-	"ACH_DLC2_59": {Name: "david", Type: "survivor"},
-	"ACH_DLC2_60": {Name: "quentin", Type: "survivor"},
-	"ACH_DLC2_61": {Name: "tapp", Type: "survivor"},
-	"ACH_DLC2_62": {Name: "kate", Type: "survivor"},
-	"ACH_DLC2_63": {Name: "adam", Type: "survivor"},
-	"ACH_DLC2_64": {Name: "jeff", Type: "survivor"},
-	"ACH_DLC2_65": {Name: "jane", Type: "survivor"},
-	"ACH_DLC2_66": {Name: "ash", Type: "survivor"},
-	"ACH_DLC2_67": {Name: "nancy", Type: "survivor"},
-	"ACH_DLC2_68": {Name: "steve", Type: "survivor"},
-	"ACH_DLC2_69": {Name: "yui", Type: "survivor"},
-	"ACH_DLC2_70": {Name: "zarina", Type: "survivor"},
-	"ACH_DLC2_71": {Name: "cheryl", Type: "survivor"},
-	"ACH_DLC2_72": {Name: "felix", Type: "survivor"},
-	"ACH_DLC2_73": {Name: "elodie", Type: "survivor"},
-	"ACH_DLC2_74": {Name: "yun-jin", Type: "survivor"},
-	"ACH_DLC2_75": {Name: "jill", Type: "survivor"},
-	"ACH_DLC2_76": {Name: "leon", Type: "survivor"},
-	"ACH_DLC2_77": {Name: "mikaela", Type: "survivor"},
-	"ACH_DLC2_78": {Name: "jonah", Type: "survivor"},
-	"ACH_DLC2_79": {Name: "yoichi", Type: "survivor"},
-	"ACH_DLC2_80": {Name: "haddie", Type: "survivor"},
-	"ACH_DLC2_81": {Name: "ada", Type: "survivor"},
-	"ACH_DLC2_82": {Name: "rebecca", Type: "survivor"},
-	"ACH_DLC2_83": {Name: "vittorio", Type: "survivor"},
-	"ACH_DLC2_84": {Name: "thalita", Type: "survivor"},
-	"ACH_DLC2_85": {Name: "renato", Type: "survivor"},
-	"ACH_DLC2_86": {Name: "gabriel", Type: "survivor"},
-	"ACH_DLC2_87": {Name: "nicolas", Type: "survivor"},
-	"ACH_DLC2_88": {Name: "ellen", Type: "survivor"},
-	"ACH_DLC2_89": {Name: "alan", Type: "survivor"},
-	"ACH_DLC2_90": {Name: "sable", Type: "survivor"},
+	// ===== SURVIVOR ADEPT ACHIEVEMENTS =====
+	// Base Game Survivors
+	"ACH_UNLOCK_DWIGHT_PERKS":   {Name: "dwight", Type: "survivor"},
+	"ACH_UNLOCK_MEG_PERKS":      {Name: "meg", Type: "survivor"},
+	"ACH_UNLOCK_CLAUDETTE_PERKS": {Name: "claudette", Type: "survivor"},
+	"ACH_UNLOCK_JACK_PERKS":     {Name: "jake", Type: "survivor"}, // Jack = Jake
+	
+	// DLC Survivors - Using pattern ACH_USE_{CHARACTER}_PERKS or ACH_UNLOCK_{CHARACTER}_PERKS
+	"ACH_USE_NEA_PERKS":         {Name: "nea", Type: "survivor"},
+	"ACH_USE_LAURIE_PERKS":      {Name: "laurie", Type: "survivor"},    // Halloween Chapter
+	"ACH_USE_ACE_PERKS":         {Name: "ace", Type: "survivor"},       // Last Breath Chapter  
+	"ACH_USE_BILL_PERKS":        {Name: "bill", Type: "survivor"},      // Left Behind Chapter
+	"ACH_USE_FENG_PERKS":        {Name: "feng", Type: "survivor"},      // Spark of Madness
+	"ACH_USE_DAVID_PERKS":       {Name: "david", Type: "survivor"},     // Bloodstained Sack
+	"ACH_USE_QUENTIN_PERKS":     {Name: "quentin", Type: "survivor"},   // Nightmare on Elm Street
+	"ACH_USE_TAPP_PERKS":        {Name: "tapp", Type: "survivor"},      // SAW Chapter
+	"ACH_USE_KATE_PERKS":        {Name: "kate", Type: "survivor"},      // Curtain Call
+	"ACH_USE_ADAM_PERKS":        {Name: "adam", Type: "survivor"},      // Shattered Bloodline
+	"ACH_USE_JEFF_PERKS":        {Name: "jeff", Type: "survivor"},      // Darkness Among Us
+	"ACH_USE_JANE_PERKS":        {Name: "jane", Type: "survivor"},      // Demise of the Faithful
+	"ACH_USE_ASH_PERKS":         {Name: "ash", Type: "survivor"},       // Ash vs Evil Dead
+	"ACH_USE_NANCY_PERKS":       {Name: "nancy", Type: "survivor"},     // Stranger Things
+	"ACH_USE_STEVE_PERKS":       {Name: "steve", Type: "survivor"},     // Stranger Things
+	"ACH_USE_YUI_PERKS":         {Name: "yui", Type: "survivor"},       // Cursed Legacy
+	"ACH_USE_ZARINA_PERKS":      {Name: "zarina", Type: "survivor"},    // Chains of Hate
+	"ACH_USE_CHERYL_PERKS":      {Name: "cheryl", Type: "survivor"},    // Silent Hill
+	"ACH_USE_FELIX_PERKS":       {Name: "felix", Type: "survivor"},     // Descend Beyond
+	"ACH_USE_ELODIE_PERKS":      {Name: "elodie", Type: "survivor"},    // A Binding of Kin
+	"ACH_USE_YUNJIN_PERKS":      {Name: "yun-jin", Type: "survivor"},   // All-Kill
+	"ACH_USE_JILL_PERKS":        {Name: "jill", Type: "survivor"},      // Resident Evil
+	"ACH_USE_LEON_PERKS":        {Name: "leon", Type: "survivor"},      // Resident Evil
+	"ACH_USE_MIKAELA_PERKS":     {Name: "mikaela", Type: "survivor"},   // Hour of the Witch
+	"ACH_USE_JONAH_PERKS":       {Name: "jonah", Type: "survivor"},     // Portrait of a Murder
+	"ACH_USE_YOICHI_PERKS":      {Name: "yoichi", Type: "survivor"},    // Sadako Rising
+	"ACH_USE_HADDIE_PERKS":      {Name: "haddie", Type: "survivor"},    // Roots of Dread
+	"ACH_USE_ADA_PERKS":         {Name: "ada", Type: "survivor"},       // Resident Evil: PROJECT W
+	"ACH_USE_REBECCA_PERKS":     {Name: "rebecca", Type: "survivor"},   // Resident Evil: PROJECT W
+	"ACH_USE_VITTORIO_PERKS":    {Name: "vittorio", Type: "survivor"},  // Forged in Fog
+	"ACH_USE_THALITA_PERKS":     {Name: "thalita", Type: "survivor"},   // Tools of Torment
+	"ACH_USE_RENATO_PERKS":      {Name: "renato", Type: "survivor"},    // Tools of Torment
+	"ACH_USE_GABRIEL_PERKS":     {Name: "gabriel", Type: "survivor"},   // Nicolas Cage Chapter
+	"ACH_USE_NICOLAS_PERKS":     {Name: "nicolas", Type: "survivor"},   // Nicolas Cage Chapter
+	"ACH_USE_ELLEN_PERKS":       {Name: "ellen", Type: "survivor"},     // Alien Chapter
+	"ACH_USE_ALAN_PERKS":        {Name: "alan", Type: "survivor"},      // Alan Wake Chapter
+	"ACH_USE_SABLE_PERKS":       {Name: "sable", Type: "survivor"},     // All Things Wicked
+	"ACH_USE_AESTRI_PERKS":      {Name: "aestri", Type: "survivor"},    // Dungeons & Dragons
+	"ACH_USE_BAERMAR_PERKS":     {Name: "baermar", Type: "survivor"},   // Dungeons & Dragons
+	"ACH_USE_LARA_PERKS":        {Name: "lara", Type: "survivor"},      // Tomb Raider Chapter
+	"ACH_USE_TREVOR_PERKS":      {Name: "trevor", Type: "survivor"},    // Casting of Frank Stone
+	"ACH_USE_DARYL_PERKS":       {Name: "daryl", Type: "survivor"},     // The Walking Dead Chapter
+	"ACH_USE_RICK_PERKS":        {Name: "rick", Type: "survivor"},      // The Walking Dead Chapter
 
-	// Killer Adept Achievements
-	"ACH_DLC2_00": {Name: "trapper", Type: "killer"},
-	"ACH_DLC2_01": {Name: "wraith", Type: "killer"},
-	"ACH_DLC2_02": {Name: "hillbilly", Type: "killer"},
-	"ACH_DLC2_03": {Name: "nurse", Type: "killer"},
-	"ACH_DLC2_04": {Name: "shape", Type: "killer"},
-	"ACH_DLC2_05": {Name: "hag", Type: "killer"},
-	"ACH_DLC2_06": {Name: "doctor", Type: "killer"},
-	"ACH_DLC2_07": {Name: "huntress", Type: "killer"},
-	"ACH_DLC2_08": {Name: "cannibal", Type: "killer"},
-	"ACH_DLC2_09": {Name: "nightmare", Type: "killer"},
-	"ACH_DLC2_10": {Name: "pig", Type: "killer"},
-	"ACH_DLC2_11": {Name: "clown", Type: "killer"},
-	"ACH_DLC2_12": {Name: "spirit", Type: "killer"},
-	"ACH_DLC2_13": {Name: "legion", Type: "killer"},
-	"ACH_DLC2_14": {Name: "plague", Type: "killer"},
-	"ACH_DLC2_15": {Name: "ghost-face", Type: "killer"},
-	"ACH_DLC2_16": {Name: "demogorgon", Type: "killer"},
-	"ACH_DLC2_17": {Name: "oni", Type: "killer"},
-	"ACH_DLC2_18": {Name: "deathslinger", Type: "killer"},
-	"ACH_DLC2_19": {Name: "executioner", Type: "killer"},
-	"ACH_DLC2_20": {Name: "blight", Type: "killer"},
-	"ACH_DLC2_21": {Name: "twins", Type: "killer"},
-	"ACH_DLC2_22": {Name: "trickster", Type: "killer"},
-	"ACH_DLC2_23": {Name: "nemesis", Type: "killer"},
-	"ACH_DLC2_24": {Name: "cenobite", Type: "killer"},
-	"ACH_DLC2_25": {Name: "artist", Type: "killer"},
-	"ACH_DLC2_26": {Name: "onryo", Type: "killer"},
-	"ACH_DLC2_27": {Name: "dredge", Type: "killer"},
-	"ACH_DLC2_28": {Name: "mastermind", Type: "killer"},
-	"ACH_DLC2_29": {Name: "knight", Type: "killer"},
-	"ACH_DLC2_30": {Name: "skull-merchant", Type: "killer"},
-	"ACH_DLC2_31": {Name: "singularity", Type: "killer"},
-	"ACH_DLC2_32": {Name: "xenomorph", Type: "killer"},
-	"ACH_DLC2_33": {Name: "good-guy", Type: "killer"},
-	"ACH_DLC2_34": {Name: "unknown", Type: "killer"},
-	"ACH_DLC2_35": {Name: "lich", Type: "killer"},
+	// ===== KILLER ADEPT ACHIEVEMENTS =====
+	// Base Game Killers  
+	"ACH_UNLOCK_CHUCKLES_PERKS":  {Name: "trapper", Type: "killer"},   // Chuckles = Trapper
+	"ACH_UNLOCKBANSHEE_PERKS":    {Name: "wraith", Type: "killer"},    // Banshee = Wraith  
+	"ACH_UNLOCKHILLBILY_PERKS":   {Name: "hillbilly", Type: "killer"}, // Note: HILLBILY not HILLBILLY
+	"ACH_UNLOCKNURSE_PERKS":      {Name: "nurse", Type: "killer"},     // Nurse
+	
+	// DLC Killers - Using pattern ACH_UNLOCK{CHARACTER}_PERKS (note inconsistent underscores)
+	"ACH_UNLOCKSHAPE_PERKS":       {Name: "shape", Type: "killer"},        // Michael Myers - Halloween
+	"ACH_UNLOCKHAG_PERKS":         {Name: "hag", Type: "killer"},          // Hag - Last Breath
+	"ACH_UNLOCKDOCTOR_PERKS":      {Name: "doctor", Type: "killer"},       // Doctor - Spark of Madness
+	"ACH_UNLOCKHUNTRESS_PERKS":    {Name: "huntress", Type: "killer"},     // Huntress - A Lullaby for the Dark
+	"ACH_UNLOCKCANNIBAL_PERKS":    {Name: "cannibal", Type: "killer"},     // Leatherface - Leatherface
+	"ACH_UNLOCKNIGHTMARE_PERKS":   {Name: "nightmare", Type: "killer"},    // Freddy - Nightmare on Elm Street
+	"ACH_UNLOCKPIG_PERKS":         {Name: "pig", Type: "killer"},          // Pig - SAW Chapter
+	"ACH_UNLOCKCLOWN_PERKS":       {Name: "clown", Type: "killer"},        // Clown - Curtain Call
+	"ACH_UNLOCKSPIRIT_PERKS":      {Name: "spirit", Type: "killer"},       // Spirit - Shattered Bloodline
+	"ACH_UNLOCKLEGION_PERKS":      {Name: "legion", Type: "killer"},       // Legion - Darkness Among Us
+	"ACH_UNLOCKPLAGUE_PERKS":      {Name: "plague", Type: "killer"},       // Plague - Demise of the Faithful
+	"ACH_UNLOCKGHOSTFACE_PERKS":   {Name: "ghostface", Type: "killer"},    // Ghost Face - Ghost Face
+	"ACH_UNLOCKDEMOGORGON_PERKS":  {Name: "demogorgon", Type: "killer"},   // Demogorgon - Stranger Things
+	"ACH_UNLOCKONI_PERKS":         {Name: "oni", Type: "killer"},          // Oni - Cursed Legacy
+	"ACH_UNLOCKDEATHSLINGER_PERKS": {Name: "deathslinger", Type: "killer"}, // Deathslinger - Chains of Hate
+	"ACH_UNLOCKEXECUTIONER_PERKS": {Name: "executioner", Type: "killer"},  // Pyramid Head - Silent Hill
+	"ACH_UNLOCKBLIGHT_PERKS":      {Name: "blight", Type: "killer"},       // Blight - Descend Beyond
+	"ACH_UNLOCKTWINS_PERKS":       {Name: "twins", Type: "killer"},        // Twins - A Binding of Kin
+	"ACH_UNLOCKTRICKSTER_PERKS":   {Name: "trickster", Type: "killer"},    // Trickster - All-Kill
+	"ACH_UNLOCKNEMESIS_PERKS":     {Name: "nemesis", Type: "killer"},      // Nemesis - Resident Evil
+	"ACH_UNLOCKCENTOBITE_PERKS":   {Name: "cenobite", Type: "killer"},     // Pinhead - Hellraiser
+	"ACH_UNLOCKARTIST_PERKS":      {Name: "artist", Type: "killer"},       // Artist - Portrait of a Murder
+	"ACH_UNLOCKONRYO_PERKS":       {Name: "onryo", Type: "killer"},        // Sadako - Sadako Rising
+	"ACH_UNLOCKDREDGE_PERKS":      {Name: "dredge", Type: "killer"},       // Dredge - Roots of Dread
+	"ACH_UNLOCKMASTERMIND_PERKS":  {Name: "mastermind", Type: "killer"},   // Wesker - Resident Evil: PROJECT W
+	"ACH_UNLOCKKNIGHT_PERKS":      {Name: "knight", Type: "killer"},       // Knight - Forged in Fog
+	"ACH_UNLOCKSKULLMERCHANT_PERKS": {Name: "skull-merchant", Type: "killer"}, // Skull Merchant - Tools of Torment
+	"ACH_UNLOCKSINGULARITY_PERKS": {Name: "singularity", Type: "killer"},  // Singularity - End Transmission
+	"ACH_UNLOCKXENOMORPH_PERKS":   {Name: "xenomorph", Type: "killer"},    // Xenomorph - Alien Chapter
+	"ACH_UNLOCKGOODGUY_PERKS":     {Name: "chucky", Type: "killer"},       // Chucky - Chucky Chapter
+	"ACH_UNLOCKUNKNOWN_PERKS":     {Name: "unknown", Type: "killer"},      // Unknown - All Things Wicked
+	"ACH_UNLOCKLICH_PERKS":        {Name: "vecna", Type: "killer"},        // Vecna - Dungeons & Dragons
+	"ACH_UNLOCKDARKGOD_PERKS":     {Name: "dark-lord", Type: "killer"},    // Dracula - Castlevania Chapter
 }
 
 type AdeptCharacter struct {
@@ -109,18 +123,47 @@ func ProcessAchievements(steamAchievements []SteamAchievement) *models.Achieveme
 		}
 	}
 
+	// Track achievement processing stats
+	achievementCount := 0
+	adeptCount := 0
+	achievedCount := 0
+	unknownAchievements := 0
+	
 	// Mark unlocked achievements
 	for _, achievement := range steamAchievements {
-		if character, exists := AdeptAchievementMapping[achievement.APIName]; exists {
-			isUnlocked := achievement.Achieved == 1
+		achievementCount++
+		
+		if achievement.Achieved == 1 {
+			achievedCount++
 			
-			if character.Type == "survivor" {
-				adeptSurvivors[character.Name] = isUnlocked
-			} else if character.Type == "killer" {
-				adeptKillers[character.Name] = isUnlocked
+			// Check if this is a known Adept achievement
+			if character, exists := AdeptAchievementMapping[achievement.APIName]; exists {
+				adeptCount++
+				if character.Type == "survivor" {
+					adeptSurvivors[character.Name] = true
+				} else if character.Type == "killer" {
+					adeptKillers[character.Name] = true
+				}
+				
+				logSteamInfo("Mapped achieved adept achievement",
+					"api_name", achievement.APIName,
+					"character", character.Name,
+					"type", character.Type)
+			} else if strings.HasPrefix(achievement.APIName, "NEW_ACHIEVEMENT_") {
+				// Track unknown achievements that might be newer character Adepts
+				unknownAchievements++
 			}
 		}
 	}
+	
+	// Log summary of achievement processing
+	logSteamInfo("Processed achievements",
+		"total_achievements", achievementCount,
+		"achieved_achievements", achievedCount,
+		"mapped_adept_achievements", adeptCount,
+		"unknown_new_achievements", unknownAchievements,
+		"survivor_count", len(adeptSurvivors),
+		"killer_count", len(adeptKillers))
 
 	return &models.AchievementData{
 		AdeptSurvivors: adeptSurvivors,
