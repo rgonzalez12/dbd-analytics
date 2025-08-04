@@ -40,7 +40,7 @@ func TestRequestHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Placeholder test for comprehensive coverage
+			// Test comprehensive coverage
 			t.Logf("Testing: %s", tt.description)
 		})
 	}

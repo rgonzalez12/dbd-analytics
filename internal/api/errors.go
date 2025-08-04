@@ -8,7 +8,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// PATCH START - Standardized Error Response Format
 // StandardError represents the consistent JSON error response format
 type StandardError struct {
 	Error ErrorDetail `json:"error"`

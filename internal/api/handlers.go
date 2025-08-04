@@ -17,14 +17,11 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// PATCH START - Production configuration constants
 const (
-	// Request timeout constants
 	DefaultRequestTimeout = 5 * time.Second
 	SteamAPITimeout      = 3 * time.Second
 	CacheTimeout         = 1 * time.Second
 )
-// PATCH END
 
 var (
 	digitOnlyRegex = regexp.MustCompile(`^\d+$`)
@@ -227,12 +224,10 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 		return steam.NewValidationError("Steam ID or vanity URL required")
 	}
 
-	// PATCH START - Enhanced validation with request context
 	// Prevent excessively long inputs that could cause DoS
 	if len(input) > 64 {
 		return steam.NewValidationError("Input too long. Steam ID must be 17 digits or vanity URL 3-32 characters")
 	}
-	// PATCH END
 
 	// If input starts with Steam ID prefix (7656119), validate as Steam ID
 	if len(input) >= 7 && input[:7] == "7656119" {
@@ -256,7 +251,6 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 }
 
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
-	// PATCH START - Add request timeout and standardized error handling
 	start := time.Now()
 	
 	// Create context with timeout
@@ -277,7 +271,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		writeSteamAPIError(w, r, err)
 		return
 	}
-	// PATCH END
 
 	// Check cache first if caching is enabled
 	var cacheKey string
@@ -313,7 +306,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		"cache_hit", cacheHit,
 		"operation", "steam_api_call")
 
-	// PATCH START - Use context with timeout for Steam API call
 	// Check context timeout before making Steam API call
 	select {
 	case <-ctx.Done():
@@ -333,9 +325,7 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		writeSteamAPIError(w, r, err)
 		return
 	}
-	// PATCH END
 
-	// PATCH START - Use context for cache operations with timeout protection
 	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
 		// Check context timeout before caching
@@ -367,7 +357,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// PATCH END
 
 	durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
 	log.PerformanceContext("player_summary_success", steamID, durationMs).Info("Successfully processed player summary request",
@@ -377,10 +366,8 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
-	// PATCH START - Add context with timeout for request processing
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
-	// PATCH END
 	
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
@@ -388,7 +375,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	// Create structured logger with comprehensive request context
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 
-	// PATCH START - Enhanced validation with timeout protection
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerStats",
 			"user_agent", r.UserAgent(),
@@ -397,7 +383,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		writeValidationError(w, r, err.Message, "steam_id")
 		return
 	}
-	// PATCH END
 
 	// Check cache first if caching is enabled
 	var cacheKey string
@@ -428,7 +413,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	requestLogger.Info("Processing player stats request", "cache_hit", cacheHit)
 
-	// PATCH START - Use context with timeout for Steam API calls
 	// Check context timeout before making Steam API calls
 	select {
 	case <-ctx.Done():
@@ -465,7 +449,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		writeSteamAPIError(w, r, err)
 		return
 	}
-	// PATCH END
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
 
@@ -924,10 +907,8 @@ func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings 
 
 // GetPlayerStatsWithAchievements fetches both player stats and achievements in a single endpoint
 func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.Request) {
-	// PATCH START - Add context with timeout for request processing
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
-	// PATCH END
 	
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
@@ -935,7 +916,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	// Create structured logger with comprehensive request context
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 
-	// PATCH START - Enhanced validation with timeout protection
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerStatsWithAchievements",
 			"user_agent", r.UserAgent(),
@@ -944,7 +924,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		writeValidationError(w, r, err.Message, "steam_id")
 		return
 	}
-	// PATCH END
 
 	// Check combined cache first
 	var combinedCacheKey string
@@ -999,14 +978,12 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		achSource    string
 	}
 
-	// PATCH START - Check context timeout before parallel fetching
 	select {
 	case <-ctx.Done():
 		writeTimeoutError(w, r, "player_stats_with_achievements")
 		return
 	default:
 	}
-	// PATCH END
 
 	result := fetchResult{}
 	resultChan := make(chan struct{}, 2)
@@ -1023,7 +1000,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
 	}()
 
-	// PATCH START - Wait for both to complete with context timeout protection
 	timeout := time.After(SteamAPITimeout)
 	completedCount := 0
 	for completedCount < 2 {
@@ -1038,7 +1014,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 			return
 		}
 	}
-	// PATCH END
 
 	// Determine response strategy based on what succeeded
 	response := models.PlayerStatsWithAchievements{

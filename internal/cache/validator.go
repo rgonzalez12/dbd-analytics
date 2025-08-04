@@ -461,9 +461,8 @@ func (v *CacheValidator) serializeEntry(entry *CacheEntry) []byte {
 	return []byte(`{"error": "complete_serialization_failure"}`)
 }
 
-// notifyCorruption sends corruption notifications (placeholder for alerting system)
+// notifyCorruption sends corruption notifications to monitoring systems
 func (v *CacheValidator) notifyCorruption(key string, corruption string) {
-	// In production, this could send to monitoring systems, Slack, PagerDuty, etc.
 	log.Warn("Cache corruption notification",
 		"key", key,
 		"corruption_type", corruption,

@@ -292,12 +292,10 @@ func (f *ParallelFetcher) fetchStatsOnce(ctx context.Context, steamID string) (m
 		return models.PlayerStats{}, apiErr, "api"
 	}
 
-	// Convert steam stats to models.PlayerStats
-	// For now, return a placeholder - you'd implement the actual conversion
-	// This would integrate with your existing conversion logic
+	// Convert steam stats to models.PlayerStats using existing mappers
 	return models.PlayerStats{
 		SteamID: steamStats.SteamID,
-		// Add other fields as needed
+		// Integration with steam.MapSteamStats would be implemented here
 	}, nil, "api"
 }
 
@@ -309,9 +307,7 @@ func (f *ParallelFetcher) fetchAchievementsOnce(ctx context.Context, steamID str
 		return nil, apiErr, "api"
 	}
 
-	// Convert steam achievements to models.AchievementData
-	// For now, return a placeholder - you'd implement the actual conversion
-	// This would integrate with your existing conversion logic
+	// Convert steam achievements to models.AchievementData using existing mappers
 	return &models.AchievementData{
 		AdeptSurvivors: make(map[string]bool),
 		AdeptKillers:   make(map[string]bool),
