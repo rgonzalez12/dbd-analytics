@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	internalLog "github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
 // CacheType represents the type of cache implementation
@@ -210,19 +212,32 @@ type TTLConfig struct {
 }
 
 // GetTTLFromEnv returns TTL configuration from environment variables with fallbacks
+// TTL Source Priority: Environment Variables > Deprecated Constants > Hardcoded Defaults
+// This ensures production deployments can override TTL values without code changes
 func GetTTLFromEnv() TTLConfig {
-	return TTLConfig{
+	config := TTLConfig{
 		PlayerStats:   getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
 		PlayerSummary: getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
 		SteamAPI:      getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
 		DefaultTTL:    getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
 	}
+	
+	// Log TTL configuration source for debugging
+	internalLog.Info("Cache TTL configuration loaded",
+		"player_stats_ttl", config.PlayerStats,
+		"player_summary_ttl", config.PlayerSummary,
+		"steam_api_ttl", config.SteamAPI,
+		"default_ttl", config.DefaultTTL,
+		"source_priority", "env_vars > deprecated_constants > defaults")
+	
+	return config
 }
 
 // getEnvDuration parses duration from environment variable with fallback
 func getEnvDuration(envKey string, fallback time.Duration) time.Duration {
 	if value := os.Getenv(envKey); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
+			log.Printf("TTL loaded from env: %s=%v", envKey, duration)
 			return duration
 		}
 		// Log warning about invalid duration format but continue with fallback

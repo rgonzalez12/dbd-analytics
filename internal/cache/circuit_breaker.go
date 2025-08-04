@@ -89,6 +89,14 @@ func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, 
 func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface{}, error)) (interface{}, error) {
 	result, err := cb.executeWithOptions(fn, false) // Don't use generic fallback
 	if err != nil {
+		// Enhanced observability: log circuit breaker activity
+		log.Warn("Circuit breaker triggered for key", 
+			"key", key,
+			"error", err,
+			"circuit_state", cb.getStateString(),
+			"failure_count", cb.failures,
+			"last_failure", cb.lastFailureTime)
+			
 		// Try to get stale data from fallback cache
 		if staleData, exists := cb.getStaleData(key); exists {
 			log.Info("Serving stale data from fallback cache",
@@ -96,6 +104,10 @@ func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface
 				"circuit_state", cb.getStateString())
 			return staleData, nil
 		}
+		
+		log.Warn("No stale data available for key", 
+			"key", key,
+			"circuit_state", cb.getStateString())
 	}
 	return result, err
 }
