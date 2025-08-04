@@ -2,6 +2,7 @@ package steam
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,19 +21,28 @@ type AchievementMapping struct {
 	UnlockTime  int64  `json:"unlock_time,omitempty"`
 }
 
-// AchievementMapper handles achievement mapping with caching
-type AchievementMapper struct {
-	mapping       map[string]AchievementMapping
-	lastFetched   time.Time
-	cacheDuration time.Duration
-	mutex         sync.RWMutex
+// UnknownAchievement tracks achievements not in our mapping
+type UnknownAchievement struct {
+	APIName     string    `json:"api_name"`
+	FirstSeen   time.Time `json:"first_seen"`
+	Occurrences int       `json:"occurrences"`
 }
 
-// NewAchievementMapper creates a new achievement mapper with caching
+// AchievementMapper handles achievement mapping with caching and monitoring
+type AchievementMapper struct {
+	mapping         map[string]AchievementMapping
+	unknownAchievs  map[string]*UnknownAchievement
+	cacheDuration   time.Duration
+	mutex           sync.RWMutex
+	unknownsMutex   sync.RWMutex
+}
+
+// NewAchievementMapper creates a new achievement mapper with caching and monitoring
 func NewAchievementMapper() *AchievementMapper {
 	return &AchievementMapper{
-		mapping:       make(map[string]AchievementMapping),
-		cacheDuration: 24 * time.Hour, // Cache for 24 hours
+		mapping:        make(map[string]AchievementMapping),
+		unknownAchievs: make(map[string]*UnknownAchievement),
+		cacheDuration:  24 * time.Hour, // Cache for 24 hours
 	}
 }
 
@@ -55,7 +65,7 @@ func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchieveme
 	return mapped
 }
 
-// getAchievementMapping returns mapping for a specific achievement ID
+// getAchievementMapping returns mapping for a specific achievement ID with fallback monitoring
 func (am *AchievementMapper) getAchievementMapping(apiName string) AchievementMapping {
 	// Check if we have this achievement in our adept mapping
 	if adept, exists := AdeptAchievementMapping[apiName]; exists {
@@ -88,13 +98,38 @@ func (am *AchievementMapper) getAchievementMapping(apiName string) AchievementMa
 		return enhanced
 	}
 
-	// Default mapping for unknown achievements
+	// Track unknown achievements for monitoring and future updates
+	am.trackUnknownAchievement(apiName)
+
+	// Improved fallback for unknown achievements
 	return AchievementMapping{
 		ID:          apiName,
-		Name:        apiName,
+		Name:        generateFallbackName(apiName),
 		DisplayName: formatAchievementName(apiName),
-		Description: "Achievement description not available",
-		Type:        "general",
+		Description: "Achievement details not yet mapped - may be from new content",
+		Type:        inferAchievementType(apiName),
+	}
+}
+
+// trackUnknownAchievement logs and tracks unknown achievements for monitoring
+func (am *AchievementMapper) trackUnknownAchievement(apiName string) {
+	am.unknownsMutex.Lock()
+	defer am.unknownsMutex.Unlock()
+
+	if unknown, exists := am.unknownAchievs[apiName]; exists {
+		unknown.Occurrences++
+	} else {
+		am.unknownAchievs[apiName] = &UnknownAchievement{
+			APIName:     apiName,
+			FirstSeen:   time.Now(),
+			Occurrences: 1,
+		}
+		
+		// Log new unknown achievement for monitoring
+		log.Warn("Unknown achievement encountered - may need mapping update",
+			"api_name", apiName,
+			"inferred_type", inferAchievementType(apiName),
+			"suggested_action", "Check Steam GetSchemaForGame for new content")
 	}
 }
 
@@ -160,6 +195,61 @@ func formatAchievementName(apiName string) string {
 	return name
 }
 
+// generateFallbackName creates a readable name from API name
+func generateFallbackName(apiName string) string {
+	name := strings.ToLower(apiName)
+	
+	// Remove common prefixes
+	prefixes := []string{"ach_", "new_achievement_", "dlc", "chapter"}
+	for _, prefix := range prefixes {
+		name = strings.TrimPrefix(name, prefix)
+	}
+	
+	// Clean up common patterns
+	name = strings.ReplaceAll(name, "_", " ")
+	name = strings.TrimSpace(name)
+	
+	if name == "" {
+		return "unknown_achievement"
+	}
+	
+	return name
+}
+
+// inferAchievementType tries to determine if an unknown achievement is survivor/killer/general
+func inferAchievementType(apiName string) string {
+	apiLower := strings.ToLower(apiName)
+	
+	// Check for survivor patterns
+	survivorPatterns := []string{"survivor", "_survivor_", "escape", "gen", "heal", "unhook", "repair"}
+	for _, pattern := range survivorPatterns {
+		if strings.Contains(apiLower, pattern) {
+			return "survivor"
+		}
+	}
+	
+	// Check for killer patterns  
+	killerPatterns := []string{"killer", "_killer_", "hook", "sacrifice", "mori", "basement", "hit"}
+	for _, pattern := range killerPatterns {
+		if strings.Contains(apiLower, pattern) {
+			return "killer"
+		}
+	}
+	
+	// Check for chapter/DLC patterns that might be character-specific
+	if strings.Contains(apiLower, "chapter") || strings.Contains(apiLower, "dlc") {
+		// Look for position indicators (survivor achievements often end with _3)
+		if strings.HasSuffix(apiLower, "_3") || strings.Contains(apiLower, "survivor") {
+			return "survivor"
+		}
+		if strings.Contains(apiLower, "killer") {
+			return "killer"
+		}
+	}
+	
+	return "general"
+}
+
 // Global mapper instance for caching
 var globalAchievementMapper = NewAchievementMapper()
 
@@ -168,20 +258,101 @@ func MapAchievements(achievements *PlayerAchievements) []AchievementMapping {
 	return globalAchievementMapper.MapPlayerAchievements(achievements)
 }
 
-// GetMappedAchievements returns mapped achievements with summary
+// GetMappedAchievements returns mapped achievements with summary and monitoring
 func GetMappedAchievements(achievements *PlayerAchievements) map[string]interface{} {
 	mapped := MapAchievements(achievements)
 	summary := globalAchievementMapper.GetAchievementSummary(mapped)
+	unknowns := globalAchievementMapper.GetUnknownAchievements()
 
 	log.Info("Achievement mapping completed",
 		"total_achievements", len(mapped),
 		"unlocked_count", summary["unlocked_count"],
 		"completion_rate", fmt.Sprintf("%.1f%%", summary["completion_rate"]),
 		"survivor_adepts", len(summary["adept_survivors"].([]string)),
-		"killer_adepts", len(summary["adept_killers"].([]string)))
+		"killer_adepts", len(summary["adept_killers"].([]string)),
+		"unknown_achievements", len(unknowns))
 
-	return map[string]interface{}{
+	// Log unknown achievements if any found
+	if len(unknowns) > 0 {
+		log.Warn("Unknown achievements detected - may need mapping updates",
+			"unknown_count", len(unknowns),
+			"suggestion", "Check Steam API or new game content for updates")
+		
+		for _, unknown := range unknowns {
+			if unknown.Occurrences > 5 { // Only log frequently seen unknowns
+				log.Debug("Frequent unknown achievement",
+					"api_name", unknown.APIName,
+					"first_seen", unknown.FirstSeen.Format(time.RFC3339),
+					"occurrences", unknown.Occurrences)
+			}
+		}
+	}
+
+	result := map[string]interface{}{
 		"achievements": mapped,
 		"summary":      summary,
 	}
+
+	// Include unknown achievements in response for monitoring
+	if len(unknowns) > 0 {
+		result["unknown_achievements"] = unknowns
+	}
+
+	return result
+}
+
+// GetUnknownAchievements returns list of unmapped achievements for monitoring
+func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
+	am.unknownsMutex.RLock()
+	defer am.unknownsMutex.RUnlock()
+
+	unknowns := make([]*UnknownAchievement, 0, len(am.unknownAchievs))
+	for _, unknown := range am.unknownAchievs {
+		unknowns = append(unknowns, unknown)
+	}
+	
+	return unknowns
+}
+
+// ValidateMappingCoverage checks if our mapping covers expected achievements
+func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
+	survivorCount := 0
+	killerCount := 0
+	
+	for _, character := range AdeptAchievementMapping {
+		if character.Type == "survivor" {
+			survivorCount++
+		} else if character.Type == "killer" {
+			killerCount++
+		}
+	}
+	
+	validation := map[string]interface{}{
+		"survivor_adepts_mapped": survivorCount,
+		"killer_adepts_mapped":   killerCount,
+		"total_characters":       survivorCount + killerCount,
+		"coverage_status":        "complete",
+	}
+
+	// DBD has approximately 45+ survivors and 30+ killers as of 2024
+	expectedSurvivors := 45
+	expectedKillers := 30
+	
+	if survivorCount < expectedSurvivors {
+		validation["coverage_status"] = "partial"
+		validation["missing_survivors"] = expectedSurvivors - survivorCount
+	}
+	
+	if killerCount < expectedKillers {
+		validation["coverage_status"] = "partial"
+		validation["missing_killers"] = expectedKillers - killerCount
+	}
+
+	log.Info("Achievement mapping coverage validation",
+		"survivors_mapped", survivorCount,
+		"killers_mapped", killerCount,
+		"total_mapped", survivorCount+killerCount,
+		"coverage_status", validation["coverage_status"])
+
+	return validation
 }
