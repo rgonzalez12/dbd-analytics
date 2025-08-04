@@ -17,8 +17,9 @@ type APIConfig struct {
 	CBHalfOpenRequests int           `json:"cb_half_open_requests"` // Requests to test in half-open state
 	
 	// API Timeout Configuration
-	APITimeoutSecs     int           `json:"api_timeout_secs"`      // Per-request timeout
-	OverallTimeoutSecs int           `json:"overall_timeout_secs"`  // Total operation timeout
+	APITimeoutSecs        int           `json:"api_timeout_secs"`        // Per-request timeout
+	OverallTimeoutSecs    int           `json:"overall_timeout_secs"`    // Total operation timeout
+	AchievementsTimeoutSecs int         `json:"achievements_timeout_secs"` // Achievements fetch timeout
 	
 	// Retry Configuration
 	MaxRetries         int           `json:"max_retries"`           // Maximum retry attempts
@@ -32,6 +33,7 @@ type APIConfig struct {
 	// Computed fields for convenience
 	APITimeout         time.Duration `json:"-"`
 	OverallTimeout     time.Duration `json:"-"`
+	AchievementsTimeout time.Duration `json:"-"`
 	CBResetTimeout     time.Duration `json:"-"`
 	BaseBackoff        time.Duration `json:"-"`
 	MaxBackoff         time.Duration `json:"-"`
@@ -46,8 +48,9 @@ func DefaultAPIConfig() APIConfig {
 		CBHalfOpenRequests: 3,  // Test with 3 requests in half-open
 		
 		// Timeouts - Reasonable for Steam API
-		APITimeoutSecs:     10, // 10 second per-request timeout
-		OverallTimeoutSecs: 30, // 30 second total operation timeout
+		APITimeoutSecs:        10, // 10 second per-request timeout
+		OverallTimeoutSecs:    30, // 30 second total operation timeout
+		AchievementsTimeoutSecs: 5, // 5 second achievements fetch timeout
 		
 		// Retry - Exponential backoff with jitter
 		MaxRetries:    3,    // Up to 3 retries
@@ -62,6 +65,7 @@ func DefaultAPIConfig() APIConfig {
 	// Compute derived fields
 	config.APITimeout = time.Duration(config.APITimeoutSecs) * time.Second
 	config.OverallTimeout = time.Duration(config.OverallTimeoutSecs) * time.Second
+	config.AchievementsTimeout = time.Duration(config.AchievementsTimeoutSecs) * time.Second
 	config.CBResetTimeout = time.Duration(config.CBResetTimeoutSecs) * time.Second
 	config.BaseBackoff = time.Duration(config.BaseBackoffMs) * time.Millisecond
 	config.MaxBackoff = time.Duration(config.MaxBackoffMs) * time.Millisecond
@@ -80,6 +84,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 	
 	config.APITimeoutSecs = getEnvInt("API_TIMEOUT_SECS", config.APITimeoutSecs)
 	config.OverallTimeoutSecs = getEnvInt("OVERALL_TIMEOUT_SECS", config.OverallTimeoutSecs)
+	config.AchievementsTimeoutSecs = getEnvInt("ACHIEVEMENTS_TIMEOUT_SECS", config.AchievementsTimeoutSecs)
 	
 	config.MaxRetries = getEnvInt("MAX_RETRIES", config.MaxRetries)
 	config.BaseBackoffMs = getEnvInt("BASE_BACKOFF_MS", config.BaseBackoffMs)
@@ -98,6 +103,9 @@ func LoadAPIConfigFromEnv() APIConfig {
 	if config.APITimeoutSecs <= 0 {
 		config.APITimeoutSecs = 10
 	}
+	if config.AchievementsTimeoutSecs <= 0 {
+		config.AchievementsTimeoutSecs = 5
+	}
 	if config.MaxRetries < 0 {
 		config.MaxRetries = 3
 	}
@@ -114,6 +122,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 	// Compute derived fields
 	config.APITimeout = time.Duration(config.APITimeoutSecs) * time.Second
 	config.OverallTimeout = time.Duration(config.OverallTimeoutSecs) * time.Second
+	config.AchievementsTimeout = time.Duration(config.AchievementsTimeoutSecs) * time.Second
 	config.CBResetTimeout = time.Duration(config.CBResetTimeoutSecs) * time.Second
 	config.BaseBackoff = time.Duration(config.BaseBackoffMs) * time.Millisecond
 	config.MaxBackoff = time.Duration(config.MaxBackoffMs) * time.Millisecond
@@ -123,6 +132,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 		"cb_max_fails", config.CBMaxFails,
 		"cb_reset_timeout", config.CBResetTimeout,
 		"api_timeout", config.APITimeout,
+		"achievements_timeout", config.AchievementsTimeout,
 		"max_retries", config.MaxRetries,
 		"base_backoff", config.BaseBackoff,
 		"rate_limit", config.RateLimit,

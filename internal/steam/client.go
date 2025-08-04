@@ -18,6 +18,45 @@ const (
 	DBDAppID = "381210"
 )
 
+// getAchievementsTimeout returns the configurable achievements fetch timeout
+func getAchievementsTimeout() time.Duration {
+	if timeoutStr := os.Getenv("ACHIEVEMENTS_TIMEOUT_SECS"); timeoutStr != "" {
+		if timeoutSecs, err := strconv.Atoi(timeoutStr); err == nil && timeoutSecs > 0 {
+			return time.Duration(timeoutSecs) * time.Second
+		}
+	}
+	return 5 * time.Second // Default fallback
+}
+
+// logSteamError provides consistent Steam API error logging with player context
+func logSteamError(level string, msg string, playerID string, err error, additionalFields ...interface{}) {
+	fields := []interface{}{
+		"player_id", playerID,
+		"error", err.Error(),
+	}
+	fields = append(fields, additionalFields...)
+	
+	switch level {
+	case "ERROR":
+		log.Error(msg, fields...)
+	case "WARN":
+		log.Warn(msg, fields...)
+	case "DEBUG":
+		log.Debug(msg, fields...)
+	default:
+		log.Info(msg, fields...)
+	}
+}
+
+// logSteamInfo provides consistent Steam API info logging with player context
+func logSteamInfo(msg string, playerID string, additionalFields ...interface{}) {
+	fields := []interface{}{
+		"player_id", playerID,
+	}
+	fields = append(fields, additionalFields...)
+	log.Info(msg, fields...)
+}
+
 type Client struct {
 	apiKey      string
 	client      *http.Client
@@ -37,7 +76,9 @@ type playerStatsResponse struct {
 func NewClient() *Client {
 	return &Client{
 		apiKey:      os.Getenv("STEAM_API_KEY"),
-		client:      &http.Client{},
+		client:      &http.Client{
+			Timeout: getAchievementsTimeout(),
+		},
 		retryConfig: DefaultRetryConfig(),
 	}
 }
@@ -48,8 +89,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	log.Debug("Starting player summary request", 
-		"steam_id_or_vanity", steamIDOrVanity)
+	logSteamInfo("Starting player summary request", steamIDOrVanity, "steam_id_or_vanity", steamIDOrVanity)
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
@@ -60,10 +100,8 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 			StatusCode: err.StatusCode,
 			Retryable:  err.Retryable,
 		}
-		log.Error("Steam ID resolution failed", 
-			"steam_id_or_vanity", steamIDOrVanity,
-			"error", err.Message,
-			"duration", time.Since(start))
+		logSteamError("ERROR", "Steam ID resolution failed", steamIDOrVanity, 
+			fmt.Errorf(err.Message), "duration", time.Since(start))
 		return nil, wrappedErr
 	}
 
@@ -96,14 +134,12 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 	if len(resp.Response.Players) == 0 {
 		notFoundErr := NewNotFoundError("Player")
 		notFoundErr.Message = fmt.Sprintf("GetPlayerSummary: player not found for Steam ID %s", steamID64)
-		log.Warn("Player not found in Steam API", 
-			"steam_id", steamID64,
-			"duration", time.Since(start))
+		logSteamError("WARN", "Player not found in Steam API", steamID64,
+			fmt.Errorf("player not found"), "duration", time.Since(start))
 		return nil, notFoundErr
 	}
 
-	log.Info("Successfully retrieved player summary", 
-		"steam_id", steamID64,
+	logSteamInfo("Successfully retrieved player summary", steamID64,
 		"persona_name", resp.Response.Players[0].PersonaName,
 		"duration", time.Since(start))
 	return &resp.Response.Players[0], nil
@@ -114,8 +150,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	log.Debug("Starting player stats request", 
-		"steam_id_or_vanity", steamIDOrVanity)
+	logSteamInfo("Starting player stats request", steamIDOrVanity, "steam_id_or_vanity", steamIDOrVanity)
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
@@ -126,6 +161,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 			StatusCode: err.StatusCode,
 			Retryable:  err.Retryable,
 		}
+		logSteamError("ERROR", "Steam ID resolution failed for stats", steamIDOrVanity, fmt.Errorf(err.Message))
 		return nil, wrappedErr
 	}
 
@@ -156,8 +192,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 		return nil, retryErr
 	}
 
-	log.Info("Successfully retrieved player stats", 
-		"steam_id", steamID64,
+	logSteamInfo("Successfully retrieved player stats", steamID64,
 		"stats_count", len(resp.Playerstats.Stats))
 	return &resp.Playerstats, nil
 }
@@ -169,9 +204,8 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	log.Debug("Starting player achievements request", 
-		"steam_id", steamID,
-		"app_id", appID)
+	logSteamInfo("Starting player achievements request", steamID,
+		"steam_id", steamID, "app_id", appID)
 
 	steamID64, err := c.resolveSteamID(steamID)
 	if err != nil {
@@ -181,10 +215,8 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 			StatusCode: err.StatusCode,
 			Retryable:  err.Retryable,
 		}
-		log.Error("Steam ID resolution failed for achievements", 
-			"steam_id", steamID,
-			"error", err.Message,
-			"duration", time.Since(start))
+		logSteamError("ERROR", "Steam ID resolution failed for achievements", steamID,
+			fmt.Errorf(err.Message), "duration", time.Since(start))
 		return nil, wrappedErr
 	}
 
@@ -216,15 +248,12 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 	if !resp.Playerstats.Success {
 		notFoundErr := NewNotFoundError("Player Achievements")
 		notFoundErr.Message = fmt.Sprintf("GetPlayerAchievements: achievements not found for Steam ID %s", steamID64)
-		log.Warn("Player achievements not found or private", 
-			"steam_id", steamID64,
-			"app_id", appID,
-			"duration", time.Since(start))
+		logSteamError("WARN", "Player achievements not found or private", steamID64,
+			fmt.Errorf("achievements not found or private"), "app_id", appID, "duration", time.Since(start))
 		return nil, notFoundErr
 	}
 
-	log.Info("Successfully retrieved player achievements", 
-		"steam_id", steamID64,
+	logSteamInfo("Successfully retrieved player achievements", steamID64,
 		"app_id", appID,
 		"achievements_count", len(resp.Playerstats.Achievements),
 		"duration", time.Since(start))
@@ -237,8 +266,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 		return steamIDOrVanity, nil
 	}
 
-	log.Debug("Resolving vanity URL to Steam ID", 
-		"vanity_url", steamIDOrVanity)
+	logSteamInfo("Resolving vanity URL to Steam ID", steamIDOrVanity, "vanity_url", steamIDOrVanity)
 
 	endpoint := fmt.Sprintf("%s/ISteamUser/ResolveVanityURL/v0001/", BaseURL)
 	params := url.Values{}

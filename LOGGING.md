@@ -48,6 +48,7 @@ Request-specific fields:
 - `method`: HTTP method
 - `path`: Request path
 - `steam_id`: Steam ID from URL parameter
+- `player_id`: Steam ID or vanity URL for correlation across log lines
 - `user_agent`: Client user agent
 - `remote_addr`: Client IP address
 - `status_code`: HTTP response status
@@ -94,6 +95,25 @@ cat logs.json | jq 'select(.msg == "steam_api_request_success") | {endpoint, dur
 
 # Trace specific request by ID
 cat logs.json | jq 'select(.request_id == "faaca1bb184b7116")'
+
+# Find all logs for a specific player
+cat logs.json | jq 'select(.player_id == "76561198000000000")'
+```
+
+## Environment Variables
+
+Configuration options for enhanced logging and timeouts:
+
+```bash
+# Logging configuration
+LOG_LEVEL=debug                    # Set log level (default: info)
+
+# Steam API timeout configuration  
+ACHIEVEMENTS_TIMEOUT_SECS=5        # Achievements fetch timeout (default: 5s)
+
+# Cache TTL configuration (from ACHIEVEMENTS.md)
+CACHE_PLAYER_ACHIEVEMENTS_TTL=30m
+CACHE_PLAYER_COMBINED_TTL=10m
 ```
 
 ## Monitoring Integration
