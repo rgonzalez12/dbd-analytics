@@ -1,0 +1,303 @@
+package api
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"time"
+
+	"golang.org/x/sync/errgroup"
+	"github.com/rgonzalez12/dbd-analytics/internal/models"
+	"github.com/rgonzalez12/dbd-analytics/internal/steam"
+	"github.com/rgonzalez12/dbd-analytics/internal/log"
+)
+
+// SteamClientInterface defines the interface for Steam API operations
+type SteamClientInterface interface {
+	GetPlayerSummary(steamIDOrVanity string) (*steam.SteamPlayer, *steam.APIError)
+	GetPlayerStats(steamIDOrVanity string) (*steam.SteamPlayerstats, *steam.APIError)
+	GetPlayerAchievements(steamID, appID string) (*steam.PlayerAchievements, *steam.APIError)
+}
+
+// ParallelFetcher handles safe parallel fetching of player data
+type ParallelFetcher struct {
+	config      APIConfig
+	merger      *SafeAchievementMerger
+	steamClient SteamClientInterface
+}
+
+// NewParallelFetcher creates a new parallel fetcher with configuration
+func NewParallelFetcher(config APIConfig, steamClient SteamClientInterface) *ParallelFetcher {
+	return &ParallelFetcher{
+		config:      config,
+		merger:      NewSafeAchievementMerger(),
+		steamClient: steamClient,
+	}
+}
+
+// FetchResult holds the results of parallel fetch operations
+type FetchResult struct {
+	Stats        models.PlayerStats
+	Achievements *models.AchievementData
+	StatsError   error
+	AchError     error
+	StatsSource  string
+	AchSource    string
+	Duration     time.Duration
+}
+
+// FetchPlayerDataParallel fetches stats and achievements in parallel with enhanced error handling
+func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID string) (*FetchResult, error) {
+	start := time.Now()
+	
+	// Create context with overall timeout
+	ctx, cancel := context.WithTimeout(ctx, f.config.OverallTimeout)
+	defer cancel()
+	
+	result := &FetchResult{}
+	
+	// Use errgroup for safer parallel execution
+	g, gCtx := errgroup.WithContext(ctx)
+	
+	// Fetch player stats with retry and backoff
+	g.Go(func() error {
+		result.Stats, result.StatsError, result.StatsSource = f.fetchStatsWithRetry(gCtx, steamID)
+		
+		// Stats are critical - if they fail, fail the whole operation
+		if result.StatsError != nil {
+			log.Error("Critical: Stats fetch failed",
+				"steam_id", steamID,
+				"error", result.StatsError,
+				"error_type", classifyError(result.StatsError),
+				"source", result.StatsSource)
+			return fmt.Errorf("stats fetch failed: %w", result.StatsError)
+		}
+		
+		return nil
+	})
+	
+	// Fetch achievements with retry and backoff (non-critical)
+	g.Go(func() error {
+		result.Achievements, result.AchError, result.AchSource = f.fetchAchievementsWithRetry(gCtx, steamID)
+		
+		// Achievements are not critical - log error but don't fail operation
+		if result.AchError != nil {
+			errorType := classifyError(result.AchError)
+			log.Warn("Non-critical: Achievements fetch failed",
+				"steam_id", steamID,
+				"error", result.AchError,
+				"error_type", errorType,
+				"source", result.AchSource,
+				"impact", "partial_data_will_be_served")
+		}
+		
+		// Never return error for achievements - allow partial success
+		return nil
+	})
+	
+	// Wait for all operations to complete
+	if err := g.Wait(); err != nil {
+		result.Duration = time.Since(start)
+		return result, err
+	}
+	
+	result.Duration = time.Since(start)
+	
+	log.Info("Parallel fetch completed",
+		"steam_id", steamID,
+		"stats_success", result.StatsError == nil,
+		"achievements_success", result.AchError == nil,
+		"stats_source", result.StatsSource,
+		"achievements_source", result.AchSource,
+		"total_duration", result.Duration)
+	
+	return result, nil
+}
+
+// fetchStatsWithRetry fetches player stats with exponential backoff retry
+func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID string) (models.PlayerStats, error, string) {
+	var lastErr error
+	
+	for attempt := 0; attempt <= f.config.MaxRetries; attempt++ {
+		if attempt > 0 {
+			// Calculate backoff with jitter
+			backoff := f.calculateBackoff(attempt)
+			log.Debug("Retrying stats fetch after backoff",
+				"steam_id", steamID,
+				"attempt", attempt,
+				"backoff", backoff)
+			
+			select {
+			case <-time.After(backoff):
+				// Continue with retry
+			case <-ctx.Done():
+				return models.PlayerStats{}, ctx.Err(), "timeout"
+			}
+		}
+		
+		// Create per-request context with timeout
+		reqCtx, cancel := context.WithTimeout(ctx, f.config.APITimeout)
+		
+		stats, err, source := f.fetchStatsOnce(reqCtx, steamID)
+		cancel()
+		
+		if err == nil {
+			if attempt > 0 {
+				log.Info("Stats fetch succeeded after retry",
+					"steam_id", steamID,
+					"attempt", attempt,
+					"source", source)
+			}
+			return stats, nil, source
+		}
+		
+		lastErr = err
+		
+		// Check if error is retryable
+		if !isRetryableError(err) {
+			log.Debug("Non-retryable error, stopping retries",
+				"steam_id", steamID,
+				"error", err,
+				"attempt", attempt)
+			break
+		}
+	}
+	
+	return models.PlayerStats{}, lastErr, "api"
+}
+
+// fetchAchievementsWithRetry fetches achievements with exponential backoff retry
+func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamID string) (*models.AchievementData, error, string) {
+	var lastErr error
+	
+	for attempt := 0; attempt <= f.config.MaxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := f.calculateBackoff(attempt)
+			log.Debug("Retrying achievements fetch after backoff",
+				"steam_id", steamID,
+				"attempt", attempt,
+				"backoff", backoff)
+			
+			select {
+			case <-time.After(backoff):
+				// Continue with retry
+			case <-ctx.Done():
+				return nil, ctx.Err(), "timeout"
+			}
+		}
+		
+		reqCtx, cancel := context.WithTimeout(ctx, f.config.APITimeout)
+		
+		achievements, err, source := f.fetchAchievementsOnce(reqCtx, steamID)
+		cancel()
+		
+		if err == nil {
+			if attempt > 0 {
+				log.Info("Achievements fetch succeeded after retry",
+					"steam_id", steamID,
+					"attempt", attempt,
+					"source", source)
+			}
+			return achievements, nil, source
+		}
+		
+		lastErr = err
+		
+		// For achievements, be more permissive with retries since it's non-critical
+		if !isRetryableError(err) && !isAchievementSpecificError(err) {
+			log.Debug("Non-retryable achievement error, stopping retries",
+				"steam_id", steamID,
+				"error", err,
+				"attempt", attempt)
+			break
+		}
+	}
+	
+	return nil, lastErr, "api"
+}
+
+// fetchStatsOnce performs a single stats fetch attempt
+func (f *ParallelFetcher) fetchStatsOnce(ctx context.Context, steamID string) (models.PlayerStats, error, string) {
+	// Use the Steam client to fetch stats
+	steamStats, apiErr := f.steamClient.GetPlayerStats(steamID)
+	if apiErr != nil {
+		return models.PlayerStats{}, apiErr, "api"
+	}
+	
+	// Convert steam stats to models.PlayerStats
+	// For now, return a placeholder - you'd implement the actual conversion
+	// This would integrate with your existing conversion logic
+	return models.PlayerStats{
+		SteamID: steamStats.SteamID,
+		// Add other fields as needed
+	}, nil, "api"
+}
+
+// fetchAchievementsOnce performs a single achievements fetch attempt  
+func (f *ParallelFetcher) fetchAchievementsOnce(ctx context.Context, steamID string) (*models.AchievementData, error, string) {
+	// Use the Steam client to fetch achievements
+	_, apiErr := f.steamClient.GetPlayerAchievements(steamID, "381210") // DBD App ID
+	if apiErr != nil {
+		return nil, apiErr, "api"
+	}
+	
+	// Convert steam achievements to models.AchievementData
+	// For now, return a placeholder - you'd implement the actual conversion
+	// This would integrate with your existing conversion logic
+	return &models.AchievementData{
+		AdeptSurvivors: make(map[string]bool),
+		AdeptKillers:   make(map[string]bool),
+		LastUpdated:    time.Now(),
+	}, nil, "api"
+}
+
+// calculateBackoff calculates exponential backoff with jitter
+func (f *ParallelFetcher) calculateBackoff(attempt int) time.Duration {
+	// Exponential backoff: base * (2^attempt)
+	backoff := f.config.BaseBackoff * time.Duration(1<<uint(attempt))
+	
+	// Cap at maximum
+	if backoff > f.config.MaxBackoff {
+		backoff = f.config.MaxBackoff
+	}
+	
+	// Add jitter (±25%) only if backoff is greater than 0
+	if backoff > 0 {
+		jitter := time.Duration(rand.Int63n(int64(backoff / 4)))
+		if rand.Intn(2) == 0 {
+			backoff += jitter
+		} else {
+			backoff -= jitter
+		}
+	}
+	
+	// Ensure minimum
+	if backoff < f.config.BaseBackoff {
+		backoff = f.config.BaseBackoff
+	}
+	
+	return backoff
+}
+
+// isRetryableError determines if an error should trigger a retry
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errorType := classifyError(err)
+	switch errorType {
+	case "rate_limited", "timeout", "network_error", "steam_api_down":
+		return true
+	case "private_profile", "validation_error", "no_achievements":
+		return false
+	default:
+		return true // Be optimistic about unknown errors
+	}
+}
+
+// isAchievementSpecificError checks for achievement-specific errors that might be retryable
+func isAchievementSpecificError(err error) bool {
+	errorType := classifyError(err)
+	return errorType == "no_achievements" || errorType == "private_profile"
+}
