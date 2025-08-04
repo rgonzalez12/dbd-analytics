@@ -2,7 +2,6 @@ package cache
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -237,11 +236,17 @@ func GetTTLFromEnv() TTLConfig {
 func getEnvDuration(envKey string, fallback time.Duration) time.Duration {
 	if value := os.Getenv(envKey); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
-			log.Printf("TTL loaded from env: %s=%v", envKey, duration)
+			internalLog.Info("TTL loaded from environment variable", 
+				"env_key", envKey, 
+				"value", duration, 
+				"source", "environment")
 			return duration
 		}
 		// Log warning about invalid duration format but continue with fallback
-		log.Printf("Warning: Invalid duration format for %s: %s, using fallback %v", envKey, value, fallback)
+		internalLog.Warn("Invalid duration format in environment variable", 
+			"env_key", envKey, 
+			"value", value, 
+			"fallback", fallback)
 	}
 	return fallback
 }
