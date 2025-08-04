@@ -87,17 +87,22 @@ func TestSteamIDValidation(t *testing.T) {
 			}
 
 			if tt.expectedError != "" && w.Code == http.StatusBadRequest {
-				var response map[string]interface{}
+				var response StandardError
 				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 					t.Fatalf("Failed to unmarshal response: %v. Body: %s", err, w.Body.String())
 				}
 
-				if response["error"] != tt.expectedError {
-					t.Errorf("Expected error '%s', got '%s'", tt.expectedError, response["error"])
+				if response.Error.Message != tt.expectedError {
+					t.Errorf("Expected error '%s', got '%s'", tt.expectedError, response.Error.Message)
 				}
 
-				if response["type"] != "validation_error" {
-					t.Errorf("Expected error type 'validation_error', got '%s'", response["type"])
+				if response.Error.Code != "VALIDATION_ERROR" {
+					t.Errorf("Expected error code 'VALIDATION_ERROR', got '%s'", response.Error.Code)
+				}
+
+				// Verify request ID is present
+				if response.Error.RequestID == "" {
+					t.Errorf("Expected request ID to be present in error response")
 				}
 			}
 		})

@@ -26,7 +26,10 @@ func RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/cache/stats", handler.GetCacheStats).Methods("GET")
 	router.HandleFunc("/cache/evict", handler.EvictExpiredEntries).Methods("POST")
 
+	// PATCH START - Production-ready health and metrics endpoints
 	// Health and metrics endpoints
 	router.HandleFunc("/health", handler.HealthCheck).Methods("GET")
+	router.HandleFunc("/healthz", handler.HealthCheck).Methods("GET") // Kubernetes-style healthcheck
 	router.HandleFunc("/metrics", handler.GetMetrics).Methods("GET")
+	// PATCH END
 }

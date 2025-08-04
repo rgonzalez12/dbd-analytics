@@ -212,27 +212,28 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			}
 
 			// Parse response
-			var response map[string]interface{}
+			var response StandardError
 			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 				t.Fatalf("Failed to unmarshal response: %v", err)
 			}
 
-			// Should have all required fields
-			requiredFields := []string{"error", "type", "request_id", "details", "source"}
-			for _, field := range requiredFields {
-				if response[field] == nil {
-					t.Errorf("Expected '%s' field in response", field)
-				}
+			// Should have all required fields in the new format
+			if response.Error.Code == "" {
+				t.Error("Expected 'code' field in error response")
+			}
+			if response.Error.Message == "" {
+				t.Error("Expected 'message' field in error response")
+			}
+			if response.Error.RequestID == "" {
+				t.Error("Expected 'request_id' field in error response")
+			}
+			if len(response.Error.Details) == 0 {
+				t.Error("Expected 'details' field in error response")
 			}
 
-			// Should be a client error
-			if response["source"] != "client_error" {
-				t.Errorf("Expected source to be 'client_error', got '%s'", response["source"])
-			}
-
-			// Should have validation error type
-			if response["type"] != "validation_error" {
-				t.Errorf("Expected type to be 'validation_error', got '%s'", response["type"])
+			// Should have validation error code
+			if response.Error.Code != "VALIDATION_ERROR" {
+				t.Errorf("Expected code to be 'VALIDATION_ERROR', got '%s'", response.Error.Code)
 			}
 		})
 	}

@@ -24,13 +24,13 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 	}{
 		{
 			name:            "Invalid Steam ID Format",
-			steamID:         "invalid_id",
+			steamID:         "invalid@id",
 			expectedStatus:  http.StatusBadRequest,
 			shouldHaveError: true,
 		},
 		{
 			name:            "Non-existent Steam ID",
-			steamID:         "76561198000000001", // Likely non-existent
+			steamID:         "76561199999999999", // Very high number, likely non-existent
 			expectedStatus:  http.StatusNotFound,
 			shouldHaveError: true,
 		},
@@ -60,17 +60,17 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 
 			// Verify error response structure if error expected
 			if scenario.shouldHaveError {
-				var response map[string]interface{}
+				var response StandardError
 				if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 					t.Fatalf("Failed to parse error response: %v", err)
 				}
 
-				if _, ok := response["error"]; !ok {
-					t.Error("Expected error field in response")
+				if response.Error.Code == "" {
+					t.Error("Expected error code field in response")
 				}
 
-				if _, ok := response["type"]; !ok {
-					t.Error("Expected type field in response")
+				if response.Error.Message == "" {
+					t.Error("Expected error message field in response")
 				}
 			}
 		})
@@ -140,10 +140,10 @@ func TestCacheResiliency(t *testing.T) {
 	}
 
 	// Verify error structure
-	var response map[string]interface{}
+	var response StandardError
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err == nil {
-		if response["type"] != "validation_error" {
-			t.Errorf("Expected validation_error type, got %v", response["type"])
+		if response.Error.Code != "VALIDATION_ERROR" {
+			t.Errorf("Expected VALIDATION_ERROR code, got %v", response.Error.Code)
 		}
 	}
 }
