@@ -12,8 +12,8 @@ import (
 
 // MockSteamClientForHardening implements SteamClientInterface for hardening tests
 type MockSteamClientForHardening struct {
-	GetPlayerSummaryFunc     func(steamIDOrVanity string) (*steam.SteamPlayer, *steam.APIError)
-	GetPlayerStatsFunc       func(steamIDOrVanity string) (*steam.SteamPlayerstats, *steam.APIError)
+	GetPlayerSummaryFunc      func(steamIDOrVanity string) (*steam.SteamPlayer, *steam.APIError)
+	GetPlayerStatsFunc        func(steamIDOrVanity string) (*steam.SteamPlayerstats, *steam.APIError)
 	GetPlayerAchievementsFunc func(steamID, appID string) (*steam.PlayerAchievements, *steam.APIError)
 }
 
@@ -44,9 +44,9 @@ func TestAPIConfigIntegration(t *testing.T) {
 	t.Setenv("API_TIMEOUT_SECS", "30")
 	t.Setenv("MAX_RETRIES", "5")
 	t.Setenv("BASE_BACKOFF_MS", "1000")
-	
+
 	config := LoadAPIConfigFromEnv()
-	
+
 	// Validate critical production settings
 	if config.APITimeout != 30*time.Second {
 		t.Errorf("Expected APITimeout 30s, got %v", config.APITimeout)
@@ -54,14 +54,14 @@ func TestAPIConfigIntegration(t *testing.T) {
 	if config.MaxRetries != 5 {
 		t.Errorf("Expected MaxRetries 5, got %d", config.MaxRetries)
 	}
-	
+
 	// Ensure derived fields are computed correctly
 	if config.BaseBackoff != 1*time.Second {
 		t.Errorf("Expected BaseBackoff 1s, got %v", config.BaseBackoff)
 	}
 }
 
-// Test Configuration Edge Cases - Focus on regression protection  
+// Test Configuration Edge Cases - Focus on regression protection
 func TestAPIConfigEdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -96,7 +96,7 @@ func TestAPIConfigEdgeCases(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.envVars {
@@ -112,7 +112,7 @@ func TestAPIConfigEdgeCases(t *testing.T) {
 func TestSafeAchievementMerger_ValidData(t *testing.T) {
 	// Create merger with lower thresholds for testing
 	merger := NewSafeAchievementMergerWithConfig(1, 1, 24*time.Hour)
-	
+
 	// Create a response with existing achievements
 	response := &models.PlayerStatsWithAchievements{
 		Achievements: &models.AchievementData{
@@ -126,11 +126,11 @@ func TestSafeAchievementMerger_ValidData(t *testing.T) {
 			LastUpdated: time.Now().Add(-1 * time.Hour),
 		},
 	}
-	
+
 	newData := &models.AchievementData{
 		AdeptSurvivors: map[string]bool{
-			"Dwight":   true,
-			"Meg":      true, // Updated
+			"Dwight":    true,
+			"Meg":       true, // Updated
 			"Claudette": true, // New
 		},
 		AdeptKillers: map[string]bool{
@@ -139,12 +139,12 @@ func TestSafeAchievementMerger_ValidData(t *testing.T) {
 		},
 		LastUpdated: time.Now(),
 	}
-	
+
 	err := merger.SafeMergeAchievements(response, newData, "12345")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	// Check merged survivors
 	if !response.Achievements.AdeptSurvivors["Dwight"] {
 		t.Error("Dwight should remain true")
@@ -155,7 +155,7 @@ func TestSafeAchievementMerger_ValidData(t *testing.T) {
 	if !response.Achievements.AdeptSurvivors["Claudette"] {
 		t.Error("Claudette should be added as true")
 	}
-	
+
 	// Check merged killers
 	if !response.Achievements.AdeptKillers["Trapper"] {
 		t.Error("Trapper should remain true")
@@ -168,13 +168,13 @@ func TestSafeAchievementMerger_ValidData(t *testing.T) {
 func TestSafeAchievementMerger_NilInputs(t *testing.T) {
 	// Create merger with lower thresholds for testing
 	merger := NewSafeAchievementMergerWithConfig(1, 1, 24*time.Hour)
-	
+
 	// Test nil response
 	err := merger.SafeMergeAchievements(nil, &models.AchievementData{}, "12345")
 	if err == nil {
 		t.Error("Expected error with nil response")
 	}
-	
+
 	// Test response with nil achievements (should be handled gracefully)
 	response := &models.PlayerStatsWithAchievements{}
 	newData := &models.AchievementData{
@@ -182,7 +182,7 @@ func TestSafeAchievementMerger_NilInputs(t *testing.T) {
 		AdeptKillers:   map[string]bool{"Trapper": true},
 		LastUpdated:    time.Now(),
 	}
-	
+
 	err = merger.SafeMergeAchievements(response, newData, "12345")
 	if err != nil {
 		t.Fatalf("Expected no error with nil achievements, got %v", err)
@@ -190,7 +190,7 @@ func TestSafeAchievementMerger_NilInputs(t *testing.T) {
 	if response.Achievements == nil {
 		t.Error("Achievements should be initialized")
 	}
-	
+
 	// Test nil new data (should preserve existing)
 	response = &models.PlayerStatsWithAchievements{
 		Achievements: &models.AchievementData{
@@ -199,7 +199,7 @@ func TestSafeAchievementMerger_NilInputs(t *testing.T) {
 			LastUpdated:    time.Now(),
 		},
 	}
-	
+
 	err = merger.SafeMergeAchievements(response, nil, "12345")
 	if err != nil {
 		t.Fatalf("Expected no error with nil new data, got %v", err)
@@ -213,7 +213,7 @@ func TestSafeAchievementMerger_NilInputs(t *testing.T) {
 func TestParallelFetcher_SuccessfulFetch(t *testing.T) {
 	config := DefaultAPIConfig()
 	config.OverallTimeout = 5 * time.Second
-	
+
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerStatsFunc: func(steamID string) (*steam.SteamPlayerstats, *steam.APIError) {
 			// Add small delay to ensure duration is measurable
@@ -225,15 +225,15 @@ func TestParallelFetcher_SuccessfulFetch(t *testing.T) {
 			return &steam.PlayerAchievements{SteamID: steamID}, nil
 		},
 	}
-	
+
 	fetcher := NewParallelFetcher(config, mockClient)
 	ctx := context.Background()
-	
+
 	result, err := fetcher.FetchPlayerDataParallel(ctx, "12345")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
-	
+
 	if result.StatsError != nil {
 		t.Errorf("Expected no stats error, got %v", result.StatsError)
 	}
@@ -247,7 +247,7 @@ func TestParallelFetcher_SuccessfulFetch(t *testing.T) {
 
 func TestParallelFetcher_StatsFailure(t *testing.T) {
 	config := DefaultAPIConfig()
-	
+
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerStatsFunc: func(steamID string) (*steam.SteamPlayerstats, *steam.APIError) {
 			return nil, &steam.APIError{Message: "Stats failed", Type: "api_error"}
@@ -256,12 +256,12 @@ func TestParallelFetcher_StatsFailure(t *testing.T) {
 			return &steam.PlayerAchievements{SteamID: steamID}, nil
 		},
 	}
-	
+
 	fetcher := NewParallelFetcher(config, mockClient)
 	ctx := context.Background()
-	
+
 	result, err := fetcher.FetchPlayerDataParallel(ctx, "12345")
-	
+
 	// Stats failure should cause overall failure
 	if err == nil {
 		t.Error("Expected error when stats fail")
@@ -273,7 +273,7 @@ func TestParallelFetcher_StatsFailure(t *testing.T) {
 
 func TestParallelFetcher_AchievementsFailure(t *testing.T) {
 	config := DefaultAPIConfig()
-	
+
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerStatsFunc: func(steamID string) (*steam.SteamPlayerstats, *steam.APIError) {
 			return &steam.SteamPlayerstats{SteamID: steamID}, nil
@@ -282,12 +282,12 @@ func TestParallelFetcher_AchievementsFailure(t *testing.T) {
 			return nil, &steam.APIError{Message: "Achievements failed", Type: "private_profile"}
 		},
 	}
-	
+
 	fetcher := NewParallelFetcher(config, mockClient)
 	ctx := context.Background()
-	
+
 	result, err := fetcher.FetchPlayerDataParallel(ctx, "12345")
-	
+
 	// Achievements failure should NOT cause overall failure
 	if err != nil {
 		t.Errorf("Expected no error when only achievements fail, got %v", err)
@@ -303,20 +303,20 @@ func TestParallelFetcher_AchievementsFailure(t *testing.T) {
 func TestParallelFetcher_ContextTimeout(t *testing.T) {
 	config := DefaultAPIConfig()
 	config.OverallTimeout = 100 * time.Millisecond
-	
+
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerStatsFunc: func(steamID string) (*steam.SteamPlayerstats, *steam.APIError) {
 			time.Sleep(50 * time.Millisecond) // Less than timeout - should succeed
 			return &steam.SteamPlayerstats{SteamID: steamID}, nil
 		},
 	}
-	
+
 	fetcher := NewParallelFetcher(config, mockClient)
 	ctx := context.Background()
-	
+
 	result, err := fetcher.FetchPlayerDataParallel(ctx, "12345")
-	
-	// Should complete successfully within timeout  
+
+	// Should complete successfully within timeout
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -330,13 +330,13 @@ func TestEnhancedRetrier_SuccessFirstAttempt(t *testing.T) {
 	policy := DefaultRetryPolicy()
 	config := DefaultAPIConfig()
 	retrier := NewEnhancedRetrier(policy, config)
-	
+
 	attempts := 0
 	err := retrier.Execute(context.Background(), "test", func(ctx context.Context, attempt int) error {
 		attempts++
 		return nil // Success on first try
 	})
-	
+
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -350,7 +350,7 @@ func TestEnhancedRetrier_RetryableError(t *testing.T) {
 	policy.MaxRetries = 2
 	config := DefaultAPIConfig()
 	retrier := NewEnhancedRetrier(policy, config)
-	
+
 	attempts := 0
 	err := retrier.Execute(context.Background(), "test", func(ctx context.Context, attempt int) error {
 		attempts++
@@ -359,7 +359,7 @@ func TestEnhancedRetrier_RetryableError(t *testing.T) {
 		}
 		return nil // Success on third try
 	})
-	
+
 	if err != nil {
 		t.Errorf("Expected no error after retry, got %v", err)
 	}
@@ -372,13 +372,13 @@ func TestEnhancedRetrier_NonRetryableError(t *testing.T) {
 	policy := DefaultRetryPolicy()
 	config := DefaultAPIConfig()
 	retrier := NewEnhancedRetrier(policy, config)
-	
+
 	attempts := 0
 	err := retrier.Execute(context.Background(), "test", func(ctx context.Context, attempt int) error {
 		attempts++
 		return &steam.APIError{Type: "private_profile", Message: "Private profile"}
 	})
-	
+
 	if err == nil {
 		t.Error("Expected error for non-retryable error")
 	}
@@ -393,13 +393,13 @@ func TestEnhancedRetrier_MaxRetriesExceeded(t *testing.T) {
 	policy.BaseBackoff = 1 * time.Millisecond // Fast for testing
 	config := DefaultAPIConfig()
 	retrier := NewEnhancedRetrier(policy, config)
-	
+
 	attempts := 0
 	err := retrier.Execute(context.Background(), "test", func(ctx context.Context, attempt int) error {
 		attempts++
 		return &steam.APIError{Type: "network_error", Message: "Network error"}
 	})
-	
+
 	if err == nil {
 		t.Error("Expected error when max retries exceeded")
 	}
@@ -413,20 +413,20 @@ func TestEnhancedRetrier_ContextCancellation(t *testing.T) {
 	policy.BaseBackoff = 100 * time.Millisecond
 	config := DefaultAPIConfig()
 	retrier := NewEnhancedRetrier(policy, config)
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	attempts := 0
 	go func() {
 		time.Sleep(50 * time.Millisecond)
 		cancel()
 	}()
-	
+
 	err := retrier.Execute(ctx, "test", func(ctx context.Context, attempt int) error {
 		attempts++
 		return &steam.APIError{Type: "network_error", Message: "Network error"}
 	})
-	
+
 	if err == nil {
 		t.Error("Expected context cancellation error")
 	}
@@ -439,16 +439,16 @@ func TestEnhancedRetrier_ContextCancellation(t *testing.T) {
 func TestSteamAPIRetrier_StatsSuccess(t *testing.T) {
 	policy := DefaultRetryPolicy()
 	config := DefaultAPIConfig()
-	
+
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerStatsFunc: func(steamID string) (*steam.SteamPlayerstats, *steam.APIError) {
 			return &steam.SteamPlayerstats{SteamID: steamID}, nil
 		},
 	}
-	
+
 	retrier := NewSteamAPIRetrier(policy, config, mockClient)
 	ctx := context.Background()
-	
+
 	stats, err := retrier.GetPlayerStatsWithRetry(ctx, "12345")
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
@@ -462,7 +462,7 @@ func TestSteamAPIRetrier_AchievementsWithRetry(t *testing.T) {
 	policy := DefaultRetryPolicy()
 	policy.MaxRetries = 1
 	config := DefaultAPIConfig()
-	
+
 	attempts := 0
 	mockClient := &MockSteamClientForHardening{
 		GetPlayerAchievementsFunc: func(steamID, appID string) (*steam.PlayerAchievements, *steam.APIError) {
@@ -473,10 +473,10 @@ func TestSteamAPIRetrier_AchievementsWithRetry(t *testing.T) {
 			return &steam.PlayerAchievements{SteamID: steamID}, nil
 		},
 	}
-	
+
 	retrier := NewSteamAPIRetrier(policy, config, mockClient)
 	ctx := context.Background()
-	
+
 	achievements, err := retrier.GetPlayerAchievementsWithRetry(ctx, "12345")
 	if err != nil {
 		t.Errorf("Expected no error after retry, got %v", err)
@@ -500,10 +500,10 @@ func BenchmarkParallelFetcher_SuccessCase(b *testing.B) {
 			return &steam.PlayerAchievements{SteamID: steamID}, nil
 		},
 	}
-	
+
 	fetcher := NewParallelFetcher(config, mockClient)
 	ctx := context.Background()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		steamID := fmt.Sprintf("steam_%d", i)
@@ -516,7 +516,7 @@ func BenchmarkParallelFetcher_SuccessCase(b *testing.B) {
 
 func BenchmarkSafeAchievementMerger(b *testing.B) {
 	merger := NewSafeAchievementMergerWithConfig(1, 1, 24*time.Hour)
-	
+
 	response := &models.PlayerStatsWithAchievements{
 		Achievements: &models.AchievementData{
 			AdeptSurvivors: map[string]bool{
@@ -529,11 +529,11 @@ func BenchmarkSafeAchievementMerger(b *testing.B) {
 			LastUpdated: time.Now().Add(-1 * time.Hour),
 		},
 	}
-	
+
 	newData := &models.AchievementData{
 		AdeptSurvivors: map[string]bool{
-			"Dwight":   true,
-			"Meg":      true,
+			"Dwight":    true,
+			"Meg":       true,
 			"Claudette": true,
 		},
 		AdeptKillers: map[string]bool{
@@ -542,7 +542,7 @@ func BenchmarkSafeAchievementMerger(b *testing.B) {
 		},
 		LastUpdated: time.Now(),
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		err := merger.SafeMergeAchievements(response, newData, fmt.Sprintf("steam_%d", i))

@@ -11,58 +11,58 @@ import (
 
 func TestEnhancedErrorResponses(t *testing.T) {
 	tests := []struct {
-		name           string
-		errorType      steam.ErrorType
-		statusCode     int
-		expectedStatus int
+		name             string
+		errorType        steam.ErrorType
+		statusCode       int
+		expectedStatus   int
 		expectRetryAfter bool
 		expectDetails    bool
 	}{
 		{
-			name:           "Rate Limit Error",
-			errorType:      steam.ErrorTypeRateLimit,
-			statusCode:     429,
-			expectedStatus: 429,
+			name:             "Rate Limit Error",
+			errorType:        steam.ErrorTypeRateLimit,
+			statusCode:       429,
+			expectedStatus:   429,
 			expectRetryAfter: true,
 			expectDetails:    true,
 		},
 		{
-			name:           "Not Found Error",
-			errorType:      steam.ErrorTypeNotFound,
-			statusCode:     404,
-			expectedStatus: 404,
+			name:             "Not Found Error",
+			errorType:        steam.ErrorTypeNotFound,
+			statusCode:       404,
+			expectedStatus:   404,
 			expectRetryAfter: false,
 			expectDetails:    true,
 		},
 		{
-			name:           "API Error",
-			errorType:      steam.ErrorTypeAPIError,
-			statusCode:     502,
-			expectedStatus: 502,
+			name:             "API Error",
+			errorType:        steam.ErrorTypeAPIError,
+			statusCode:       502,
+			expectedStatus:   502,
 			expectRetryAfter: true,
 			expectDetails:    true,
 		},
 		{
-			name:           "Network Error",
-			errorType:      steam.ErrorTypeNetwork,
-			statusCode:     0, // No status code set
-			expectedStatus: 502,
+			name:             "Network Error",
+			errorType:        steam.ErrorTypeNetwork,
+			statusCode:       0, // No status code set
+			expectedStatus:   502,
 			expectRetryAfter: true,
 			expectDetails:    true,
 		},
 		{
-			name:           "Validation Error",
-			errorType:      steam.ErrorTypeValidation,
-			statusCode:     400,
-			expectedStatus: 400,
+			name:             "Validation Error",
+			errorType:        steam.ErrorTypeValidation,
+			statusCode:       400,
+			expectedStatus:   400,
 			expectRetryAfter: false,
 			expectDetails:    true,
 		},
 		{
-			name:           "Internal Error",
-			errorType:      steam.ErrorTypeInternal,
-			statusCode:     0,
-			expectedStatus: 500,
+			name:             "Internal Error",
+			errorType:        steam.ErrorTypeInternal,
+			statusCode:       0,
+			expectedStatus:   500,
 			expectRetryAfter: false,
 			expectDetails:    true,
 		},

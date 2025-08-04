@@ -9,37 +9,37 @@ import (
 
 func TestProcessAchievements(t *testing.T) {
 	tests := []struct {
-		name         string
-		achievements []SteamAchievement
+		name            string
+		achievements    []SteamAchievement
 		expectSurvivors map[string]bool
 		expectKillers   map[string]bool
 	}{
 		{
-			name: "empty achievements",
+			name:         "empty achievements",
 			achievements: []SteamAchievement{},
 			expectSurvivors: map[string]bool{
 				"dwight": false,
-				"meg": false,
+				"meg":    false,
 			},
 			expectKillers: map[string]bool{
 				"trapper": false,
-				"wraith": false,
+				"wraith":  false,
 			},
 		},
 		{
 			name: "some unlocked achievements",
 			achievements: []SteamAchievement{
-				{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1}, // dwight
+				{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1},   // dwight
 				{APIName: "ACH_UNLOCK_CHUCKLES_PERKS", Achieved: 1}, // trapper
-				{APIName: "ACH_UNLOCK_MEG_PERKS", Achieved: 0}, // meg (not unlocked)
+				{APIName: "ACH_UNLOCK_MEG_PERKS", Achieved: 0},      // meg (not unlocked)
 			},
 			expectSurvivors: map[string]bool{
 				"dwight": true,
-				"meg": false,
+				"meg":    false,
 			},
 			expectKillers: map[string]bool{
 				"trapper": true,
-				"wraith": false,
+				"wraith":  false,
 			},
 		},
 		{
@@ -50,11 +50,11 @@ func TestProcessAchievements(t *testing.T) {
 			},
 			expectSurvivors: map[string]bool{
 				"dwight": true,
-				"meg": false,
+				"meg":    false,
 			},
 			expectKillers: map[string]bool{
 				"trapper": false,
-				"wraith": false,
+				"wraith":  false,
 			},
 		},
 	}
@@ -121,7 +121,7 @@ func TestAdeptAchievementMapping(t *testing.T) {
 	// Check specific known characters exist
 	foundDwight := false
 	foundTrapper := false
-	
+
 	for _, character := range AdeptAchievementMapping {
 		if character.Name == "dwight" && character.Type == "survivor" {
 			foundDwight = true

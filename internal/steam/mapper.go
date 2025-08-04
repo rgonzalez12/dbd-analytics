@@ -6,36 +6,36 @@ import "time"
 // This mapping can be expanded as new Dead by Daylight statistics are discovered
 var statMapping = map[string]string{
 	// Killer Statistics
-	"DBD_KilledCampers":         "killer.total_kills",
-	"DBD_SacrificedCampers":     "killer.sacrificed_victims",
-	"DBD_MoriKills":             "killer.mori_kills",
-	"DBD_HooksPerformed":        "killer.hooks_performed",
-	"DBD_KillerPerfectGames":    "killer.perfect_games",
-	"DBD_KillerFullLoadout":     "killer.full_loadout_games",
-	"DBD_KillerPips":            "killer.killer_pips",
-	"DBD_UncloakAttacks":        "killer.uncloak_attacks",
+	"DBD_KilledCampers":      "killer.total_kills",
+	"DBD_SacrificedCampers":  "killer.sacrificed_victims",
+	"DBD_MoriKills":          "killer.mori_kills",
+	"DBD_HooksPerformed":     "killer.hooks_performed",
+	"DBD_KillerPerfectGames": "killer.perfect_games",
+	"DBD_KillerFullLoadout":  "killer.full_loadout_games",
+	"DBD_KillerPips":         "killer.killer_pips",
+	"DBD_UncloakAttacks":     "killer.uncloak_attacks",
 
 	// Survivor Statistics
-	"DBD_Escapes":               "survivor.total_escapes",
-	"DBD_EscapeThroughHatch":    "survivor.escapes_through_hatch",
-	"DBD_EscapesKO":             "survivor.escapes_knocked_out",
-	"DBD_HookedAndEscape":       "survivor.hooked_and_escaped",
-	"DBD_GeneratorPct":          "survivor.generators_completed_pct",
-	"DBD_HealPct":               "survivor.healing_completed_pct",
-	"DBD_SkillCheckSuccess":     "survivor.skill_checks_hit",
-	"DBD_UnhookOrHeal":          "survivor.unhooks_performed",
-	"DBD_HealsPerformed":        "survivor.heals_performed",
-	"DBD_UnhookOrHealPostExit":  "survivor.post_exit_actions",
-	"DBD_CamperPerfectGames":    "survivor.perfect_games",
-	"DBD_CamperFullLoadout":     "survivor.full_loadout_games",
-	"DBD_CamperNewItem":         "survivor.new_items_found",
-	"DBD_SurvivorPips":          "survivor.survivor_pips",
+	"DBD_Escapes":              "survivor.total_escapes",
+	"DBD_EscapeThroughHatch":   "survivor.escapes_through_hatch",
+	"DBD_EscapesKO":            "survivor.escapes_knocked_out",
+	"DBD_HookedAndEscape":      "survivor.hooked_and_escaped",
+	"DBD_GeneratorPct":         "survivor.generators_completed_pct",
+	"DBD_HealPct":              "survivor.healing_completed_pct",
+	"DBD_SkillCheckSuccess":    "survivor.skill_checks_hit",
+	"DBD_UnhookOrHeal":         "survivor.unhooks_performed",
+	"DBD_HealsPerformed":       "survivor.heals_performed",
+	"DBD_UnhookOrHealPostExit": "survivor.post_exit_actions",
+	"DBD_CamperPerfectGames":   "survivor.perfect_games",
+	"DBD_CamperFullLoadout":    "survivor.full_loadout_games",
+	"DBD_CamperNewItem":        "survivor.new_items_found",
+	"DBD_SurvivorPips":         "survivor.survivor_pips",
 
 	// General Statistics
-	"DBD_BloodwebPoints":        "general.bloodweb_points",
-	"DBD_TotalMatches":          "general.total_matches",
-	"DBD_TimePlayed":            "general.time_played_hours",
-	"DBD_LastUpdated":           "general.last_updated",
+	"DBD_BloodwebPoints": "general.bloodweb_points",
+	"DBD_TotalMatches":   "general.total_matches",
+	"DBD_TimePlayed":     "general.time_played_hours",
+	"DBD_LastUpdated":    "general.last_updated",
 }
 
 // GetDBDPlayerStats returns the nested structure for backward compatibility
@@ -157,19 +157,19 @@ func ConvertToFlatPlayerStats(dbdStats DBDPlayerStats) interface{} {
 	// This would need to import models package, but to avoid circular imports,
 	// we'll return a map that can be easily converted
 	return map[string]interface{}{
-		"steam_id":                  dbdStats.SteamID,
-		"display_name":             dbdStats.DisplayName,
-		
+		"steam_id":     dbdStats.SteamID,
+		"display_name": dbdStats.DisplayName,
+
 		// Killer statistics
-		"killed_campers":           dbdStats.Killer.TotalKills,
-		"sacrificed_campers":       dbdStats.Killer.SacrificedVictims,
-		"mori_kills":               dbdStats.Killer.MoriKills,
-		"hooks_performed":          dbdStats.Killer.HooksPerformed,
-		"uncloak_attacks":          dbdStats.Killer.UncloakAttacks,
-		"killer_pips":              dbdStats.Killer.KillerPips,
-		"killer_perfect_games":     dbdStats.Killer.PerfectGames,
-		"killer_full_loadout":      dbdStats.Killer.FullLoadoutGames,
-		
+		"killed_campers":       dbdStats.Killer.TotalKills,
+		"sacrificed_campers":   dbdStats.Killer.SacrificedVictims,
+		"mori_kills":           dbdStats.Killer.MoriKills,
+		"hooks_performed":      dbdStats.Killer.HooksPerformed,
+		"uncloak_attacks":      dbdStats.Killer.UncloakAttacks,
+		"killer_pips":          dbdStats.Killer.KillerPips,
+		"killer_perfect_games": dbdStats.Killer.PerfectGames,
+		"killer_full_loadout":  dbdStats.Killer.FullLoadoutGames,
+
 		// Survivor statistics
 		"escapes":                  dbdStats.Survivor.TotalEscapes,
 		"escapes_ko":               dbdStats.Survivor.EscapesKnockedOut,
@@ -186,11 +186,11 @@ func ConvertToFlatPlayerStats(dbdStats DBDPlayerStats) interface{} {
 		"camper_perfect_games":     dbdStats.Survivor.PerfectGames,
 		"camper_full_loadout":      dbdStats.Survivor.FullLoadoutGames,
 		"camper_new_item":          dbdStats.Survivor.NewItemsFound,
-		
+
 		// General statistics
-		"bloodweb_points":          dbdStats.General.BloodwebPoints,
-		"total_matches":            dbdStats.General.TotalMatches,
-		"time_played_hours":        dbdStats.General.TimePlayed,
-		"last_updated":             dbdStats.General.LastUpdated,
+		"bloodweb_points":   dbdStats.General.BloodwebPoints,
+		"total_matches":     dbdStats.General.TotalMatches,
+		"time_played_hours": dbdStats.General.TimePlayed,
+		"last_updated":      dbdStats.General.LastUpdated,
 	}
 }

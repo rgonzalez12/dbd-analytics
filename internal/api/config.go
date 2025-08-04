@@ -12,31 +12,31 @@ import (
 // APIConfig holds configurable parameters for API resilience and performance
 type APIConfig struct {
 	// Circuit Breaker Configuration
-	CBMaxFails         int           `json:"cb_max_fails"`          // Max consecutive failures before opening
-	CBResetTimeoutSecs int           `json:"cb_reset_timeout_secs"` // Seconds to wait before attempting reset
-	CBHalfOpenRequests int           `json:"cb_half_open_requests"` // Requests to test in half-open state
-	
+	CBMaxFails         int `json:"cb_max_fails"`          // Max consecutive failures before opening
+	CBResetTimeoutSecs int `json:"cb_reset_timeout_secs"` // Seconds to wait before attempting reset
+	CBHalfOpenRequests int `json:"cb_half_open_requests"` // Requests to test in half-open state
+
 	// API Timeout Configuration
-	APITimeoutSecs        int           `json:"api_timeout_secs"`        // Per-request timeout
-	OverallTimeoutSecs    int           `json:"overall_timeout_secs"`    // Total operation timeout
-	AchievementsTimeoutSecs int         `json:"achievements_timeout_secs"` // Achievements fetch timeout
-	
+	APITimeoutSecs          int `json:"api_timeout_secs"`          // Per-request timeout
+	OverallTimeoutSecs      int `json:"overall_timeout_secs"`      // Total operation timeout
+	AchievementsTimeoutSecs int `json:"achievements_timeout_secs"` // Achievements fetch timeout
+
 	// Retry Configuration
-	MaxRetries         int           `json:"max_retries"`           // Maximum retry attempts
-	BaseBackoffMs      int           `json:"base_backoff_ms"`       // Base backoff in milliseconds
-	MaxBackoffMs       int           `json:"max_backoff_ms"`        // Maximum backoff cap
-	
+	MaxRetries    int `json:"max_retries"`     // Maximum retry attempts
+	BaseBackoffMs int `json:"base_backoff_ms"` // Base backoff in milliseconds
+	MaxBackoffMs  int `json:"max_backoff_ms"`  // Maximum backoff cap
+
 	// Rate Limiting
-	RateLimit          int           `json:"rate_limit"`            // Requests per minute
-	BurstLimit         int           `json:"burst_limit"`           // Burst capacity
-	
+	RateLimit  int `json:"rate_limit"`  // Requests per minute
+	BurstLimit int `json:"burst_limit"` // Burst capacity
+
 	// Computed fields for convenience
-	APITimeout         time.Duration `json:"-"`
-	OverallTimeout     time.Duration `json:"-"`
+	APITimeout          time.Duration `json:"-"`
+	OverallTimeout      time.Duration `json:"-"`
 	AchievementsTimeout time.Duration `json:"-"`
-	CBResetTimeout     time.Duration `json:"-"`
-	BaseBackoff        time.Duration `json:"-"`
-	MaxBackoff         time.Duration `json:"-"`
+	CBResetTimeout      time.Duration `json:"-"`
+	BaseBackoff         time.Duration `json:"-"`
+	MaxBackoff          time.Duration `json:"-"`
 }
 
 // DefaultAPIConfig returns sensible production defaults
@@ -46,22 +46,22 @@ func DefaultAPIConfig() APIConfig {
 		CBMaxFails:         5,  // Allow 5 failures before opening
 		CBResetTimeoutSecs: 60, // Wait 1 minute before reset attempt
 		CBHalfOpenRequests: 3,  // Test with 3 requests in half-open
-		
+
 		// Timeouts - Reasonable for Steam API
-		APITimeoutSecs:        10, // 10 second per-request timeout
-		OverallTimeoutSecs:    30, // 30 second total operation timeout
-		AchievementsTimeoutSecs: 5, // 5 second achievements fetch timeout
-		
+		APITimeoutSecs:          10, // 10 second per-request timeout
+		OverallTimeoutSecs:      30, // 30 second total operation timeout
+		AchievementsTimeoutSecs: 5,  // 5 second achievements fetch timeout
+
 		// Retry - Exponential backoff with jitter
 		MaxRetries:    3,    // Up to 3 retries
 		BaseBackoffMs: 250,  // Start with 250ms
 		MaxBackoffMs:  8000, // Cap at 8 seconds
-		
+
 		// Rate Limiting - Conservative for Steam API
 		RateLimit:  100, // 100 requests per minute
 		BurstLimit: 10,  // Allow bursts of 10
 	}
-	
+
 	// Compute derived fields
 	config.APITimeout = time.Duration(config.APITimeoutSecs) * time.Second
 	config.OverallTimeout = time.Duration(config.OverallTimeoutSecs) * time.Second
@@ -69,30 +69,30 @@ func DefaultAPIConfig() APIConfig {
 	config.CBResetTimeout = time.Duration(config.CBResetTimeoutSecs) * time.Second
 	config.BaseBackoff = time.Duration(config.BaseBackoffMs) * time.Millisecond
 	config.MaxBackoff = time.Duration(config.MaxBackoffMs) * time.Millisecond
-	
+
 	return config
 }
 
 // LoadAPIConfigFromEnv loads configuration from environment variables with fallbacks
 func LoadAPIConfigFromEnv() APIConfig {
 	config := DefaultAPIConfig()
-	
+
 	// Load from environment with fallbacks
 	config.CBMaxFails = getEnvInt("CB_MAX_FAILS", config.CBMaxFails)
 	config.CBResetTimeoutSecs = getEnvInt("CB_RESET_TIMEOUT_SECS", config.CBResetTimeoutSecs)
 	config.CBHalfOpenRequests = getEnvInt("CB_HALF_OPEN_REQUESTS", config.CBHalfOpenRequests)
-	
+
 	config.APITimeoutSecs = getEnvInt("API_TIMEOUT_SECS", config.APITimeoutSecs)
 	config.OverallTimeoutSecs = getEnvInt("OVERALL_TIMEOUT_SECS", config.OverallTimeoutSecs)
 	config.AchievementsTimeoutSecs = getEnvInt("ACHIEVEMENTS_TIMEOUT_SECS", config.AchievementsTimeoutSecs)
-	
+
 	config.MaxRetries = getEnvInt("MAX_RETRIES", config.MaxRetries)
 	config.BaseBackoffMs = getEnvInt("BASE_BACKOFF_MS", config.BaseBackoffMs)
 	config.MaxBackoffMs = getEnvInt("MAX_BACKOFF_MS", config.MaxBackoffMs)
-	
+
 	config.RateLimit = getEnvInt("RATE_LIMIT_PER_MIN", config.RateLimit)
 	config.BurstLimit = getEnvInt("BURST_LIMIT", config.BurstLimit)
-	
+
 	// Apply validation and fix invalid values
 	if config.CBMaxFails <= 0 {
 		config.CBMaxFails = 5
@@ -118,7 +118,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 	if config.RateLimit <= 0 {
 		config.RateLimit = 100
 	}
-	
+
 	// Compute derived fields
 	config.APITimeout = time.Duration(config.APITimeoutSecs) * time.Second
 	config.OverallTimeout = time.Duration(config.OverallTimeoutSecs) * time.Second
@@ -126,7 +126,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 	config.CBResetTimeout = time.Duration(config.CBResetTimeoutSecs) * time.Second
 	config.BaseBackoff = time.Duration(config.BaseBackoffMs) * time.Millisecond
 	config.MaxBackoff = time.Duration(config.MaxBackoffMs) * time.Millisecond
-	
+
 	// Log configuration for debugging
 	log.Info("API configuration loaded",
 		"cb_max_fails", config.CBMaxFails,
@@ -137,7 +137,7 @@ func LoadAPIConfigFromEnv() APIConfig {
 		"base_backoff", config.BaseBackoff,
 		"rate_limit", config.RateLimit,
 		"source", "environment_with_defaults")
-	
+
 	return config
 }
 

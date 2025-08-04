@@ -20,7 +20,7 @@ type MemoryCache struct {
 	stopCleanup    chan struct{}
 	shutdownOnce   sync.Once
 	isShuttingDown bool
-	startTime      time.Time  // Track cache initialization time for uptime
+	startTime      time.Time // Track cache initialization time for uptime
 }
 
 // MemoryCacheConfig holds configuration for in-memory cache
@@ -98,7 +98,7 @@ func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) err
 
 	// Calculate size for memory tracking
 	size := mc.calculateSize(value)
-	
+
 	entry := &CacheEntry{
 		Value:      value,
 		ExpiresAt:  time.Now().Add(ttl),
@@ -116,7 +116,7 @@ func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) err
 
 	// Check if this is an update to existing key
 	existingEntry, isUpdate := mc.data[key]
-	
+
 	// Check if we need to evict entries (only for new keys)
 	if !isUpdate && len(mc.data) >= mc.maxEntries {
 		mc.evictLRU()
@@ -162,8 +162,8 @@ func (mc *MemoryCache) Get(key string) (interface{}, bool) {
 	if !exists {
 		mc.stats.Misses++
 		mc.stats.LastMissTime = time.Now()
-		log.Debug("Cache miss", 
-			"key", key, 
+		log.Debug("Cache miss",
+			"key", key,
 			"reason", "key_not_found",
 			"total_entries", len(mc.data),
 			"miss_count", mc.stats.Misses)
@@ -178,8 +178,8 @@ func (mc *MemoryCache) Get(key string) (interface{}, bool) {
 		mc.stats.Evictions++
 		mc.stats.ExpiredKeys++
 		mc.stats.LastMissTime = time.Now()
-		log.Debug("Cache miss", 
-			"key", key, 
+		log.Debug("Cache miss",
+			"key", key,
 			"reason", "expired",
 			"expired_at", entry.ExpiresAt,
 			"age_seconds", time.Since(entry.ExpiresAt).Seconds())
@@ -191,8 +191,8 @@ func (mc *MemoryCache) Get(key string) (interface{}, bool) {
 	mc.stats.Hits++
 	mc.stats.LastHitTime = time.Now()
 
-	log.Debug("Cache hit", 
-		"key", key, 
+	log.Debug("Cache hit",
+		"key", key,
 		"age", time.Since(entry.AccessedAt),
 		"total_hits", mc.stats.Hits)
 	return entry.Value, true
@@ -207,7 +207,7 @@ func (mc *MemoryCache) Delete(key string) error {
 		delete(mc.data, key)
 		mc.stats.MemoryUsage -= entry.Size
 		mc.stats.DeletesTotal++
-		log.Debug("Cache entry deleted", 
+		log.Debug("Cache entry deleted",
 			"key", key,
 			"size_bytes", entry.Size,
 			"deletes_total", mc.stats.DeletesTotal)
@@ -259,13 +259,13 @@ func (mc *MemoryCache) Stats() CacheStats {
 		LastMissTime:     mc.stats.LastMissTime,
 		UptimeSeconds:    int64(time.Since(mc.startTime).Seconds()),
 	}
-	
+
 	// Calculate hit rate
 	totalRequests := stats.Hits + stats.Misses
 	if totalRequests > 0 {
 		stats.HitRate = float64(stats.Hits) / float64(totalRequests) * 100
 	}
-	
+
 	// Calculate average key size
 	if stats.Entries > 0 {
 		stats.AverageKeySize = stats.MemoryUsage / int64(stats.Entries)
@@ -318,7 +318,7 @@ func (mc *MemoryCache) evictExpiredLocked() int {
 	}
 
 	if evicted > 0 {
-		log.Debug("Expired entries evicted", 
+		log.Debug("Expired entries evicted",
 			"count", evicted,
 			"total_expired", mc.stats.ExpiredKeys)
 	}
@@ -342,7 +342,7 @@ func (mc *MemoryCache) evictLRU() {
 		if entry.IsExpired() {
 			continue
 		}
-		
+
 		if first || entry.AccessedAt.Before(oldestTime) {
 			oldestKey = key
 			oldestTime = entry.AccessedAt
@@ -363,7 +363,7 @@ func (mc *MemoryCache) evictLRU() {
 		mc.stats.MemoryUsage -= entry.Size
 		mc.stats.Evictions++
 		mc.stats.LRUEvictions++
-		
+
 		log.Debug("LRU eviction (basic policy - Redis upgrade recommended for production)",
 			"key", oldestKey,
 			"age", time.Since(oldestTime),
@@ -385,11 +385,11 @@ func (mc *MemoryCache) calculateSize(value interface{}) int64 {
 			"error", err.Error(),
 			"corruption_events_total", mc.stats.CorruptionEvents,
 			"value_type", fmt.Sprintf("%T", value))
-		
+
 		// Fallback to a conservative estimate
 		return 1024 // 1KB default
 	}
-	
+
 	// Add overhead for map storage, pointers, etc.
 	return int64(len(data)) + 200 // ~200 bytes overhead per entry
 }
@@ -398,10 +398,10 @@ func (mc *MemoryCache) calculateSize(value interface{}) int64 {
 func (mc *MemoryCache) detectAndRecover() int {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
-	
+
 	corrupted := 0
 	now := time.Now()
-	
+
 	for key, entry := range mc.data {
 		// Check for obvious corruption indicators
 		if entry == nil {
@@ -409,7 +409,7 @@ func (mc *MemoryCache) detectAndRecover() int {
 			corrupted++
 			continue
 		}
-		
+
 		// Check for invalid timestamps
 		if entry.ExpiresAt.IsZero() || entry.AccessedAt.IsZero() {
 			delete(mc.data, key)
@@ -417,7 +417,7 @@ func (mc *MemoryCache) detectAndRecover() int {
 			corrupted++
 			continue
 		}
-		
+
 		// Check for impossibly old access times (> 1 year ago)
 		if now.Sub(entry.AccessedAt) > 365*24*time.Hour {
 			delete(mc.data, key)
@@ -425,7 +425,7 @@ func (mc *MemoryCache) detectAndRecover() int {
 			corrupted++
 			continue
 		}
-		
+
 		// Attempt to re-serialize value to detect corruption
 		if _, err := json.Marshal(entry.Value); err != nil {
 			delete(mc.data, key)
@@ -434,18 +434,18 @@ func (mc *MemoryCache) detectAndRecover() int {
 			continue
 		}
 	}
-	
+
 	if corrupted > 0 {
 		mc.stats.CorruptionEvents += int64(corrupted)
 		mc.stats.RecoveryEvents++
-		
+
 		log.Error("Cache corruption detected and recovered",
 			"corrupted_entries", corrupted,
 			"corruption_events_total", mc.stats.CorruptionEvents,
 			"recovery_events_total", mc.stats.RecoveryEvents,
 			"remaining_entries", len(mc.data))
 	}
-	
+
 	return corrupted
 }
 
@@ -463,16 +463,16 @@ func (mc *MemoryCache) cleanupWorker() {
 		case <-mc.cleanupTicker.C:
 			start := time.Now()
 			evicted := mc.EvictExpired()
-			
+
 			// Perform corruption detection every 5th cleanup
 			corrupted := 0
 			if cleanupCount%5 == 0 {
 				corrupted = mc.detectAndRecover()
 			}
-			
+
 			duration := time.Since(start)
 			cleanupCount++
-			
+
 			if evicted > 0 || corrupted > 0 {
 				log.Debug("Scheduled cleanup completed",
 					"evicted_entries", evicted,
@@ -505,7 +505,7 @@ func (mc *MemoryCache) cleanupWorker() {
 // logMetrics logs comprehensive cache metrics for observability
 func (mc *MemoryCache) logMetrics() {
 	stats := mc.Stats()
-	
+
 	log.Info("Cache performance metrics",
 		"hit_rate", fmt.Sprintf("%.1f%%", stats.HitRate),
 		"hits", stats.Hits,
@@ -517,7 +517,7 @@ func (mc *MemoryCache) logMetrics() {
 		"lru_evictions", stats.LRUEvictions,
 		"expired_keys", stats.ExpiredKeys,
 		"avg_key_size_bytes", stats.AverageKeySize)
-	
+
 	// Performance warnings
 	if stats.HitRate < 70 && stats.Hits+stats.Misses > 100 {
 		log.Warn("Cache hit rate below recommended threshold",
@@ -525,7 +525,7 @@ func (mc *MemoryCache) logMetrics() {
 			"recommended_minimum", "70%",
 			"suggestion", "review_cache_ttl_or_upgrade_to_redis")
 	}
-	
+
 	if stats.LRUEvictions > stats.ExpiredKeys*2 {
 		log.Warn("High LRU eviction rate detected",
 			"lru_evictions", stats.LRUEvictions,
@@ -545,14 +545,14 @@ func (mc *MemoryCache) getCurrentEntryCount() int {
 func (mc *MemoryCache) GetStats() CacheStats {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
-	
+
 	// Calculate hit rate
 	totalRequests := mc.stats.Hits + mc.stats.Misses
 	var hitRate float64
 	if totalRequests > 0 {
 		hitRate = float64(mc.stats.Hits) / float64(totalRequests)
 	}
-	
+
 	// Return a copy to prevent race conditions
 	return CacheStats{
 		Hits:             mc.stats.Hits,

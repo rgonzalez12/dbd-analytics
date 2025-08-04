@@ -20,7 +20,7 @@ func TestRetryLogic_SuccessAfterRetry(t *testing.T) {
 	}
 
 	attempts := 0
-	
+
 	err := steam.WithRetry(config, func() (*steam.APIError, bool) {
 		attempts++
 		if attempts < 2 {
@@ -48,7 +48,7 @@ func TestRetryLogic_NonRetryableError(t *testing.T) {
 	}
 
 	attempts := 0
-	
+
 	err := steam.WithRetry(config, func() (*steam.APIError, bool) {
 		attempts++
 		return steam.NewNotFoundError("Player"), false
@@ -73,7 +73,7 @@ func TestRetryLogic_ExhaustAllAttempts(t *testing.T) {
 	}
 
 	attempts := 0
-	
+
 	err := steam.WithRetry(config, func() (*steam.APIError, bool) {
 		attempts++
 		return steam.NewRateLimitError(), false // Always fail with retryable error
@@ -102,10 +102,10 @@ func TestRetryLogic_SpecificStatusCodes(t *testing.T) {
 	}
 
 	nonRetryableCodes := []int{
-		http.StatusBadRequest,          // 400
-		http.StatusUnauthorized,        // 401
-		http.StatusForbidden,           // 403
-		http.StatusNotFound,            // 404
+		http.StatusBadRequest,   // 400
+		http.StatusUnauthorized, // 401
+		http.StatusForbidden,    // 403
+		http.StatusNotFound,     // 404
 		// Note: 500 is now retryable in our enhanced implementation
 	}
 
@@ -160,7 +160,7 @@ func TestRetryLogic_SpecificStatusCodes(t *testing.T) {
 func TestRetryLogic_MockHTTPServer(t *testing.T) {
 	// Track the number of requests
 	requestCount := 0
-	
+
 	// Create a mock server that returns 429 twice, then succeeds
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
@@ -191,7 +191,7 @@ func TestRetryLogic_MockHTTPServer(t *testing.T) {
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return steam.NewRateLimitError(), false
 		}
-		
+
 		if resp.StatusCode != http.StatusOK {
 			return steam.NewAPIError(resp.StatusCode, "HTTP error"), false
 		}
@@ -219,7 +219,7 @@ func TestRetryLogic_MaxRetryCap(t *testing.T) {
 	}
 
 	attempts := 0
-	
+
 	err := steam.WithRetry(config, func() (*steam.APIError, bool) {
 		attempts++
 		// Always return a retryable error
@@ -242,7 +242,7 @@ func TestRetryLogic_MaxRetryCap(t *testing.T) {
 func TestRetryLogic_HTTP429Failures(t *testing.T) {
 	// Test specific HTTP 429 (Too Many Requests) failure scenarios
 	requestCount := 0
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
 		// Always return 429 to test retry behavior
@@ -269,7 +269,7 @@ func TestRetryLogic_HTTP429Failures(t *testing.T) {
 		if resp.StatusCode == http.StatusTooManyRequests {
 			return steam.NewRateLimitError(), false
 		}
-		
+
 		return nil, false
 	})
 
@@ -289,7 +289,7 @@ func TestRetryLogic_HTTP429Failures(t *testing.T) {
 func TestRetryLogic_HTTP500Failures(t *testing.T) {
 	// Test specific HTTP 500 (Internal Server Error) - should retry in enhanced implementation
 	requestCount := 0
-	
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
 		w.WriteHeader(http.StatusInternalServerError)
@@ -315,7 +315,7 @@ func TestRetryLogic_HTTP500Failures(t *testing.T) {
 		if resp.StatusCode != http.StatusOK {
 			return steam.NewAPIError(resp.StatusCode, "HTTP error"), false
 		}
-		
+
 		return nil, false
 	})
 
@@ -345,13 +345,13 @@ func TestRetryLogic_ExponentialBackoffTiming(t *testing.T) {
 
 	attempts := 0
 	var attemptTimes []time.Time
-	
+
 	start := time.Now()
-	
+
 	err := steam.WithRetry(config, func() (*steam.APIError, bool) {
 		attempts++
 		attemptTimes = append(attemptTimes, time.Now())
-		
+
 		// Fail on first two attempts, succeed on third (use 500 error to force exponential backoff)
 		if attempts < 3 {
 			return steam.NewAPIError(500, "test error"), false
@@ -394,15 +394,15 @@ func TestRetryLogic_ExponentialBackoffTiming(t *testing.T) {
 func TestRetryLogic_ConfigValidation(t *testing.T) {
 	// Test that invalid configurations are corrected
 	invalidConfig := steam.RetryConfig{
-		MaxAttempts: 0,     // Invalid
-		BaseDelay:   0,     // Invalid
-		MaxDelay:    0,     // Invalid
-		Multiplier:  0.5,   // Invalid (should be > 1)
+		MaxAttempts: 0,   // Invalid
+		BaseDelay:   0,   // Invalid
+		MaxDelay:    0,   // Invalid
+		Multiplier:  0.5, // Invalid (should be > 1)
 		Jitter:      true,
 	}
 
 	attempts := 0
-	
+
 	err := steam.WithRetry(invalidConfig, func() (*steam.APIError, bool) {
 		attempts++
 		if attempts == 1 {

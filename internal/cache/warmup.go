@@ -20,11 +20,11 @@ type WarmUpConfig struct {
 // DefaultWarmUpConfig returns sensible defaults for cache warm-up
 func DefaultWarmUpConfig() WarmUpConfig {
 	return WarmUpConfig{
-		Enabled:        false, // Disabled by default - enable via env var
-		Timeout:        30 * time.Second,
-		ConcurrentJobs: 3,
-		RetryAttempts:  2,
-		RetryDelay:     1 * time.Second,
+		Enabled:          false, // Disabled by default - enable via env var
+		Timeout:          30 * time.Second,
+		ConcurrentJobs:   3,
+		RetryAttempts:    2,
+		RetryDelay:       1 * time.Second,
 		PopularPlayerIDs: []string{
 			// Add popular player IDs here when available
 			// "76561198012345678",
@@ -140,7 +140,7 @@ func (cw *CacheWarmer) warmUpWorker(ctx context.Context, jobs <-chan WarmUpJob, 
 		// Retry logic
 		for attempts < cw.config.RetryAttempts {
 			attempts++
-			
+
 			select {
 			case <-ctx.Done():
 				results <- WarmUpResult{
@@ -187,7 +187,7 @@ func (cw *CacheWarmer) warmUpWorker(ctx context.Context, jobs <-chan WarmUpJob, 
 // CreatePlayerStatsWarmUpJobs creates warm-up jobs for player statistics
 func CreatePlayerStatsWarmUpJobs(playerIDs []string, fetcher func(playerID string) (interface{}, error)) []WarmUpJob {
 	jobs := make([]WarmUpJob, len(playerIDs))
-	
+
 	for i, playerID := range playerIDs {
 		playerID := playerID // Capture for closure
 		jobs[i] = WarmUpJob{
@@ -199,6 +199,6 @@ func CreatePlayerStatsWarmUpJobs(playerIDs []string, fetcher func(playerID strin
 			MaxRetries: 2,
 		}
 	}
-	
+
 	return jobs
 }

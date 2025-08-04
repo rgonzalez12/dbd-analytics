@@ -28,24 +28,20 @@ func getAchievementsTimeout() time.Duration {
 	return 5 * time.Second // Default fallback
 }
 
-// logSteamError provides consistent Steam API error logging with player context
-func logSteamError(level string, msg string, playerID string, err error, additionalFields ...interface{}) {
+// logSteamError provides consistent Steam API error logging
+func logSteamError(level string, msg string, playerID string, err error, fields ...interface{}) {
 	logger := log.SteamAPIContext(playerID, "steam_api")
-	
-	fields := []interface{}{
-		"error", err.Error(),
-	}
-	fields = append(fields, additionalFields...)
-	
+	allFields := append([]interface{}{"error", err.Error()}, fields...)
+
 	switch level {
 	case "ERROR":
-		logger.Error(msg, fields...)
+		logger.Error(msg, allFields...)
 	case "WARN":
-		logger.Warn(msg, fields...)
+		logger.Warn(msg, allFields...)
 	case "DEBUG":
-		logger.Debug(msg, fields...)
+		logger.Debug(msg, allFields...)
 	default:
-		logger.Info(msg, fields...)
+		logger.Info(msg, allFields...)
 	}
 }
 
@@ -61,7 +57,7 @@ func logSteamPerformance(operation, playerID, endpoint string, durationMs float6
 		"endpoint", endpoint,
 		"api_provider", "steam",
 	)
-	
+
 	fields := []interface{}{
 		"operation_success", true,
 	}
@@ -87,8 +83,8 @@ type playerStatsResponse struct {
 
 func NewClient() *Client {
 	return &Client{
-		apiKey:      os.Getenv("STEAM_API_KEY"),
-		client:      &http.Client{
+		apiKey: os.Getenv("STEAM_API_KEY"),
+		client: &http.Client{
 			Timeout: getAchievementsTimeout(),
 		},
 		retryConfig: DefaultRetryConfig(),
@@ -112,22 +108,22 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 			StatusCode: err.StatusCode,
 			Retryable:  err.Retryable,
 		}
-		logSteamError("ERROR", "Steam ID resolution failed", steamIDOrVanity, 
+		logSteamError("ERROR", "Steam ID resolution failed", steamIDOrVanity,
 			fmt.Errorf(err.Message), "duration", time.Since(start))
 		return nil, wrappedErr
 	}
 
 	endpoint := fmt.Sprintf("%s/ISteamUser/GetPlayerSummaries/v0002/", BaseURL)
 	logger := log.SteamAPIContext(steamIDOrVanity, endpoint)
-	
+
 	logger.Info("Executing player summary request", "resolved_steam_id", steamID64)
-	
+
 	params := url.Values{}
 	params.Set("key", c.apiKey)
 	params.Set("steamids", steamID64)
 
 	var resp playerSummaryResponse
-	
+
 	// Execute API request with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
@@ -142,7 +138,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		}
 		return nil, false
 	}, "GetPlayerSummary")
-	
+
 	if retryErr != nil {
 		return nil, retryErr
 	}
@@ -160,7 +156,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 	logSteamPerformance("GetPlayerSummary", steamID64, endpoint, durationMs,
 		"persona_name", resp.Response.Players[0].PersonaName,
 		"status_code", 200)
-	
+
 	return &resp.Response.Players[0], nil
 }
 
@@ -191,7 +187,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 	params.Set("steamid", steamID64)
 
 	var resp playerStatsResponse
-	
+
 	// Execute API request with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
@@ -206,7 +202,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 		}
 		return nil, false
 	}, "GetPlayerStats")
-	
+
 	if retryErr != nil {
 		return nil, retryErr
 	}
@@ -247,7 +243,7 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 	params.Set("l", "english") // Add language parameter for localized names
 
 	var resp playerAchievementsResponse
-	
+
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
 			wrappedErr := &APIError{
@@ -260,7 +256,7 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 		}
 		return nil, false
 	}, "GetPlayerAchievements")
-	
+
 	if retryErr != nil {
 		return nil, retryErr
 	}
@@ -277,7 +273,7 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 		"app_id", appID,
 		"achievements_count", len(resp.Playerstats.Achievements),
 		"duration", time.Since(start))
-	
+
 	return &resp.Playerstats, nil
 }
 
@@ -294,7 +290,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 	params.Set("vanityurl", steamIDOrVanity)
 
 	var resp VanityURLResponse
-	
+
 	// Execute vanity URL resolution with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
@@ -302,7 +298,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 		}
 		return nil, false
 	}, "ResolveVanityURL")
-	
+
 	if retryErr != nil {
 		return "", retryErr
 	}
@@ -311,8 +307,8 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 		return "", NewNotFoundError("Vanity URL")
 	}
 
-	log.Info("Successfully resolved vanity URL", 
-		"vanity_url", steamIDOrVanity, 
+	log.Info("Successfully resolved vanity URL",
+		"vanity_url", steamIDOrVanity,
 		"steam_id", resp.Response.SteamID)
 	return resp.Response.SteamID, nil
 }
@@ -325,21 +321,21 @@ func (c *Client) ResolveSteamID(steamIDOrVanity string) (string, *APIError) {
 
 func (c *Client) makeRequest(endpoint string, params url.Values, result interface{}) *APIError {
 	var lastErr *APIError
-	
+
 	for attempt := 0; attempt <= c.retryConfig.MaxAttempts; attempt++ {
 		// If this is a retry attempt, wait before trying again
 		if attempt > 0 {
 			delay := c.calculateRetryDelay(lastErr, attempt-1)
-			
+
 			log.Info("steam_api_retry_attempt",
 				"attempt", attempt,
 				"max_attempts", c.retryConfig.MaxAttempts,
 				"delay_seconds", delay.Seconds(),
 				"endpoint", endpoint)
-			
+
 			time.Sleep(delay)
 		}
-		
+
 		apiURL := endpoint + "?" + params.Encode()
 		start := time.Now()
 
@@ -352,7 +348,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 
 		resp, err := c.client.Get(apiURL)
 		requestDuration := time.Since(start)
-		
+
 		if err != nil {
 			log.Error("steam_api_request_failed",
 				"error", err.Error(),
@@ -449,7 +445,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 
 		return nil // Success!
 	}
-	
+
 	return lastErr
 }
 
@@ -462,7 +458,7 @@ func (c *Client) calculateRetryDelay(lastErr *APIError, attempt int) time.Durati
 			return time.Duration(lastErr.RetryAfter) * time.Second
 		}
 	}
-	
+
 	// Otherwise use exponential backoff (including when rate limit has no useful headers)
 	return calculateBackoffDelay(attempt, c.retryConfig)
 }
@@ -480,20 +476,20 @@ func (c *Client) parseRateLimitHeaders(headers http.Header) int {
 			return seconds
 		}
 	}
-	
+
 	// Check X-RateLimit-Reset header (Unix timestamp)
 	if resetTime := headers.Get("X-RateLimit-Reset"); resetTime != "" {
 		if timestamp, err := strconv.ParseInt(resetTime, 10, 64); err == nil {
 			resetAt := time.Unix(timestamp, 0)
 			secondsUntilReset := int(time.Until(resetAt).Seconds())
-			
+
 			// Only use if it's positive and reasonable (within 5 minutes)
 			if secondsUntilReset > 0 && secondsUntilReset <= 300 {
 				return secondsUntilReset
 			}
 		}
 	}
-	
+
 	// Default to 60 seconds if no valid headers found
 	log.Debug("No valid rate limit headers found, using default",
 		"retry_after", headers.Get("Retry-After"),

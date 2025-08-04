@@ -11,12 +11,12 @@ var Logger *slog.Logger
 // Initialize sets up the global structured logger with JSON output format
 func Initialize() {
 	logLevel := getLogLevel()
-	
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:     logLevel,
 		AddSource: true, // Include source file and line number for debugging
 	}))
-	
+
 	Logger = logger
 	slog.SetDefault(logger)
 }

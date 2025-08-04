@@ -12,10 +12,10 @@ type AchievementData struct {
 // PlayerStatsWithAchievements represents the enhanced response with both stats and achievements
 type PlayerStatsWithAchievements struct {
 	PlayerStats
-	
+
 	// Achievement data (optional - may be nil if achievements failed to load)
 	Achievements *AchievementData `json:"achievements,omitempty"`
-	
+
 	// Data source information for debugging and monitoring
 	DataSources DataSourceStatus `json:"data_sources"`
 }
@@ -29,7 +29,7 @@ type DataSourceStatus struct {
 // DataSourceInfo provides detailed information about data source fetch results
 type DataSourceInfo struct {
 	Success   bool      `json:"success"`
-	Source    string    `json:"source"`    // "cache" | "api" | "fallback"
+	Source    string    `json:"source"` // "cache" | "api" | "fallback"
 	Error     string    `json:"error,omitempty"`
 	FetchedAt time.Time `json:"fetched_at"`
 }

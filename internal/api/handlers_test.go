@@ -49,7 +49,7 @@ func NewTestHandler(client SteamClient) *TestHandler {
 // Copy of GetPlayerSummary method but with injectable client
 func (h *TestHandler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
-	
+
 	// Validate Steam ID format before processing
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		writeErrorResponse(w, err)
@@ -68,7 +68,7 @@ func (h *TestHandler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 // Copy of GetPlayerStats method but with injectable client
 func (h *TestHandler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
-	
+
 	// Validate Steam ID format before processing
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		writeErrorResponse(w, err)
@@ -229,14 +229,14 @@ func TestGetPlayerStats(t *testing.T) {
 	log.Initialize()
 
 	tests := []struct {
-		name               string
-		steamID            string
-		mockSummary        *steam.SteamPlayer
-		mockSummaryError   *steam.APIError
-		mockStats          *steam.SteamPlayerstats
-		mockStatsError     *steam.APIError
-		expectedStatus     int
-		expectError        bool
+		name             string
+		steamID          string
+		mockSummary      *steam.SteamPlayer
+		mockSummaryError *steam.APIError
+		mockStats        *steam.SteamPlayerstats
+		mockStatsError   *steam.APIError
+		expectedStatus   int
+		expectError      bool
 	}{
 		{
 			name:    "Successful stats response",
@@ -247,7 +247,7 @@ func TestGetPlayerStats(t *testing.T) {
 			},
 			mockSummaryError: nil,
 			mockStats: &steam.SteamPlayerstats{
-				SteamID: "76561198000000000",
+				SteamID:  "76561198000000000",
 				GameName: "Dead by Daylight",
 				Stats: []steam.SteamStat{
 					{Name: "DBD_DiedAsKiller", Value: 10},
@@ -259,24 +259,24 @@ func TestGetPlayerStats(t *testing.T) {
 			expectError:    false,
 		},
 		{
-			name:               "Invalid Steam ID format",
-			steamID:            "invalid@steam#id",
-			mockSummary:        nil,
-			mockSummaryError:   nil, // Won't be called due to validation
-			mockStats:          nil,
-			mockStatsError:     nil,
-			expectedStatus:     http.StatusBadRequest,
-			expectError:        true,
+			name:             "Invalid Steam ID format",
+			steamID:          "invalid@steam#id",
+			mockSummary:      nil,
+			mockSummaryError: nil, // Won't be called due to validation
+			mockStats:        nil,
+			mockStatsError:   nil,
+			expectedStatus:   http.StatusBadRequest,
+			expectError:      true,
 		},
 		{
-			name:    "Player summary fails",
-			steamID: "76561198000000000",
-			mockSummary: nil,
+			name:             "Player summary fails",
+			steamID:          "76561198000000000",
+			mockSummary:      nil,
 			mockSummaryError: steam.NewNotFoundError("Player"),
-			mockStats: nil,
-			mockStatsError: nil,
-			expectedStatus: http.StatusNotFound,
-			expectError: true,
+			mockStats:        nil,
+			mockStatsError:   nil,
+			expectedStatus:   http.StatusNotFound,
+			expectError:      true,
 		},
 		{
 			name:    "Stats fetch fails after successful summary",
@@ -556,18 +556,18 @@ func TestRateLimitRetryAfterValue(t *testing.T) {
 	log.Initialize()
 
 	tests := []struct {
-		name              string
-		retryAfterValue   int
+		name               string
+		retryAfterValue    int
 		expectedRetryAfter int
 	}{
 		{
-			name:              "Custom retry after value",
-			retryAfterValue:   120,
+			name:               "Custom retry after value",
+			retryAfterValue:    120,
 			expectedRetryAfter: 120,
 		},
 		{
-			name:              "Default retry after when zero",
-			retryAfterValue:   0,
+			name:               "Default retry after when zero",
+			retryAfterValue:    0,
 			expectedRetryAfter: 60, // Default fallback
 		},
 	}
@@ -575,7 +575,7 @@ func TestRateLimitRetryAfterValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			
+
 			// Create rate limit error with specific retry after value
 			var rateLimitError *steam.APIError
 			if tt.retryAfterValue > 0 {

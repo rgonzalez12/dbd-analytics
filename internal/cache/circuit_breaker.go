@@ -4,7 +4,7 @@ import (
 	"errors"
 	"sync"
 	"time"
-	
+
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
@@ -12,19 +12,19 @@ import (
 type CircuitState int
 
 const (
-	CircuitClosed CircuitState = iota // Normal operation
-	CircuitOpen                       // Failing, blocking requests  
-	CircuitHalfOpen                   // Testing if service recovered
+	CircuitClosed   CircuitState = iota // Normal operation
+	CircuitOpen                         // Failing, blocking requests
+	CircuitHalfOpen                     // Testing if service recovered
 )
 
 // CircuitBreakerConfig defines circuit breaker behavior
 type CircuitBreakerConfig struct {
-	MaxFailures     int           `json:"max_failures"`      // Failures before opening
-	ResetTimeout    time.Duration `json:"reset_timeout"`     // Time before trying half-open
-	SuccessReset    int           `json:"success_reset"`     // Successes needed to close
-	FailureThreshold float64      `json:"failure_threshold"` // Failure rate threshold
-	RequestVolumeThreshold int    `json:"request_volume_threshold"` // Min requests for evaluation
-	SlidingWindowSize time.Duration `json:"sliding_window_size"` // Time window for metrics
+	MaxFailures            int           `json:"max_failures"`             // Failures before opening
+	ResetTimeout           time.Duration `json:"reset_timeout"`            // Time before trying half-open
+	SuccessReset           int           `json:"success_reset"`            // Successes needed to close
+	FailureThreshold       float64       `json:"failure_threshold"`        // Failure rate threshold
+	RequestVolumeThreshold int           `json:"request_volume_threshold"` // Min requests for evaluation
+	SlidingWindowSize      time.Duration `json:"sliding_window_size"`      // Time window for metrics
 }
 
 // DefaultCircuitBreakerConfig returns production-safe circuit breaker settings
@@ -41,12 +41,12 @@ func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 
 // CircuitBreakerMetrics tracks circuit breaker performance
 type CircuitBreakerMetrics struct {
-	TotalRequests    int64 `json:"total_requests"`
-	SuccessfulRequests int64 `json:"successful_requests"`
-	FailedRequests   int64 `json:"failed_requests"`
-	CircuitOpenCount int64 `json:"circuit_open_count"`
-	LastFailure      time.Time `json:"last_failure"`
-	LastSuccess      time.Time `json:"last_success"`
+	TotalRequests      int64     `json:"total_requests"`
+	SuccessfulRequests int64     `json:"successful_requests"`
+	FailedRequests     int64     `json:"failed_requests"`
+	CircuitOpenCount   int64     `json:"circuit_open_count"`
+	LastFailure        time.Time `json:"last_failure"`
+	LastSuccess        time.Time `json:"last_success"`
 }
 
 // RequestResult represents the outcome of a request
@@ -58,24 +58,24 @@ type RequestResult struct {
 
 // CircuitBreaker implements the circuit breaker pattern for cache fallback
 type CircuitBreaker struct {
-	config           CircuitBreakerConfig
-	state            CircuitState
-	failures         int
-	successes        int
-	lastFailureTime  time.Time
-	lastSuccessTime  time.Time
-	requestHistory   []RequestResult
-	metrics          CircuitBreakerMetrics
-	fallbackCache    Cache // Fallback cache for stale data
-	mu               sync.RWMutex
+	config          CircuitBreakerConfig
+	state           CircuitState
+	failures        int
+	successes       int
+	lastFailureTime time.Time
+	lastSuccessTime time.Time
+	requestHistory  []RequestResult
+	metrics         CircuitBreakerMetrics
+	fallbackCache   Cache // Fallback cache for stale data
+	mu              sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker with fallback cache
 func NewCircuitBreaker(config CircuitBreakerConfig, fallbackCache Cache) *CircuitBreaker {
 	return &CircuitBreaker{
-		config:        config,
-		state:         CircuitClosed,
-		fallbackCache: fallbackCache,
+		config:         config,
+		state:          CircuitClosed,
+		fallbackCache:  fallbackCache,
 		requestHistory: make([]RequestResult, 0),
 	}
 }
@@ -90,13 +90,13 @@ func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface
 	result, err := cb.executeWithOptions(fn, false) // Don't use generic fallback
 	if err != nil {
 		// Enhanced observability: log circuit breaker activity
-		log.Warn("Circuit breaker triggered for key", 
+		log.Warn("Circuit breaker triggered for key",
 			"key", key,
 			"error", err,
 			"circuit_state", cb.getStateString(),
 			"failure_count", cb.failures,
 			"last_failure", cb.lastFailureTime)
-			
+
 		// Try to get stale data from fallback cache
 		if staleData, exists := cb.getStaleData(key); exists {
 			log.Info("Serving stale data from fallback cache",
@@ -104,8 +104,8 @@ func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface
 				"circuit_state", cb.getStateString())
 			return staleData, nil
 		}
-		
-		log.Warn("No stale data available for key", 
+
+		log.Warn("No stale data available for key",
 			"key", key,
 			"circuit_state", cb.getStateString())
 	}
@@ -116,15 +116,15 @@ func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface
 func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), useGenericFallback bool) (interface{}, error) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	// Clean old requests from sliding window
 	cb.cleanOldRequests()
-	
+
 	// Only check if circuit should be opened if we're in closed state
 	if cb.state == CircuitClosed && cb.shouldOpenCircuit() {
 		cb.openCircuit()
 	}
-	
+
 	switch state := cb.state; state {
 	case CircuitOpen:
 		// Circuit is open, check if we should try half-open with jitter to prevent thundering herd
@@ -143,30 +143,30 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 				return nil, errors.New("circuit breaker open")
 			}
 		}
-		
+
 	case CircuitHalfOpen:
 		// Allow limited requests to test if service recovered
-		
+
 	case CircuitClosed:
 		// Normal operation
-		
+
 	default:
 		// Should not happen, but handle gracefully
 		log.Warn("Circuit breaker in unknown state, treating as closed")
 	}
-	
+
 	// Execute the function
 	result, err := fn()
 	cb.recordRequest(err == nil)
-	
+
 	if err != nil {
 		cb.handleFailure(err)
-		
+
 		// Check if circuit should be opened after recording the failure
 		if cb.state == CircuitClosed && cb.shouldOpenCircuit() {
 			cb.openCircuit()
 		}
-		
+
 		// Return fallback data on failure only if using generic fallback
 		if useGenericFallback {
 			if fallback, fallbackErr := cb.getFallbackData(); fallbackErr == nil {
@@ -178,7 +178,7 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 		}
 		return nil, err
 	}
-	
+
 	cb.handleSuccess()
 	return result, nil
 }
@@ -190,10 +190,10 @@ func (cb *CircuitBreaker) recordRequest(success bool) {
 		Success:   success,
 		Timestamp: now,
 	}
-	
+
 	cb.requestHistory = append(cb.requestHistory, result)
 	cb.metrics.TotalRequests++
-	
+
 	if success {
 		cb.metrics.SuccessfulRequests++
 		cb.metrics.LastSuccess = now
@@ -207,13 +207,13 @@ func (cb *CircuitBreaker) recordRequest(success bool) {
 func (cb *CircuitBreaker) cleanOldRequests() {
 	cutoff := time.Now().Add(-cb.config.SlidingWindowSize)
 	newHistory := make([]RequestResult, 0, len(cb.requestHistory))
-	
+
 	for _, req := range cb.requestHistory {
 		if req.Timestamp.After(cutoff) {
 			newHistory = append(newHistory, req)
 		}
 	}
-	
+
 	cb.requestHistory = newHistory
 }
 
@@ -222,14 +222,14 @@ func (cb *CircuitBreaker) shouldOpenCircuit() bool {
 	if len(cb.requestHistory) < cb.config.RequestVolumeThreshold {
 		return false // Not enough data
 	}
-	
+
 	failures := 0
 	for _, req := range cb.requestHistory {
 		if !req.Success {
 			failures++
 		}
 	}
-	
+
 	failureRate := float64(failures) / float64(len(cb.requestHistory))
 	return failureRate >= cb.config.FailureThreshold
 }
@@ -240,7 +240,7 @@ func (cb *CircuitBreaker) openCircuit() {
 		cb.state = CircuitOpen
 		cb.metrics.CircuitOpenCount++
 		cb.lastFailureTime = time.Now()
-		
+
 		log.Warn("Circuit breaker opened due to high failure rate",
 			"failure_rate", cb.getFailureRate(),
 			"failures", cb.failures,
@@ -252,12 +252,12 @@ func (cb *CircuitBreaker) openCircuit() {
 func (cb *CircuitBreaker) handleFailure(err error) {
 	cb.failures++
 	cb.lastFailureTime = time.Now()
-	
+
 	if cb.state == CircuitHalfOpen {
 		// Failure in half-open state, go back to open
 		cb.state = CircuitOpen
 		cb.successes = 0
-		log.Warn("Circuit breaker returned to open state after half-open failure", 
+		log.Warn("Circuit breaker returned to open state after half-open failure",
 			"error", err)
 	}
 }
@@ -265,7 +265,7 @@ func (cb *CircuitBreaker) handleFailure(err error) {
 // handleSuccess processes a successful request
 func (cb *CircuitBreaker) handleSuccess() {
 	cb.lastSuccessTime = time.Now()
-	
+
 	if cb.state == CircuitHalfOpen {
 		cb.successes++
 		if cb.successes >= cb.config.SuccessReset {
@@ -290,15 +290,15 @@ func (cb *CircuitBreaker) getFallbackData() (interface{}, error) {
 	if cb.fallbackCache == nil {
 		return nil, errors.New("circuit breaker open and no fallback cache available")
 	}
-	
+
 	// This is a simplified fallback - in practice you'd want to:
 	// - Return the most recent cached data
 	// - Extend TTL on stale but usable data
 	// - Return default/empty data structure
-	
+
 	return map[string]interface{}{
-		"status": "fallback",
-		"message": "Service temporarily unavailable, using cached data",
+		"status":    "fallback",
+		"message":   "Service temporarily unavailable, using cached data",
 		"timestamp": time.Now(),
 	}, nil
 }
@@ -308,19 +308,19 @@ func (cb *CircuitBreaker) getStaleData(key string) (interface{}, bool) {
 	if cb.fallbackCache == nil {
 		return nil, false
 	}
-	
+
 	// Try to get data even if expired
 	if memCache, ok := cb.fallbackCache.(*MemoryCache); ok {
 		memCache.mu.RLock()
 		defer memCache.mu.RUnlock()
-		
+
 		if entry, exists := memCache.data[key]; exists {
 			// Return stale data regardless of expiration
 			entry.AccessedAt = time.Now() // Update access time
 			return entry.Value, true
 		}
 	}
-	
+
 	return nil, false
 }
 
@@ -350,14 +350,14 @@ func (cb *CircuitBreaker) getFailureRate() float64 {
 	if len(cb.requestHistory) == 0 {
 		return 0.0
 	}
-	
+
 	failures := 0
 	for _, req := range cb.requestHistory {
 		if !req.Success {
 			failures++
 		}
 	}
-	
+
 	return float64(failures) / float64(len(cb.requestHistory))
 }
 
@@ -365,7 +365,7 @@ func (cb *CircuitBreaker) getFailureRate() float64 {
 func (cb *CircuitBreaker) GetMetrics() CircuitBreakerMetrics {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	
+
 	metrics := cb.metrics
 	return metrics
 }
@@ -374,17 +374,17 @@ func (cb *CircuitBreaker) GetMetrics() CircuitBreakerMetrics {
 func (cb *CircuitBreaker) GetDetailedStatus() map[string]interface{} {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"state":           cb.getStateString(),
-		"failures":        cb.failures,
-		"successes":       cb.successes,
-		"failure_rate":    cb.getFailureRate(),
+		"state":              cb.getStateString(),
+		"failures":           cb.failures,
+		"successes":          cb.successes,
+		"failure_rate":       cb.getFailureRate(),
 		"requests_in_window": len(cb.requestHistory),
-		"last_failure":    cb.lastFailureTime,
-		"last_success":    cb.lastSuccessTime,
-		"config":          cb.config,
-		"metrics":         cb.metrics,
+		"last_failure":       cb.lastFailureTime,
+		"last_success":       cb.lastSuccessTime,
+		"config":             cb.config,
+		"metrics":            cb.metrics,
 	}
 }
 
@@ -392,14 +392,14 @@ func (cb *CircuitBreaker) GetDetailedStatus() map[string]interface{} {
 func (cb *CircuitBreaker) Reset() {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	cb.state = CircuitClosed
 	cb.failures = 0
 	cb.successes = 0
 	cb.requestHistory = make([]RequestResult, 0)
-	
+
 	// Reset metrics
 	cb.metrics = CircuitBreakerMetrics{}
-	
+
 	log.Info("Circuit breaker manually reset to closed state")
 }

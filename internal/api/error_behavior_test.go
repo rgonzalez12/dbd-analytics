@@ -12,12 +12,12 @@ import (
 
 func TestErrorDifferentiation(t *testing.T) {
 	tests := []struct {
-		name               string
-		steamError         *steam.APIError
-		expectedStatus     int
-		expectedSource     string
-		expectedRequestID  bool
-		shouldHaveRetry    bool
+		name              string
+		steamError        *steam.APIError
+		expectedStatus    int
+		expectedSource    string
+		expectedRequestID bool
+		shouldHaveRetry   bool
 	}{
 		{
 			name: "Steam 403 Forbidden - Client Error",
@@ -41,7 +41,7 @@ func TestErrorDifferentiation(t *testing.T) {
 				Retryable:  false,
 			},
 			expectedStatus:    404,
-			expectedSource:    "client_error", 
+			expectedSource:    "client_error",
 			expectedRequestID: true,
 			shouldHaveRetry:   false,
 		},
@@ -113,7 +113,7 @@ func TestErrorDifferentiation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
-			
+
 			// Call writeErrorResponse directly
 			writeErrorResponse(w, tt.steamError)
 
@@ -241,21 +241,21 @@ func TestHandlerErrorPropagation(t *testing.T) {
 func TestRequestIDGeneration(t *testing.T) {
 	// Test that request IDs are unique
 	ids := make(map[string]bool)
-	
+
 	for i := 0; i < 100; i++ {
 		id := generateRequestID()
-		
+
 		// Should not be empty
 		if id == "" {
 			t.Error("Request ID should not be empty")
 		}
-		
+
 		// Should be unique
 		if ids[id] {
 			t.Errorf("Request ID %s was generated twice", id)
 		}
 		ids[id] = true
-		
+
 		// Should be reasonable length (hex encoded, so 16 chars for 8 bytes)
 		if len(id) != 16 {
 			t.Errorf("Expected request ID length of 16, got %d for ID: %s", len(id), id)

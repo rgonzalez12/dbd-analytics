@@ -53,15 +53,15 @@ func TestAchievementsTimeoutConfiguration(t *testing.T) {
 			} else {
 				os.Unsetenv("ACHIEVEMENTS_TIMEOUT_SECS")
 			}
-			
+
 			// Test the function
 			actual := getAchievementsTimeout()
-			
+
 			if actual != tt.expected {
-				t.Errorf("getAchievementsTimeout() = %v, expected %v. %s", 
+				t.Errorf("getAchievementsTimeout() = %v, expected %v. %s",
 					actual, tt.expected, tt.description)
 			}
-			
+
 			// Cleanup
 			os.Unsetenv("ACHIEVEMENTS_TIMEOUT_SECS")
 		})
@@ -72,11 +72,11 @@ func TestClientTimeoutIntegration(t *testing.T) {
 	// Test that NewClient creates client with correct timeout
 	os.Setenv("ACHIEVEMENTS_TIMEOUT_SECS", "3")
 	defer os.Unsetenv("ACHIEVEMENTS_TIMEOUT_SECS")
-	
+
 	client := NewClient()
-	
+
 	if client.client.Timeout != 3*time.Second {
-		t.Errorf("NewClient() created client with timeout %v, expected %v", 
+		t.Errorf("NewClient() created client with timeout %v, expected %v",
 			client.client.Timeout, 3*time.Second)
 	}
 }

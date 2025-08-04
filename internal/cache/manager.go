@@ -73,8 +73,8 @@ func PlayerStatsConfig() Config {
 // DevelopmentConfig returns a configuration suitable for development/testing
 func DevelopmentConfig() Config {
 	config := DefaultConfig()
-	config.Memory.MaxEntries = 100        // Small for testing
-	config.Memory.DefaultTTL = 30 * time.Second // Short TTL for testing
+	config.Memory.MaxEntries = 100                  // Small for testing
+	config.Memory.DefaultTTL = 30 * time.Second     // Short TTL for testing
 	config.Memory.CleanupInterval = 5 * time.Second // Frequent cleanup
 	// Override TTL config for development
 	config.TTL = TTLConfig{
@@ -107,11 +107,11 @@ func NewManager(config Config) (*Manager, error) {
 	}
 
 	manager.cache = cache
-	
+
 	// Create circuit breaker for upstream API protection
 	circuitConfig := DefaultCircuitBreakerConfig()
 	manager.circuitBreaker = NewCircuitBreaker(circuitConfig, cache)
-	
+
 	return manager, nil
 }
 
@@ -141,16 +141,16 @@ func (m *Manager) GetCacheStatus() map[string]interface{} {
 		"cache_type": m.config.Type,
 		"config":     m.config,
 	}
-	
+
 	if m.circuitBreaker != nil {
 		status["circuit_breaker"] = m.circuitBreaker.GetDetailedStatus()
 	}
-	
+
 	// Add cache-specific stats if available
 	if memCache, ok := m.cache.(*MemoryCache); ok {
 		status["cache_stats"] = memCache.GetStats()
 	}
-	
+
 	return status
 }
 
@@ -181,7 +181,7 @@ func GenerateKey(prefix string, parts ...string) string {
 	if len(parts) == 0 {
 		return prefix
 	}
-	
+
 	key := prefix
 	for _, part := range parts {
 		key += ":" + part
@@ -191,11 +191,11 @@ func GenerateKey(prefix string, parts ...string) string {
 
 // Common cache key prefixes for different data types
 const (
-	PlayerStatsPrefix       = "player_stats"
-	PlayerSummaryPrefix     = "player_summary"
+	PlayerStatsPrefix        = "player_stats"
+	PlayerSummaryPrefix      = "player_summary"
 	PlayerAchievementsPrefix = "player_achievements"
-	PlayerCombinedPrefix    = "player_combined"
-	SteamAPIPrefix          = "steam_api"
+	PlayerCombinedPrefix     = "player_combined"
+	SteamAPIPrefix           = "steam_api"
 )
 
 // Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
@@ -228,7 +228,7 @@ func GetTTLFromEnv() TTLConfig {
 		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
 		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
 	}
-	
+
 	// Log TTL configuration source for debugging
 	internalLog.Info("Cache TTL configuration loaded",
 		"player_stats_ttl", config.PlayerStats,
@@ -238,7 +238,7 @@ func GetTTLFromEnv() TTLConfig {
 		"steam_api_ttl", config.SteamAPI,
 		"default_ttl", config.DefaultTTL,
 		"source_priority", "env_vars > deprecated_constants > defaults")
-	
+
 	return config
 }
 
@@ -246,16 +246,16 @@ func GetTTLFromEnv() TTLConfig {
 func getEnvDuration(envKey string, fallback time.Duration) time.Duration {
 	if value := os.Getenv(envKey); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
-			internalLog.Info("TTL loaded from environment variable", 
-				"env_key", envKey, 
-				"value", duration, 
+			internalLog.Info("TTL loaded from environment variable",
+				"env_key", envKey,
+				"value", duration,
 				"source", "environment")
 			return duration
 		}
 		// Log warning about invalid duration format but continue with fallback
-		internalLog.Warn("Invalid duration format in environment variable", 
-			"env_key", envKey, 
-			"value", value, 
+		internalLog.Warn("Invalid duration format in environment variable",
+			"env_key", envKey,
+			"value", value,
 			"fallback", fallback)
 	}
 	return fallback

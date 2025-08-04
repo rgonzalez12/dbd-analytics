@@ -34,11 +34,11 @@ func (m *EnhancedMockSteamClient) GetPlayerSummary(steamID string) (*steam.Steam
 	if m.timeoutDuration > 0 {
 		time.Sleep(m.timeoutDuration)
 	}
-	
+
 	if m.shouldFailStats {
 		return nil, m.statsError
 	}
-	
+
 	return &steam.SteamPlayer{
 		SteamID:     steamID,
 		PersonaName: "TestPlayer",
@@ -49,7 +49,7 @@ func (m *EnhancedMockSteamClient) GetPlayerStats(steamID string) (*steam.SteamPl
 	if m.shouldFailStats {
 		return nil, m.statsError
 	}
-	
+
 	return &steam.SteamPlayerstats{
 		SteamID:  steamID,
 		GameName: "Dead by Daylight",
@@ -64,7 +64,7 @@ func (m *EnhancedMockSteamClient) GetPlayerAchievements(steamID, appID string) (
 	if m.shouldFailAchievements {
 		return nil, m.achievementsError
 	}
-	
+
 	return &steam.PlayerAchievements{
 		SteamID:  steamID,
 		GameName: "Dead by Daylight",
@@ -92,7 +92,7 @@ func NewEnhancedTestHandler(client EnhancedSteamClient, cacheManager *cache.Mana
 // Copy the method we want to test
 func (h *EnhancedTestHandler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.Request) {
 	steamID := mux.Vars(r)["steamid"]
-	
+
 	// Validate Steam ID format
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		writeErrorResponse(w, err)
@@ -271,7 +271,7 @@ func TestGetPlayerStatsWithAchievements_AchievementsFailStatsSucceed(t *testing.
 	if response.DataSources.Achievements.Error == "" {
 		t.Error("Expected achievements error message to be populated")
 	}
-	
+
 	// Verify achievements is still present but empty
 	if response.Achievements == nil {
 		t.Error("Expected achievements to be present (but empty)")
@@ -385,7 +385,7 @@ func TestCountUnlocked(t *testing.T) {
 
 	count := countUnlocked(achievements)
 	expected := 3
-	
+
 	if count != expected {
 		t.Errorf("Expected %d unlocked achievements, got %d", expected, count)
 	}

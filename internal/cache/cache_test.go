@@ -11,14 +11,14 @@ func TestMemoryCacheBasicOperations(t *testing.T) {
 		DefaultTTL:      1 * time.Second,
 		CleanupInterval: 100 * time.Millisecond,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
 	// Test Set and Get
 	key := "test_key"
 	value := "test_value"
-	
+
 	err := cache.Set(key, value, 1*time.Second)
 	if err != nil {
 		t.Fatalf("Failed to set cache entry: %v", err)
@@ -28,7 +28,7 @@ func TestMemoryCacheBasicOperations(t *testing.T) {
 	if !found {
 		t.Fatal("Expected to find cached value")
 	}
-	
+
 	if retrieved != value {
 		t.Fatalf("Expected %v, got %v", value, retrieved)
 	}
@@ -46,13 +46,13 @@ func TestMemoryCacheTTLExpiration(t *testing.T) {
 		DefaultTTL:      50 * time.Millisecond,
 		CleanupInterval: 10 * time.Millisecond,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
 	key := "expire_test"
 	value := "will_expire"
-	
+
 	// Set with short TTL
 	err := cache.Set(key, value, 50*time.Millisecond)
 	if err != nil {
@@ -77,11 +77,11 @@ func TestMemoryCacheTTLExpiration(t *testing.T) {
 
 func TestMemoryCacheLRUEviction(t *testing.T) {
 	config := MemoryCacheConfig{
-		MaxEntries:      3, // Small capacity to trigger LRU
+		MaxEntries:      3,                // Small capacity to trigger LRU
 		DefaultTTL:      10 * time.Second, // Long TTL so entries don't expire
 		CleanupInterval: 1 * time.Second,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
@@ -89,7 +89,7 @@ func TestMemoryCacheLRUEviction(t *testing.T) {
 	cache.Set("key1", "value1", 10*time.Second)
 	time.Sleep(1 * time.Millisecond) // Ensure different timestamps
 	cache.Set("key2", "value2", 10*time.Second)
-	time.Sleep(1 * time.Millisecond) 
+	time.Sleep(1 * time.Millisecond)
 	cache.Set("key3", "value3", 10*time.Second)
 	time.Sleep(1 * time.Millisecond)
 
@@ -99,13 +99,13 @@ func TestMemoryCacheLRUEviction(t *testing.T) {
 		t.Fatal("Expected key1 to be accessible before eviction test")
 	}
 	time.Sleep(1 * time.Millisecond)
-	
-	_, found = cache.Get("key3")  
+
+	_, found = cache.Get("key3")
 	if !found {
 		t.Fatal("Expected key3 to be accessible before eviction test")
 	}
 	time.Sleep(1 * time.Millisecond)
-	
+
 	// Add one more entry, should evict key2 (least recently used)
 	cache.Set("key4", "value4", 10*time.Second)
 
@@ -132,7 +132,7 @@ func TestMemoryCacheLRUEviction(t *testing.T) {
 	if !found {
 		t.Fatal("Expected key3 to still be in cache")
 	}
-	
+
 	// key4 should still be there (just added)
 	_, found = cache.Get("key4")
 	if !found {
@@ -146,7 +146,7 @@ func TestMemoryCacheStats(t *testing.T) {
 		DefaultTTL:      1 * time.Second,
 		CleanupInterval: 100 * time.Millisecond,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
@@ -163,7 +163,7 @@ func TestMemoryCacheStats(t *testing.T) {
 	// Test cache hits
 	cache.Get("key1")
 	cache.Get("key1") // Second hit
-	
+
 	// Test cache miss
 	cache.Get("non_existent")
 

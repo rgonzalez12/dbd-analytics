@@ -24,12 +24,12 @@ var (
 type ErrorType string
 
 const (
-	ErrorTypeRateLimit   ErrorType = "rate_limit"
-	ErrorTypeNotFound    ErrorType = "not_found"
-	ErrorTypeAPIError    ErrorType = "api_error"
-	ErrorTypeNetwork     ErrorType = "network_error"
-	ErrorTypeValidation  ErrorType = "validation_error"
-	ErrorTypeInternal    ErrorType = "internal_error"
+	ErrorTypeRateLimit  ErrorType = "rate_limit"
+	ErrorTypeNotFound   ErrorType = "not_found"
+	ErrorTypeAPIError   ErrorType = "api_error"
+	ErrorTypeNetwork    ErrorType = "network_error"
+	ErrorTypeValidation ErrorType = "validation_error"
+	ErrorTypeInternal   ErrorType = "internal_error"
 )
 
 type APIError struct {
@@ -81,7 +81,7 @@ func NewAPIError(statusCode int, message string) *APIError {
 func isRetryableStatusCode(statusCode int) bool {
 	switch statusCode {
 	case http.StatusTooManyRequests, // 429
-		http.StatusBadGateway,        // 502
+		http.StatusBadGateway,         // 502
 		http.StatusServiceUnavailable, // 503
 		http.StatusGatewayTimeout:     // 504
 		return true

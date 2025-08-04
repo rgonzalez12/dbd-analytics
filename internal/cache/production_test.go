@@ -14,13 +14,13 @@ func TestConcurrentAccess(t *testing.T) {
 		DefaultTTL:      5 * time.Second,
 		CleanupInterval: 1 * time.Second,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
-	const numGoroutines = 5  // Reduced for more predictable test
+	const numGoroutines = 5           // Reduced for more predictable test
 	const operationsPerGoroutine = 50 // Reduced to stay within capacity
-	
+
 	var wg sync.WaitGroup
 	wg.Add(numGoroutines)
 
@@ -28,11 +28,11 @@ func TestConcurrentAccess(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < operationsPerGoroutine; j++ {
 				key := fmt.Sprintf("key_%d_%d", id, j)
 				value := fmt.Sprintf("value_%d_%d", id, j)
-				
+
 				// Set
 				err := cache.Set(key, value, 2*time.Second)
 				if err != nil {
@@ -40,7 +40,7 @@ func TestConcurrentAccess(t *testing.T) {
 					t.Logf("Set operation failed for key %s: %v", key, err)
 					continue
 				}
-				
+
 				// Get (might miss due to eviction, which is OK)
 				retrieved, found := cache.Get(key)
 				if found && retrieved != value {
@@ -55,10 +55,10 @@ func TestConcurrentAccess(t *testing.T) {
 
 	// Verify final state - we just need some successful operations
 	stats := cache.Stats()
-	
+
 	t.Logf("Concurrent test completed: %d hits, %d misses, %d entries, %d evictions",
 		stats.Hits, stats.Misses, stats.Entries, stats.Evictions)
-	
+
 	// The test passes if no data races or panics occurred
 	if stats.Hits+stats.Misses == 0 {
 		t.Error("Expected some cache operations to complete")
@@ -72,7 +72,7 @@ func TestErrorHandling(t *testing.T) {
 		DefaultTTL:      1 * time.Second,
 		CleanupInterval: 100 * time.Millisecond,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
@@ -96,7 +96,7 @@ func TestErrorHandling(t *testing.T) {
 
 	// Test operations after close
 	cache.Close()
-	
+
 	err = cache.Set("key", "value", 1*time.Second)
 	if err == nil {
 		t.Error("Expected error when setting after close")
@@ -115,7 +115,7 @@ func TestMemoryBounds(t *testing.T) {
 		DefaultTTL:      10 * time.Second,
 		CleanupInterval: 1 * time.Second,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
@@ -130,7 +130,7 @@ func TestMemoryBounds(t *testing.T) {
 	}
 
 	stats := cache.Stats()
-	
+
 	// Should not exceed max entries due to LRU eviction
 	if stats.Entries > config.MaxEntries {
 		t.Errorf("Cache exceeded max entries: %d > %d", stats.Entries, config.MaxEntries)
@@ -210,7 +210,7 @@ func TestGracefulShutdown(t *testing.T) {
 		DefaultTTL:      5 * time.Second,
 		CleanupInterval: 100 * time.Millisecond,
 	}
-	
+
 	cache := NewMemoryCache(config)
 
 	// Add some data
@@ -244,7 +244,7 @@ func BenchmarkCacheOperations(b *testing.B) {
 		DefaultTTL:      5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 	}
-	
+
 	cache := NewMemoryCache(config)
 	defer cache.Close()
 
@@ -255,7 +255,7 @@ func BenchmarkCacheOperations(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	
+
 	b.Run("Get", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			key := fmt.Sprintf("key_%d", i%1000)

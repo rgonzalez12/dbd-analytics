@@ -105,3 +105,65 @@ Existing endpoints remain unchanged:
 - `/api/player/{steamID}` - **NEW** Combined stats + achievements
 
 Frontend can migrate to the new combined endpoint incrementally.
+
+## Achievement API Name Discovery
+
+### Problem Statement
+
+Initially, the achievement mapping only worked for base game characters because DLC character achievement names were guessed rather than using actual Steam API identifiers. Steam's achievement naming conventions are inconsistent across different DLC releases, making manual guessing unreliable.
+
+### Solution: Steam GetSchemaForGame API
+
+We used Steam's `GetSchemaForGame` endpoint to fetch the official achievement schema and extract the real API names:
+
+**Endpoint:**
+```
+https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=381210&key={STEAM_API_KEY}
+```
+
+**Discovery Process:**
+
+1. **Fetch Full Schema**: Query the GetSchemaForGame endpoint for Dead by Daylight (AppID: 381210)
+2. **Filter Adept Achievements**: Extract achievements with names matching "Adept {CharacterName}"
+3. **Map API Names**: Record the `name` field (API identifier) for each Adept achievement
+4. **Verify Coverage**: Ensure all 84 characters (46 survivors + 38 killers) have mappings
+
+**Key Findings:**
+
+- **Base Game**: Consistent naming like `ACH_UNLOCK_DWIGHT_PERKS`
+- **Early DLC**: Pattern like `ACH_DLC2_SURVIVOR_1`, `ACH_DLC3_KILLER_3`
+- **Chapter System**: Pattern like `ACH_CHAPTER9_SURVIVOR_3`, `ACH_CHAPTER16_KILLER_3`
+- **Modern DLC**: Pattern like `NEW_ACHIEVEMENT_245_23`, `NEW_ACHIEVEMENT_280_10`
+
+**Example Schema Response:**
+```json
+{
+  "game": {
+    "availableGameStats": {
+      "achievements": [
+        {
+          "name": "ACH_DLC2_SURVIVOR_1",
+          "displayName": "Adept Laurie Strode",
+          "description": "...",
+          "icon": "...",
+          "hidden": 0
+        }
+      ]
+    }
+  }
+}
+```
+
+### Applying to Other Games
+
+This methodology works for any Steam game with achievements:
+
+1. **Find the AppID**: Look up the game's Steam AppID
+2. **Query Schema**: Use `GetSchemaForGame` with your Steam API key
+3. **Parse Response**: Extract achievement names and API identifiers
+4. **Map Achievements**: Create mappings between display names and API names
+5. **Verify**: Test with known achievement data
+
+**Required Steam API Key**: You'll need a Steam Web API key from https://steamcommunity.com/dev/apikey
+
+This approach ensures 100% accuracy versus guessing achievement names, and scales to any Steam game with achievements.

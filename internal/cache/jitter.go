@@ -10,10 +10,10 @@ func addJitter(baseTimeout time.Duration, jitterPercent float64) time.Duration {
 	if jitterPercent <= 0 || jitterPercent > 1.0 {
 		jitterPercent = 0.1 // Default 10% jitter
 	}
-	
+
 	maxJitter := float64(baseTimeout) * jitterPercent
 	jitter := time.Duration(rand.Float64() * maxJitter)
-	
+
 	return baseTimeout + jitter
 }
 
@@ -22,12 +22,12 @@ func addJitterWithSeed(baseTimeout time.Duration, jitterPercent float64, seed in
 	if jitterPercent <= 0 || jitterPercent > 1.0 {
 		jitterPercent = 0.1
 	}
-	
+
 	source := rand.NewSource(seed)
 	rng := rand.New(source)
-	
+
 	maxJitter := float64(baseTimeout) * jitterPercent
 	jitter := time.Duration(rng.Float64() * maxJitter)
-	
+
 	return baseTimeout + jitter
 }

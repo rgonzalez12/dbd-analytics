@@ -24,28 +24,28 @@ func TestEnhancedRetryLogic(t *testing.T) {
 
 	tests := []struct {
 		name                  string
-		maxRetries           string   // STEAM_MAX_RETRIES environment variable value
-		httpResponses        []int    // HTTP status codes to return in sequence
-		retryAfterHeaders    []string // Retry-After header values for each response
+		maxRetries            string   // STEAM_MAX_RETRIES environment variable value
+		httpResponses         []int    // HTTP status codes to return in sequence
+		retryAfterHeaders     []string // Retry-After header values for each response
 		rateLimitResetHeaders []string // X-RateLimit-Reset header values for each response
-		expectRetries        int      // Expected number of retry attempts
-		expectSuccess        bool     // Whether the final request should succeed
+		expectRetries         int      // Expected number of retry attempts
+		expectSuccess         bool     // Whether the final request should succeed
 	}{
 		{
-			name:          "429 with Retry-After header should respect timing",
-			maxRetries:    "3",
-			httpResponses: []int{429, 200},
+			name:              "429 with Retry-After header should respect timing",
+			maxRetries:        "3",
+			httpResponses:     []int{429, 200},
 			retryAfterHeaders: []string{"1", ""},
-			expectRetries: 1,
-			expectSuccess: true,
+			expectRetries:     1,
+			expectSuccess:     true,
 		},
 		{
-			name:          "429 without headers should use exponential backoff",
-			maxRetries:    "3",
-			httpResponses: []int{429, 200},
+			name:              "429 without headers should use exponential backoff",
+			maxRetries:        "3",
+			httpResponses:     []int{429, 200},
 			retryAfterHeaders: []string{"", ""},
-			expectRetries: 1,
-			expectSuccess: true,
+			expectRetries:     1,
+			expectSuccess:     true,
 		},
 		{
 			name:          "500 server error should retry",
@@ -76,12 +76,12 @@ func TestEnhancedRetryLogic(t *testing.T) {
 			expectSuccess: false,
 		},
 		{
-			name:          "X-RateLimit-Reset header should be used",
-			maxRetries:    "3",
-			httpResponses: []int{429, 200},
+			name:                  "X-RateLimit-Reset header should be used",
+			maxRetries:            "3",
+			httpResponses:         []int{429, 200},
 			rateLimitResetHeaders: []string{strconv.FormatInt(time.Now().Add(1*time.Second).Unix(), 10), ""},
-			expectRetries: 1,
-			expectSuccess: true,
+			expectRetries:         1,
+			expectSuccess:         true,
 		},
 	}
 
@@ -139,7 +139,7 @@ func TestEnhancedRetryLogic(t *testing.T) {
 			}
 
 			start := time.Now()
-			
+
 			// Execute request with retry logic through makeRequest method
 			endpoint := fmt.Sprintf("%s/ISteamUser/GetPlayerSummaries/v0002/", server.URL)
 			params := url.Values{
@@ -148,7 +148,7 @@ func TestEnhancedRetryLogic(t *testing.T) {
 			}
 			var response playerSummaryResponse
 			err := client.makeRequest(endpoint, params, &response)
-			
+
 			duration := time.Since(start)
 
 			// Verify the number of retry attempts matches expectations
@@ -247,9 +247,9 @@ func TestExponentialBackoff(t *testing.T) {
 	}
 
 	tests := []struct {
-		attempt      int
-		expectedMin  time.Duration
-		expectedMax  time.Duration
+		attempt     int
+		expectedMin time.Duration
+		expectedMax time.Duration
 	}{
 		{0, 100 * time.Millisecond, 100 * time.Millisecond},   // Base delay: 100ms
 		{1, 200 * time.Millisecond, 200 * time.Millisecond},   // 100ms * 2^1 = 200ms
@@ -262,9 +262,9 @@ func TestExponentialBackoff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("attempt_%d", tt.attempt), func(t *testing.T) {
 			delay := calculateBackoffDelay(tt.attempt, config)
-			
+
 			if delay < tt.expectedMin || delay > tt.expectedMax {
-				t.Errorf("Attempt %d: expected delay between %v and %v, got %v", 
+				t.Errorf("Attempt %d: expected delay between %v and %v, got %v",
 					tt.attempt, tt.expectedMin, tt.expectedMax, delay)
 			}
 		})
@@ -273,12 +273,12 @@ func TestExponentialBackoff(t *testing.T) {
 
 func TestRateLimitHeaderParsing(t *testing.T) {
 	client := &Client{}
-	
+
 	tests := []struct {
-		name            string
-		retryAfter      string
-		rateLimitReset  string
-		expected        int
+		name           string
+		retryAfter     string
+		rateLimitReset string
+		expected       int
 	}{
 		{
 			name:       "Valid Retry-After header",
@@ -344,9 +344,9 @@ func TestEnvironmentVariableConfiguration(t *testing.T) {
 	}()
 
 	tests := []struct {
-		name         string
-		envValue     string
-		expectedMax  int
+		name        string
+		envValue    string
+		expectedMax int
 	}{
 		{
 			name:        "Default when no environment variable",

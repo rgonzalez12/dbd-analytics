@@ -73,7 +73,7 @@ func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
 // WithRetryAndLogging executes a function with enhanced retry logic and structured logging
 func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string) *APIError {
 	var lastErr *APIError
-	
+
 	// Validate and sanitize retry configuration parameters
 	if config.MaxAttempts <= 0 {
 		config.MaxAttempts = 1
@@ -87,7 +87,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 	if config.Multiplier <= 1 {
 		config.Multiplier = 2.0
 	}
-	
+
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
 		// Log retry attempt details if this is not the initial attempt
 		if attempt > 0 && operation != "" {
@@ -99,10 +99,10 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 				slog.Int("last_status_code", lastErr.StatusCode),
 				slog.String("last_error", lastErr.Message))
 		}
-		
+
 		// Execute the function
 		err, shouldStop := fn()
-		
+
 		// Success case
 		if err == nil {
 			if attempt > 0 && operation != "" {
@@ -112,9 +112,9 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 			}
 			return nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if we should retry this error type
 		if shouldStop || !shouldRetryError(err) {
 			if operation != "" {
@@ -126,11 +126,11 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 			}
 			break
 		}
-		
+
 		// Don't sleep after the last attempt
 		if attempt < config.MaxAttempts-1 {
 			delay := calculateRetryDelay(attempt, config, err)
-			
+
 			if operation != "" {
 				slog.Debug("Waiting before retry",
 					slog.String("operation", operation),
@@ -146,7 +146,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 			time.Sleep(delay)
 		}
 	}
-	
+
 	// Log final failure
 	if operation != "" {
 		slog.Error("Operation failed after exhausting all retries",
@@ -156,7 +156,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 			slog.String("final_error", lastErr.Message),
 			slog.Bool("retryable", lastErr.Retryable))
 	}
-	
+
 	return lastErr
 }
 
@@ -181,18 +181,18 @@ func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Du
 func calculateBackoffDelay(attempt int, config RetryConfig) time.Duration {
 	// Exponential backoff: baseDelay * multiplier^attempt
 	delay := float64(config.BaseDelay) * math.Pow(config.Multiplier, float64(attempt))
-	
+
 	// Cap at maxDelay
 	if delay > float64(config.MaxDelay) {
 		delay = float64(config.MaxDelay)
 	}
-	
+
 	// Add jitter if enabled to prevent thundering herd
 	if config.Jitter {
 		// Jitter between 50% and 100% of calculated delay (0.5 to 1.0)
 		jitterFactor := 0.5 + (rand.Float64() * 0.5)
 		delay = delay * jitterFactor
 	}
-	
+
 	return time.Duration(delay)
 }

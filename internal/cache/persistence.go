@@ -120,7 +120,7 @@ func (cb *CircuitBreaker) RestoreState(persistence *StatePersistence) error {
 // EnableStatePersistence adds automatic state persistence to a circuit breaker
 func (cb *CircuitBreaker) EnableStatePersistence(filePath string) *StatePersistence {
 	persistence := NewStatePersistence(filePath)
-	
+
 	// Try to restore existing state
 	if err := cb.RestoreState(persistence); err != nil {
 		log.Warn("Failed to restore circuit breaker state", "error", err)

@@ -13,7 +13,7 @@ func TestTTLSourcePriority(t *testing.T) {
 	originalPlayerSummary := os.Getenv("CACHE_PLAYER_SUMMARY_TTL")
 	originalSteamAPI := os.Getenv("CACHE_STEAM_API_TTL")
 	originalDefault := os.Getenv("CACHE_DEFAULT_TTL")
-	
+
 	// Cleanup function
 	defer func() {
 		os.Setenv("CACHE_PLAYER_STATS_TTL", originalPlayerStats)
@@ -28,9 +28,9 @@ func TestTTLSourcePriority(t *testing.T) {
 		os.Setenv("CACHE_PLAYER_SUMMARY_TTL", "30m")
 		os.Setenv("CACHE_STEAM_API_TTL", "2m")
 		os.Setenv("CACHE_DEFAULT_TTL", "1m")
-		
+
 		config := GetTTLFromEnv()
-		
+
 		// Verify env vars win over constants
 		if config.PlayerStats != 15*time.Minute {
 			t.Errorf("Expected PlayerStats TTL 15m from env, got %v", config.PlayerStats)
@@ -52,9 +52,9 @@ func TestTTLSourcePriority(t *testing.T) {
 		os.Unsetenv("CACHE_PLAYER_SUMMARY_TTL")
 		os.Unsetenv("CACHE_STEAM_API_TTL")
 		os.Unsetenv("CACHE_DEFAULT_TTL")
-		
+
 		config := GetTTLFromEnv()
-		
+
 		// Verify constants are used as fallbacks
 		if config.PlayerStats != 5*time.Minute {
 			t.Errorf("Expected PlayerStats TTL 5m from constant, got %v", config.PlayerStats)
@@ -76,9 +76,9 @@ func TestTTLSourcePriority(t *testing.T) {
 		os.Setenv("CACHE_PLAYER_SUMMARY_TTL", "not-a-duration")
 		os.Setenv("CACHE_STEAM_API_TTL", "")
 		os.Setenv("CACHE_DEFAULT_TTL", "also-invalid")
-		
+
 		config := GetTTLFromEnv()
-		
+
 		// Verify fallback to constants when env vars are invalid
 		if config.PlayerStats != 5*time.Minute {
 			t.Errorf("Expected PlayerStats TTL 5m from fallback, got %v", config.PlayerStats)
@@ -100,9 +100,9 @@ func TestTTLSourcePriority(t *testing.T) {
 		os.Unsetenv("CACHE_PLAYER_SUMMARY_TTL")
 		os.Setenv("CACHE_STEAM_API_TTL", "90s")
 		os.Unsetenv("CACHE_DEFAULT_TTL")
-		
+
 		config := GetTTLFromEnv()
-		
+
 		// Verify mixed behavior: env vars override where present, constants used elsewhere
 		if config.PlayerStats != 7*time.Minute {
 			t.Errorf("Expected PlayerStats TTL 7m from env, got %v", config.PlayerStats)
@@ -149,22 +149,22 @@ func TestGetEnvDuration(t *testing.T) {
 			name:     "ValidEnvVar",
 			envKey:   "TEST_DURATION",
 			envValue: "5m",
-			fallback: 1*time.Minute,
-			expected: 5*time.Minute,
+			fallback: 1 * time.Minute,
+			expected: 5 * time.Minute,
 		},
 		{
 			name:     "InvalidEnvVar",
 			envKey:   "TEST_DURATION",
 			envValue: "invalid",
-			fallback: 2*time.Minute,
-			expected: 2*time.Minute,
+			fallback: 2 * time.Minute,
+			expected: 2 * time.Minute,
 		},
 		{
 			name:     "EmptyEnvVar",
 			envKey:   "TEST_DURATION",
 			envValue: "",
-			fallback: 3*time.Minute,
-			expected: 3*time.Minute,
+			fallback: 3 * time.Minute,
+			expected: 3 * time.Minute,
 		},
 	}
 

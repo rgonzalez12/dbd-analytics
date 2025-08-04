@@ -14,7 +14,7 @@ import (
 func TestStructuredLoggingValidation(t *testing.T) {
 	// Initialize logging for testing
 	log.Initialize()
-	
+
 	tests := []struct {
 		name           string
 		steamID        string
@@ -37,27 +37,27 @@ func TestStructuredLoggingValidation(t *testing.T) {
 			// Create handler
 			handler := NewHandler()
 			router := mux.NewRouter()
-			
+
 			// Add the same logging middleware as main.go
 			router.Use(func(next http.Handler) http.Handler {
 				return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 					vars := mux.Vars(req)
 					steamID := vars["steamid"]
-					
+
 					log.Info("incoming_request",
 						"method", req.Method,
 						"path", req.URL.Path,
 						"steam_id", steamID)
-					
+
 					next.ServeHTTP(w, req)
-					
+
 					log.Info("request_completed",
 						"method", req.Method,
 						"path", req.URL.Path,
 						"steam_id", steamID)
 				})
 			})
-			
+
 			router.HandleFunc("/api/player/{steamid}/summary", handler.GetPlayerSummary).Methods("GET")
 
 			req := httptest.NewRequest("GET", "/api/player/"+tt.steamID+"/summary", nil)
@@ -75,7 +75,7 @@ func TestStructuredLoggingValidation(t *testing.T) {
 			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 				t.Errorf("Response is not valid JSON: %s", w.Body.String())
 			}
-			
+
 			// Should have error field
 			if response["error"] == nil {
 				t.Error("Expected 'error' field in response")
@@ -89,11 +89,11 @@ func TestStructuredLoggingValidation(t *testing.T) {
 func TestLogOutputFormat(t *testing.T) {
 	// Initialize logging for testing
 	log.Initialize()
-	
-	log.Info("test_message", 
+
+	log.Info("test_message",
 		"test_field", "test_value",
 		"test_number", 42)
-	
+
 	// Note: In a real test environment, we'd need to capture the output
 	// For now, this tests that the calls work correctly
 	t.Log("Log output format test completed")
@@ -102,7 +102,7 @@ func TestLogOutputFormat(t *testing.T) {
 func TestErrorLogging(t *testing.T) {
 	// Initialize logging for testing
 	log.Initialize()
-	
+
 	// Test error response logging
 	w := httptest.NewRecorder()
 	apiErr := &steam.APIError{
@@ -111,22 +111,22 @@ func TestErrorLogging(t *testing.T) {
 		StatusCode: 400,
 		Retryable:  false,
 	}
-	
+
 	writeErrorResponse(w, apiErr)
-	
+
 	// Note: In a real test environment, we'd need to capture the output
 	// For now, this tests that the error response generation works correctly
-	
+
 	if w.Code != 400 {
 		t.Errorf("Expected status code 400, got %d", w.Code)
 	}
-	
+
 	// Verify response body contains error information
 	var response map[string]interface{}
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
 		t.Fatalf("Response is not valid JSON: %s", w.Body.String())
 	}
-	
+
 	if response["error"] != "Test validation error" {
 		t.Errorf("Expected error message 'Test validation error', got %v", response["error"])
 	}
