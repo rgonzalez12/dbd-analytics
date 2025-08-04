@@ -316,6 +316,12 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 	return resp.Response.SteamID, nil
 }
 
+// ResolveSteamID resolves a vanity URL to a Steam ID, or returns the input if it's already a Steam ID
+// This is a public wrapper for the private resolveSteamID function to enable safe concurrent resolution
+func (c *Client) ResolveSteamID(steamIDOrVanity string) (string, *APIError) {
+	return c.resolveSteamID(steamIDOrVanity)
+}
+
 func (c *Client) makeRequest(endpoint string, params url.Values, result interface{}) *APIError {
 	var lastErr *APIError
 	

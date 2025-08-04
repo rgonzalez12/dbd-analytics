@@ -115,10 +115,12 @@ func main() {
 		fmt.Fprintln(w, "Available endpoints:")
 		fmt.Fprintln(w, "GET /api/player/{steamID}/summary - Get player summary")
 		fmt.Fprintln(w, "GET /api/player/{steamID}/stats - Get player DBD stats")
+		fmt.Fprintln(w, "GET /api/player/{steamID} - Get player stats WITH achievements (JSON)")
 		fmt.Fprintln(w, "")
 		fmt.Fprintln(w, "Example URLs:")
-		fmt.Fprintf(w, "  http://%s/api/player/invalid/summary\n", host)
+		fmt.Fprintf(w, "  http://%s/api/player/76561198000000000/summary\n", host)
 		fmt.Fprintf(w, "  http://%s/api/player/76561198000000000/stats\n", host)
+		fmt.Fprintf(w, "  http://%s/api/player/76561198000000000 - 🏆 ACHIEVEMENTS JSON\n", host)
 	}).Methods("GET")
 
 	r.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
@@ -144,6 +146,7 @@ func main() {
 
 	r.HandleFunc("/api/player/{steamid}/summary", h.GetPlayerSummary).Methods("GET")
 	r.HandleFunc("/api/player/{steamid}/stats", h.GetPlayerStats).Methods("GET")
+	r.HandleFunc("/api/player/{steamid}", h.GetPlayerStatsWithAchievements).Methods("GET")
 	
 	// Cache management endpoints
 	r.HandleFunc("/api/cache/stats", h.GetCacheStats).Methods("GET")

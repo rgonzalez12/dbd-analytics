@@ -786,17 +786,14 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
 	
-	requestLogger := log.WithContext(
-		"steam_id", steamID,
-		"client_ip", r.RemoteAddr,
-		"method", r.Method,
-		"path", r.URL.Path,
-	)
+	// Create structured logger with comprehensive request context
+	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 	
 	// Validate Steam ID format
 	if err := validateSteamIDOrVanity(steamID); err != nil {
-		requestLogger.Warn("Invalid Steam ID format",
-			"error", err.Message,
+		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerStatsWithAchievements",
+			"user_agent", r.UserAgent(),
+			"error_message", err.Message,
 			"validation_type", string(err.Type))
 		writeErrorResponse(w, err)
 		return
@@ -829,7 +826,23 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	requestLogger.Info("Processing combined player data request", 
 		"combined_cache_hit", combinedCacheHit)
 
-	// Fetch data in parallel for better performance
+	// Resolve vanity URL once before parallel execution to prevent race conditions
+	resolvedSteamID, resolveErr := h.steamClient.ResolveSteamID(steamID)
+	if resolveErr != nil {
+		requestLogger.Error("Failed to resolve Steam ID/vanity URL",
+			"error", resolveErr.Message,
+			"error_type", string(resolveErr.Type),
+			"duration", time.Since(start))
+		writeErrorResponse(w, resolveErr)
+		return
+	}
+
+	requestLogger.Info("Steam ID resolution completed",
+		"original_input", steamID,
+		"resolved_steam_id", resolvedSteamID,
+		"was_vanity_url", steamID != resolvedSteamID)
+
+	// Fetch data in parallel for better performance using resolved Steam ID
 	type fetchResult struct {
 		stats        models.PlayerStats
 		achievements *models.AchievementData
@@ -842,16 +855,16 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	result := fetchResult{}
 	resultChan := make(chan struct{}, 2)
 
-	// Fetch player stats
+	// Fetch player stats using resolved Steam ID
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(steamID)
+		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(resolvedSteamID)
 	}()
 
-	// Fetch achievements
+	// Fetch achievements using resolved Steam ID
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(steamID)
+		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
 	}()
 
 	// Wait for both to complete
@@ -882,7 +895,8 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		requestLogger.Error("Failed to fetch player stats - critical failure",
 			"error", result.statsError,
 			"error_type", classifyError(result.statsError),
-			"steam_id", steamID,
+			"original_steam_id", steamID,
+			"resolved_steam_id", resolvedSteamID,
 			"duration", time.Since(start))
 		writeErrorResponse(w, steam.NewInternalError(result.statsError))
 		return
@@ -948,6 +962,8 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 
 	requestLogger.Info("Successfully processed combined player data request",
 		"persona_name", result.stats.DisplayName,
+		"original_steam_id", steamID,
+		"resolved_steam_id", resolvedSteamID,
 		"stats_success", result.statsError == nil,
 		"achievements_success", result.achError == nil,
 		"duration", time.Since(start))
