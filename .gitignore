@@ -1,5 +1,11 @@
 .env
 
+# Frontend dependencies and build
+node_modules/
+.vite/
+dist/
+.svelte-kit/
+
 # Binaries
 *.exe
 *.out
