@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* App-wide utilities */
+:root { color-scheme: dark light; }
+html, body, #svelte { height: 100%; }
+
 body {
 	background-color: #1a1a1a;
 	color: white;
