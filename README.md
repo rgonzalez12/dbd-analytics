@@ -1,63 +1,103 @@
-# dbd-analytics
+# DBD Analytics
 
-Analytics and Stats tool for Dead by Daylight
+A comprehensive analytics and statistics tool for Dead by Daylight with a modern web interface.
+
+## 🏗️ Architecture
+
+- **Backend**: Go API server with Steam integration, caching, and circuit breaker protection
+- **Frontend**: SvelteKit web application with TypeScript and Tailwind CSS
+- **Data**: Steam API integration for player stats and achievements
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- **Go 1.21+** for the backend
+- **Node.js 18+** for the frontend
+- **Steam API Key** (set as `STEAM_API_KEY` environment variable)
+
+### 1. Clone the Repository
 ```bash
-# Clone the repository
 git clone https://github.com/rgonzalez12/dbd-analytics.git
 cd dbd-analytics
+```
 
-# Build the application
+### 2. Set Up Environment
+Create a `.env` file in the root directory:
+```bash
+STEAM_API_KEY=your_steam_api_key_here
+LOG_LEVEL=info
+PORT=8080
+```
+
+### 3. Start the Backend
+```bash
+# Build and run the Go server
 go build -o bin/dbd-analytics.exe ./cmd/app
-
-# Run the server
 ./bin/dbd-analytics.exe
 ```
 
-The server will start on `http://localhost:8080` by default.
+The backend will start on `http://localhost:8080`
+
+### 4. Start the Frontend (New Terminal)
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The frontend will start on `http://localhost:5173` with proxy to backend
+
+### 5. Access the Application
+- **Web Interface**: http://localhost:5173
+- **API Endpoints**: http://localhost:8080/api
+- **Example**: http://localhost:5173/player/counteredspell
 
 ## ⚙️ Configuration
 
 ### Environment Variables
 
-The application supports configuration via environment variables for production deployments:
+Create a `.env` file in the root directory with the following variables:
 
-#### Cache Configuration
+#### Required Configuration
 ```bash
-# Cache TTL Settings (Time-To-Live)
-CACHE_PLAYER_STATS_TTL=5m      # Player statistics cache duration (default: 5 minutes)
-CACHE_PLAYER_SUMMARY_TTL=10m   # Player summary cache duration (default: 10 minutes)  
-CACHE_STEAM_API_TTL=3m         # Steam API response cache duration (default: 3 minutes)
-CACHE_DEFAULT_TTL=3m           # Default cache duration (default: 3 minutes)
-
-# Examples of valid duration formats:
-# 30s, 5m, 1h, 2h30m, 1h30m45s
+STEAM_API_KEY=your_steam_api_key_here    # Steam API key (required)
 ```
 
-#### Circuit Breaker Configuration
+#### Optional Configuration
 ```bash
-# Circuit breaker settings for Steam API reliability
-CIRCUIT_BREAKER_MAX_FAILURES=5           # Failures before opening circuit (default: 5)
-CIRCUIT_BREAKER_RESET_TIMEOUT=30s        # Time before retry attempt (default: 30s)
-CIRCUIT_BREAKER_SUCCESS_RESET=3          # Successes needed to close circuit (default: 3)
-CIRCUIT_BREAKER_FAILURE_THRESHOLD=0.5    # Failure rate threshold 0.0-1.0 (default: 0.5)
+# Server Configuration
+PORT=8080                               # Server port (default: 8080)
+LOG_LEVEL=info                         # Log level: debug, info, warn, error
+
+# Cache Configuration - Time-To-Live settings
+CACHE_PLAYER_STATS_TTL=5m              # Player statistics cache duration
+CACHE_PLAYER_SUMMARY_TTL=10m           # Player summary cache duration  
+CACHE_STEAM_API_TTL=3m                 # Steam API response cache duration
+CACHE_DEFAULT_TTL=3m                   # Default cache duration
+
+# Circuit Breaker Configuration - Steam API protection
+CIRCUIT_BREAKER_MAX_FAILURES=5         # Failures before opening circuit
+CIRCUIT_BREAKER_RESET_TIMEOUT=30s      # Time before retry attempt
+CIRCUIT_BREAKER_SUCCESS_RESET=3        # Successes needed to close circuit
+
+# Cache Warm-up (Optional)
+CACHE_WARMUP_ENABLED=true              # Enable cache pre-loading on startup
+CACHE_WARMUP_TIMEOUT=30s               # Maximum time for warm-up process
 ```
 
-#### Cache Warm-up (Optional)
-```bash
-CACHE_WARMUP_ENABLED=true                # Enable cache pre-loading on startup
-CACHE_WARMUP_TIMEOUT=30s                 # Maximum time for warm-up process
-CACHE_WARMUP_CONCURRENT_JOBS=3           # Parallel warm-up workers
-```
+### Frontend Configuration
+
+The frontend automatically proxies API requests to the backend through Vite configuration. No additional setup required for development.
 
 ### Configuration Priority
 
-The application uses the following configuration priority:
-1. **Environment Variables** (highest priority)
-2. **Deprecated Constants** (backward compatibility)
-3. **Hardcoded Defaults** (fallback)
+1. **Environment Variables** (`.env` file or system environment)
+2. **Application Defaults**
 
 ## 🏗️ Architecture
 
@@ -68,10 +108,12 @@ The application uses the following configuration priority:
 - **Corruption detection** and automatic recovery
 - **Comprehensive metrics** for monitoring and debugging
 
-### API Endpoints
-- `GET /api/player/{id}/stats` - Player statistics with caching
-- `GET /api/player/{id}/summary` - Player summary with circuit breaker protection
-- `GET /api/cache/status` - Cache and circuit breaker health metrics
+### Frontend Features
+- **SvelteKit** with server-side rendering and TypeScript
+- **Type-safe API client** with error handling and timeouts  
+- **Tailwind CSS** for responsive design
+- **Development proxy** to backend API
+- **Loading states** and error boundaries
 
 ### Production Features
 - ✅ Thread-safe concurrent access
@@ -80,6 +122,8 @@ The application uses the following configuration priority:
 - ✅ Jitter-based recovery (prevents thundering herd)
 - ✅ State persistence for circuit breaker
 - ✅ Comprehensive error handling
+- ✅ Steam vanity URL resolution
+- ✅ Player achievement tracking
 
 ## 📊 Monitoring
 
@@ -117,73 +161,232 @@ INFO  Serving stale data from fallback cache key="player:123" circuit_state="ope
 
 ## 🧪 Testing
 
+### Backend Tests
 ```bash
-# Run all tests
+# Run all backend tests
 go test ./...
 
 # Run tests with coverage
 go test -cover ./...
 
 # Run specific test suites
-go test ./internal/cache -v                    # Cache system tests
-go test ./internal/api -v                      # API handler tests  
-go test ./internal/steam -v                    # Steam API client tests
+go test ./internal/cache -v              # Cache system tests
+go test ./internal/api -v                # API handler tests  
+go test ./internal/steam -v              # Steam API client tests
+
+# Run tests with race detection
+go test -race ./...
+```
+
+### Frontend Tests
+```bash
+cd frontend
+
+# Type checking
+npm run check
+
+# Linting
+npm run lint
+
+# Format check
+npm run format:check
 ```
 
 ## 🚀 Production Deployment
 
-### Recommended Environment Variables
+### Backend Production Build
 ```bash
-# Production cache settings
+# Build optimized binary
+go build -ldflags="-s -w" -o bin/dbd-analytics ./cmd/app
+
+# Or build for specific platform
+GOOS=linux GOARCH=amd64 go build -o bin/dbd-analytics-linux ./cmd/app
+```
+
+### Frontend Production Build
+```bash
+cd frontend
+
+# Build for production
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+### Recommended Production Environment
+```bash
+# Production-optimized settings
+STEAM_API_KEY=your_production_steam_api_key
+PORT=8080
+LOG_LEVEL=warn
+
+# Extended cache durations for production
 CACHE_PLAYER_STATS_TTL=10m
 CACHE_PLAYER_SUMMARY_TTL=30m
 CACHE_STEAM_API_TTL=5m
 
-# Robust circuit breaker for production load
+# Robust circuit breaker settings
 CIRCUIT_BREAKER_MAX_FAILURES=10
 CIRCUIT_BREAKER_RESET_TIMEOUT=60s
 CIRCUIT_BREAKER_SUCCESS_RESET=5
 
-# Enable warm-up for better UX
+# Enable warm-up for better user experience
 CACHE_WARMUP_ENABLED=true
 CACHE_WARMUP_TIMEOUT=60s
 ```
 
-### Performance Characteristics
-- **Memory Cache**: Efficiently handles up to 100K entries
-- **Concurrent Access**: Tested with multiple goroutines
-- **Circuit Breaker**: 60-second sliding window with configurable thresholds
-- **Recovery**: Jitter-based to prevent thundering herd issues
+### Docker Deployment (Optional)
+```dockerfile
+# Example Dockerfile for backend
+FROM golang:1.21-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN go build -o dbd-analytics ./cmd/app
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/dbd-analytics .
+EXPOSE 8080
+CMD ["./dbd-analytics"]
+```
 
 ## 📁 Project Structure
 
 ```
 dbd-analytics/
-├── cmd/app/                 # Application entry point
-├── internal/
-│   ├── api/                 # HTTP handlers and routes
-│   ├── cache/               # Cache system with circuit breaker
-│   │   ├── circuit_breaker.go
-│   │   ├── manager.go
-│   │   ├── memory.go
-│   │   ├── warmup.go
-│   │   ├── jitter.go
-│   │   └── persistence.go
-│   ├── steam/               # Steam API client
-│   ├── models/              # Data models
-│   └── log/                 # Structured logging
-├── static/                  # Frontend assets
-├── templates/               # HTML templates
-└── bin/                     # Compiled binaries
+├── cmd/app/                    # Go application entry point
+│   └── main.go
+├── internal/                   # Go backend source code
+│   ├── api/                    # HTTP handlers and API routes
+│   ├── cache/                  # Caching system with circuit breaker
+│   ├── steam/                  # Steam API client integration
+│   ├── models/                 # Data models and types
+│   ├── security/               # Validation and security
+│   └── log/                    # Structured logging
+├── frontend/                   # SvelteKit web application
+│   ├── src/
+│   │   ├── lib/                # Shared utilities and API client
+│   │   │   └── api/            # TypeScript API client
+│   │   ├── routes/             # SvelteKit page routes
+│   │   │   ├── +layout.svelte  # Root layout
+│   │   │   ├── +page.svelte    # Home page
+│   │   │   └── player/         # Player pages
+│   │   └── app.html            # HTML template
+│   ├── static/                 # Static assets
+│   └── package.json            # Frontend dependencies
+├── bin/                        # Compiled Go binaries
+├── scripts/                    # Utility scripts
+├── .env                        # Environment configuration
+└── go.mod                      # Go module definition
+```
+
+## 🔧 Development
+
+### Backend Development
+```bash
+# Run with live reload using air (install: go install github.com/air-verse/air@latest)
+air
+
+# Or run directly
+go run ./cmd/app
+
+# Run tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+```
+
+### Frontend Development
+```bash
+cd frontend
+
+# Development with hot reload
+npm run dev
+
+# Type checking
+npm run check
+
+# Linting
+npm run lint
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+```
+
+## 🌐 API Endpoints
+
+### Player Data
+- `GET /api/player/{steamId}` - Combined player stats and achievements
+- `GET /api/player/{steamId}/stats` - Player statistics only
+- `GET /api/player/{steamId}/summary` - Player summary only
+
+### System Status
+- `GET /api/cache/status` - Cache and circuit breaker metrics
+- `GET /api/health` - Application health check
+
+### Example Usage
+```bash
+# Get player data by Steam ID
+curl http://localhost:8080/api/player/76561198000000000
+
+# Get player data by vanity URL
+curl http://localhost:8080/api/player/counteredspell
+
+# Check system status
+curl http://localhost:8080/api/cache/status
 ```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Add tests for new functionality
+5. Ensure all tests pass (`go test ./...` and `npm run check`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+### Development Guidelines
+- Follow Go and TypeScript best practices
+- Add tests for new features
+- Update documentation as needed
+- Use conventional commit messages
+- Ensure frontend types match backend responses
+
+## 📈 Performance Characteristics
+
+- **Memory Cache**: Efficiently handles up to 100K entries
+- **Concurrent Access**: Tested with multiple goroutines
+- **Circuit Breaker**: 60-second sliding window with configurable thresholds
+- **Recovery**: Jitter-based to prevent thundering herd issues
+- **Frontend**: Optimized bundle with code splitting
+- **API Response**: Typical response times under 100ms (cached)
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Backend not starting:**
+- Check that `STEAM_API_KEY` is set in your `.env` file
+- Verify port 8080 is not in use
+- Check logs for configuration errors
+
+**Frontend not loading data:**
+- Ensure backend is running on port 8080
+- Check browser network tab for API errors
+- Verify frontend proxy configuration in `vite.config.ts`
+
+**Steam API errors:**
+- Validate your Steam API key
+- Check rate limiting (Steam API has request limits)
+- Review circuit breaker status at `/api/cache/status`
 
 ## 📄 License
 
