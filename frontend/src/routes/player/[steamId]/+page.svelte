@@ -12,9 +12,9 @@
 	
 	// Convert mapped achievements to alphabetical lists of ONLY adept achievements
 	const adeptSurvivors = (achievements?.mapped_achievements?.filter(a => a.type === 'survivor' && a.character) || [])
-		.sort((a, b) => a.character.localeCompare(b.character));
+		.sort((a, b) => a.character!.localeCompare(b.character!));
 	const adeptKillers = (achievements?.mapped_achievements?.filter(a => a.type === 'killer' && a.character) || [])
-		.sort((a, b) => a.character.localeCompare(b.character));
+		.sort((a, b) => a.character!.localeCompare(b.character!));
 </script>
 
 <section class="space-y-6">
@@ -137,7 +137,7 @@
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<details>
 			<summary class="cursor-pointer text-sm text-neutral-400 hover:text-neutral-300">Show raw JSON (debug)</summary>
-			<pre class="mt-4 overflow-auto rounded-xl bg-black/40 p-4 text-xs">{JSON.stringify(data.stats, null, 2)}</pre>
+			<pre class="mt-4 overflow-auto rounded-xl bg-black/40 p-4 text-xs">{JSON.stringify(data, null, 2)}</pre>
 		</details>
 	</div>
 </section>

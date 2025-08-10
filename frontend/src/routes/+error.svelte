@@ -17,8 +17,8 @@
 			return 'This Steam profile might be private, the ID might be incorrect, or the player might not have Dead by Daylight data.';
 		}
 		if (status === 429) {
-			const retryMatch = message.match(/Retry after (\d+) seconds/);
-			const retrySeconds = retryMatch ? parseInt(retryMatch[1]) : null;
+			const retryMatch = message?.match(/Retry after (\d+) seconds/);
+			const retrySeconds = retryMatch?.[1] ? parseInt(retryMatch[1]) : null;
 			return retrySeconds 
 				? `Try again in ${retrySeconds} seconds.`
 				: 'Try again in a few seconds.';

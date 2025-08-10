@@ -10,13 +10,13 @@
 		
 		// https://steamcommunity.com/profiles/<steamID64>
 		const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d+)/);
-		if (profileMatch) {
+		if (profileMatch?.[1]) {
 			return profileMatch[1];
 		}
 		
 		// https://steamcommunity.com/id/<vanity>
 		const vanityMatch = trimmed.match(/steamcommunity\.com\/id\/([^\/]+)/);
-		if (vanityMatch) {
+		if (vanityMatch?.[1]) {
 			return vanityMatch[1];
 		}
 		

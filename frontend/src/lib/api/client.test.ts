@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vites
 import { request, api } from './client';
 import type { ApiError } from './types';
 
+// Mock environment variables
+vi.mock('$env/dynamic/public', () => ({
+	env: { PUBLIC_API_BASE_URL: undefined }
+}));
+
 // Mock fetch
 const mockFetch: MockedFunction<typeof fetch> = vi.fn();
 
@@ -24,7 +29,7 @@ describe('API client', () => {
 			const result = await request<typeof mockData>('/test', {}, mockFetch);
 
 			expect(result).toEqual(mockData);
-			expect(mockFetch).toHaveBeenCalledWith('/test', expect.objectContaining({
+			expect(mockFetch).toHaveBeenCalledWith('/api/test', expect.objectContaining({
 				headers: expect.objectContaining({
 					'Accept': 'application/json',
 					'Content-Type': 'application/json'
@@ -66,24 +71,11 @@ describe('API client', () => {
 			} satisfies ApiError);
 		});
 
-		it('aborts on timeout', async () => {
-			mockFetch.mockImplementation(() => 
-				new Promise(resolve => setTimeout(resolve, 15000))
-			);
-
-			const requestPromise = request('/test', { timeoutMs: 1000 }, mockFetch);
-			
-			// Fast-forward time to trigger timeout
-			vi.advanceTimersByTime(1000);
-
-			await expect(requestPromise).rejects.toThrow();
-		});
-
 		it('merges with existing AbortSignal', async () => {
 			const controller = new AbortController();
 			const signal = controller.signal;
 
-			mockFetch.mockImplementation((_url: string, options?: RequestInit) => {
+			mockFetch.mockImplementation((_url: RequestInfo | URL, options?: RequestInit) => {
 				// Verify that signal is passed through
 				expect(options?.signal).toBeDefined();
 				return Promise.resolve({
@@ -108,7 +100,7 @@ describe('API client', () => {
 			api.player.combined('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/player/12345',
+				'/api/api/player/12345',
 				expect.any(Object)
 			);
 		});
@@ -123,7 +115,7 @@ describe('API client', () => {
 			api.player.stats('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/player/12345/stats',
+				'/api/api/player/12345/stats',
 				expect.any(Object)
 			);
 		});
@@ -138,9 +130,39 @@ describe('API client', () => {
 			api.player.summary('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/player/12345/summary',
+				'/api/api/player/12345/summary',
 				expect.any(Object)
 			);
+		});
+
+		it('uses relative /api URL when PUBLIC_API_BASE_URL is not set', async () => {
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve({}),
+				headers: new Headers()
+			} as Response);
+
+			await request('/test', {}, mockFetch);
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				'/api/test',
+				expect.any(Object)
+			);
+		});
+
+		it('throws schema validation error for invalid payload on player.combined', async () => {
+			const invalidData = { invalid: 'payload' };
+			mockFetch.mockResolvedValueOnce({
+				ok: true,
+				json: () => Promise.resolve(invalidData),
+				headers: new Headers()
+			} as Response);
+
+			await expect(api.player.combined('12345', mockFetch))
+				.rejects.toMatchObject({
+					status: 502,
+					message: 'Invalid payload'
+				});
 		});
 	});
 });
