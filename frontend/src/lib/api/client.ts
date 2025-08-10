@@ -1,15 +1,11 @@
 import type { ApiError, PlayerSummary, PlayerStats, PlayerStatsWithAchievements } from './types';
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
 function getBaseUrl(): string {
-	if (browser && typeof window !== 'undefined') {
-		// Check if PUBLIC_API_BASE_URL is defined in window.ENV or similar
-		// For now, use relative URLs for dev proxy
-		return '';
-	}
-	return ''; // Use relative URLs for dev proxy
+	return env.PUBLIC_API_BASE_URL || '/api';
 }
 
 function withTimeout(signal: AbortSignal | undefined, ms: number) {
