@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { PlayerStatsWithAchievements } from '$lib/api/types';
-	export let data: { steamId: string; stats: PlayerStatsWithAchievements; source: 'combined' };
+	export let data: { data: PlayerStatsWithAchievements };
 	
-	const stats = data.stats;
+	const stats = data.data;
 	const displayName = stats.display_name ?? '—';
 	const matches = stats.total_matches ?? undefined;
 	
@@ -20,9 +20,9 @@
 <section class="space-y-6">
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<div class="flex items-center justify-between gap-4">
-			<h2 class="text-xl font-semibold">Player {data.steamId}</h2>
+			<h2 class="text-xl font-semibold">Player {stats.steam_id}</h2>
 			<span class="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-400">
-				source: {data.source}
+				API Data
 			</span>
 		</div>
 

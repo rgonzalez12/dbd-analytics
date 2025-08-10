@@ -2,35 +2,46 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 
-	$: isPlayerNotFound = $page.status === 404 && $page.url.pathname.includes('/player/');
+	$: status = $page.status;
+	$: message = $page.error?.message || '';
+	$: isPlayerContext = $page.url.pathname.includes('/player/');
+	
+	function getErrorTitle(status: number): string {
+		if (status === 404) return 'Player Not Found';
+		if (status === 429) return 'Rate Limited';
+		return 'Something Went Wrong';
+	}
+	
+	function getErrorMessage(status: number, message: string, isPlayerContext: boolean): string {
+		if (status === 404 && isPlayerContext) {
+			return 'This Steam profile might be private, the ID might be incorrect, or the player might not have Dead by Daylight data.';
+		}
+		if (status === 429) {
+			const retryMatch = message.match(/Retry after (\d+) seconds/);
+			return retryMatch 
+				? `Too many requests. Please wait ${retryMatch[1]} seconds before trying again.`
+				: 'Too many requests. Please wait before trying again.';
+		}
+		if (status >= 500) {
+			return 'Server error. Please try again later.';
+		}
+		return message || 'An unexpected error occurred.';
+	}
 </script>
 
 <div class="mx-auto max-w-2xl p-6 text-center">
-	{#if isPlayerNotFound}
-		<div class="space-y-4">
-			<h1 class="text-2xl font-bold">Player Not Found</h1>
-			<p class="text-neutral-300">
-				This Steam profile might be private, the ID might be incorrect, or the player might not have Dead by Daylight data.
-			</p>
-			<button 
-				class="rounded-xl bg-white/90 px-4 py-2 text-neutral-900 hover:bg-white"
-				on:click={() => goto('/')}
-			>
-				Try Another ID
-			</button>
-		</div>
-	{:else}
-		<div class="space-y-4">
-			<h1 class="text-2xl font-bold">Something went wrong</h1>
-			<p class="text-neutral-300">Status: {$page.status}</p>
-			<button 
-				class="rounded-xl bg-white/90 px-4 py-2 text-neutral-900 hover:bg-white"
-				on:click={() => goto('/')}
-			>
-				Go Home
-			</button>
-		</div>
-	{/if}
+	<div class="space-y-4">
+		<h1 class="text-2xl font-bold">{getErrorTitle(status)}</h1>
+		<p class="text-neutral-300">
+			{getErrorMessage(status, message, isPlayerContext)}
+		</p>
+		<button 
+			class="rounded-xl bg-white/90 px-4 py-2 text-neutral-900 hover:bg-white"
+			on:click={() => goto('/')}
+		>
+			{status === 404 && isPlayerContext ? 'Try Another ID' : 'Go Home'}
+		</button>
+	</div>
 	
 	<details class="mt-8 text-left">
 		<summary class="cursor-pointer text-sm text-neutral-500 hover:text-neutral-400">Show details</summary>

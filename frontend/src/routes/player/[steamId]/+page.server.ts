@@ -1,19 +1,28 @@
 import type { PageServerLoad } from './$types';
-import { api } from '$lib';
+import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
-import type { ApiError } from '$lib/api/types';
+import type { ApiError, PlayerStatsWithAchievements } from '$lib/api/types';
 
-export const load: PageServerLoad = async ({ params, fetch }) => {
+export const load: PageServerLoad = async ({ params, fetch }): Promise<{ data: PlayerStatsWithAchievements }> => {
 	const { steamId } = params;
 	
 	try {
-		const combinedData = await api.player.combined(steamId, fetch);
-		return { steamId, stats: combinedData, source: 'combined' as const };
+		const data = await api.player.combined(steamId, fetch);
+		return { data };
 	} catch (err) {
 		const apiError = err as ApiError;
+		
 		if (apiError?.status === 404) {
-			throw error(404, 'Player not found or profile is private');
+			throw error(404, 'Player not found');
 		}
-		throw error(500, 'Unable to load player data');
+		
+		if (apiError?.status === 429) {
+			const message = apiError.retryAfter 
+				? `Rate limited. Retry after ${apiError.retryAfter} seconds.`
+				: 'Rate limited';
+			throw error(429, message);
+		}
+		
+		throw error(502, 'Upstream error');
 	}
 };

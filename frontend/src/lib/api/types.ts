@@ -8,19 +8,22 @@ export type PlayerStats = {
 	steam_id: string;
 	display_name: string;
 	total_matches: number;
+	last_updated: string;
+	time_played_hours?: number;
+	bloodweb_points?: number;
+	killer_pips?: number;
+	survivor_pips?: number;
+	killed_campers?: number;
+	escapes?: number;
+	generator_pct?: number;
 	[k: string]: unknown;
-};
-
-export type PlayerStatsSurface = {
-	steam_id?: string;
-	display_name?: string;
-	total_matches?: number;
 };
 
 export type ApiError = {
 	status: number;
 	message: string;
-	code?: string;
+	details?: unknown;
+	retryAfter?: number;
 };
 
 // Achievement-related types to match backend models
@@ -74,3 +77,7 @@ export type PlayerStatsWithAchievements = PlayerStats & {
 	achievements?: AchievementData;
 	data_sources: DataSourceStatus;
 };
+
+export type LoadState<T> =
+	| { ok: true; data: T }
+	| { ok: false; error: ApiError };

@@ -5,14 +5,35 @@
 	let input = '';
 	let error = '';
 
+	function parseSteamInput(value: string): string {
+		const trimmed = value.trim();
+		
+		// Match Steam profile URLs: https://steamcommunity.com/profiles/{steamID64}
+		const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d+)/);
+		if (profileMatch) {
+			return profileMatch[1];
+		}
+		
+		// Match Steam vanity URLs: https://steamcommunity.com/id/{vanity}
+		const vanityMatch = trimmed.match(/steamcommunity\.com\/id\/([^\/]+)/);
+		if (vanityMatch) {
+			return vanityMatch[1];
+		}
+		
+		// Return as-is for raw Steam IDs or vanity names
+		return trimmed;
+	}
+
 	function handleSubmit() {
-		const id = input.trim();
-		if (!id) {
+		const rawInput = input.trim();
+		if (!rawInput) {
 			error = 'Please enter a Steam ID or vanity URL';
 			return;
 		}
+		
+		const steamId = parseSteamInput(rawInput);
 		error = '';
-		goto(`/player/${encodeURIComponent(id)}`);
+		goto(`/player/${encodeURIComponent(steamId)}`);
 	}
 </script>
 
