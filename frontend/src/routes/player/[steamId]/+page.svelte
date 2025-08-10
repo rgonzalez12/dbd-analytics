@@ -10,11 +10,17 @@
 	const achievements = stats.achievements;
 	const achievementSummary = achievements?.summary;
 	
+	// Safe comparator for sorting
+	const cmp = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '');
+	
 	// Convert mapped achievements to alphabetical lists of ONLY adept achievements
 	const adeptSurvivors = (achievements?.mapped_achievements?.filter(a => a.type === 'survivor' && a.character) || [])
-		.sort((a, b) => a.character!.localeCompare(b.character!));
+		.sort((a, b) => cmp(a.character, b.character));
 	const adeptKillers = (achievements?.mapped_achievements?.filter(a => a.type === 'killer' && a.character) || [])
-		.sort((a, b) => a.character!.localeCompare(b.character!));
+		.sort((a, b) => cmp(a.character, b.character));
+	
+	// Check for empty/private profile state
+	const hasNoData = !matches || matches === 0;
 </script>
 
 <section class="space-y-6">
@@ -40,6 +46,12 @@
 				<div class="text-lg">{matches ?? '—'}</div>
 			</div>
 		</div>
+
+		{#if hasNoData}
+			<div class="mt-4 p-4 rounded-xl border border-yellow-600 bg-yellow-900/20">
+				<p class="text-yellow-300">No stats available. This might be a private profile or the player hasn't played Dead by Daylight yet.</p>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Achievement Data -->
@@ -63,15 +75,15 @@
 					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Total</div>
-							<div class="text-lg">{achievementSummary.total_achievements}</div>
+							<div class="text-lg">{achievementSummary.total}</div>
 						</div>
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Unlocked</div>
-							<div class="text-lg">{achievementSummary.unlocked_count}</div>
+							<div class="text-lg">{achievementSummary.unlocked}</div>
 						</div>
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Percentage</div>
-							<div class="text-lg">{achievementSummary.completion_rate.toFixed(1)}%</div>
+							<div class="text-lg">{((achievementSummary.unlocked / achievementSummary.total) * 100).toFixed(1)}%</div>
 						</div>
 					</div>
 					

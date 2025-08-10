@@ -1,6 +1,5 @@
-import type { ApiError, PlayerSummary, PlayerStats, PlayerStatsWithAchievements } from './types';
+import type { ApiError, PlayerStatsWithAchievements } from './types';
 import { PlayerStatsWithAchievementsSchema } from './schemas';
-import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -65,6 +64,15 @@ export async function request<T>(
 			throw error;
 		}
 		
+		// Check if response is JSON
+		const contentType = response.headers.get('content-type');
+		if (!contentType || !contentType.includes('application/json')) {
+			throw {
+				status: response.status,
+				message: 'Non-JSON response'
+			} as ApiError;
+		}
+		
 		const jsonData = await response.json();
 		return jsonData;
 	} finally {
@@ -74,10 +82,6 @@ export async function request<T>(
 
 export const api = {
 	player: {
-		summary: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
-			request<PlayerSummary>(`/player/${steamId}/summary`, init, customFetch),
-		stats: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
-			request<PlayerStats>(`/player/${steamId}/stats`, init, customFetch),
 		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<PlayerStatsWithAchievements> => {
 			const data = await request<unknown>(`/player/${steamId}`, init, customFetch);
 			const result = PlayerStatsWithAchievementsSchema.safeParse(data);
