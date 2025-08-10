@@ -37,7 +37,6 @@ func DefaultRetryConfig() RetryConfig {
 
 type RetryableFunc func() (*APIError, bool)
 
-// shouldRetryError determines if an error is worth retrying based on its type and status code
 func shouldRetryError(err *APIError) bool {
 	if err == nil {
 		return false
@@ -65,12 +64,10 @@ func shouldRetryError(err *APIError) bool {
 	return err.Retryable
 }
 
-// WithRetry executes a function with exponential backoff retry logic
 func WithRetry(config RetryConfig, fn RetryableFunc) *APIError {
 	return withRetryAndLogging(config, fn, "")
 }
 
-// WithRetryAndLogging executes a function with enhanced retry logic and structured logging
 func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string) *APIError {
 	var lastErr *APIError
 
@@ -160,8 +157,6 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 	return lastErr
 }
 
-// calculateRetryDelay determines the delay before next retry attempt
-// Respects API headers (Retry-After) or uses exponential backoff
 func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Duration {
 	// If we have a rate limit error with RetryAfter, use it
 	if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {

@@ -18,7 +18,6 @@ const (
 	DBDAppID = "381210"
 )
 
-// getAchievementsTimeout returns the configurable achievements fetch timeout
 func getAchievementsTimeout() time.Duration {
 	if timeoutStr := os.Getenv("ACHIEVEMENTS_TIMEOUT_SECS"); timeoutStr != "" {
 		if timeoutSecs, err := strconv.Atoi(timeoutStr); err == nil && timeoutSecs > 0 {
@@ -28,7 +27,6 @@ func getAchievementsTimeout() time.Duration {
 	return 5 * time.Second // Default fallback
 }
 
-// logSteamError provides consistent Steam API error logging
 func logSteamError(level string, msg string, playerID string, err error, fields ...interface{}) {
 	logger := log.SteamAPIContext(playerID, "steam_api")
 	allFields := append([]interface{}{"error", err.Error()}, fields...)
@@ -45,13 +43,11 @@ func logSteamError(level string, msg string, playerID string, err error, fields 
 	}
 }
 
-// logSteamInfo provides consistent Steam API info logging with player context
 func logSteamInfo(msg string, playerID string, additionalFields ...interface{}) {
 	logger := log.SteamAPIContext(playerID, "steam_api")
 	logger.Info(msg, additionalFields...)
 }
 
-// logSteamPerformance provides performance-focused logging with metrics
 func logSteamPerformance(operation, playerID, endpoint string, durationMs float64, additionalFields ...interface{}) {
 	logger := log.PerformanceContext(operation, playerID, durationMs).With(
 		"endpoint", endpoint,

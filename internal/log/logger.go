@@ -38,7 +38,6 @@ func getLogLevel() slog.Level {
 	}
 }
 
-// Info logs an informational message
 func Info(msg string, args ...any) {
 	if Logger == nil {
 		Initialize()
@@ -46,7 +45,6 @@ func Info(msg string, args ...any) {
 	Logger.Info(msg, args...)
 }
 
-// Warn logs a warning message
 func Warn(msg string, args ...any) {
 	if Logger == nil {
 		Initialize()
@@ -54,7 +52,6 @@ func Warn(msg string, args ...any) {
 	Logger.Warn(msg, args...)
 }
 
-// Error logs an error message
 func Error(msg string, args ...any) {
 	if Logger == nil {
 		Initialize()
@@ -62,7 +59,6 @@ func Error(msg string, args ...any) {
 	Logger.Error(msg, args...)
 }
 
-// Debug logs a debug message
 func Debug(msg string, args ...any) {
 	if Logger == nil {
 		Initialize()
@@ -70,7 +66,6 @@ func Debug(msg string, args ...any) {
 	Logger.Debug(msg, args...)
 }
 
-// WithContext returns a logger with additional context fields
 func WithContext(args ...any) *slog.Logger {
 	if Logger == nil {
 		Initialize()
@@ -80,12 +75,10 @@ func WithContext(args ...any) *slog.Logger {
 
 // Structured logging helpers for consistent field formatting
 
-// PlayerContext creates a structured logger with player-specific context
 func PlayerContext(playerID string) *slog.Logger {
 	return WithContext("player_id", playerID)
 }
 
-// SteamAPIContext creates a structured logger with Steam API context
 func SteamAPIContext(playerID, endpoint string) *slog.Logger {
 	return WithContext(
 		"player_id", playerID,
@@ -94,7 +87,6 @@ func SteamAPIContext(playerID, endpoint string) *slog.Logger {
 	)
 }
 
-// HTTPRequestContext creates a structured logger with HTTP request context
 func HTTPRequestContext(method, path, playerID, clientIP string) *slog.Logger {
 	return WithContext(
 		"method", method,
@@ -105,7 +97,6 @@ func HTTPRequestContext(method, path, playerID, clientIP string) *slog.Logger {
 	)
 }
 
-// ErrorContext creates a structured logger with error context
 func ErrorContext(errorType, playerID string) *slog.Logger {
 	return WithContext(
 		"error_type", errorType,
@@ -114,7 +105,6 @@ func ErrorContext(errorType, playerID string) *slog.Logger {
 	)
 }
 
-// PerformanceContext creates a structured logger with performance metrics
 func PerformanceContext(operation, playerID string, durationMs float64) *slog.Logger {
 	return WithContext(
 		"operation", operation,

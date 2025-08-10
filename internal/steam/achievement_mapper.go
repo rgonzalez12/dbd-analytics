@@ -28,7 +28,6 @@ type UnknownAchievement struct {
 	Occurrences int       `json:"occurrences"`
 }
 
-// AchievementMapper handles achievement mapping with caching and monitoring
 type AchievementMapper struct {
 	config          *AchievementConfig             // Configurable achievement mapping
 	mapping         map[string]AchievementMapping
@@ -38,7 +37,6 @@ type AchievementMapper struct {
 	unknownsMutex   sync.RWMutex
 }
 
-// NewAchievementMapper creates a new achievement mapper with configurable mapping
 func NewAchievementMapper() *AchievementMapper {
 	config, err := LoadAchievementConfig()
 	if err != nil {
@@ -330,7 +328,6 @@ func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
 	return unknowns
 }
 
-// ValidateMappingCoverage checks if our mapping covers expected achievements
 func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
 	survivorCount := 0
 	killerCount := 0

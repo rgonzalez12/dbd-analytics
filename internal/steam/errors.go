@@ -95,7 +95,6 @@ func NewAPIError(statusCode int, message string) *APIError {
 	}
 }
 
-// isRetryableStatusCode determines if a status code should be retried
 func isRetryableStatusCode(statusCode int) bool {
 	switch statusCode {
 	case http.StatusTooManyRequests, // 429

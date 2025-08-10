@@ -57,7 +57,6 @@ func NewHandler() *Handler {
 	}
 }
 
-// convertToPlayerStats converts the nested steam.DBDPlayerStats to the flat models.PlayerStats structure
 func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 	return models.PlayerStats{
 		// Core player identification
@@ -109,13 +108,11 @@ func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 	}
 }
 
-// ResponseBuilder helps create standardized API responses
 type ResponseBuilder struct {
 	data      map[string]interface{}
 	timestamp string
 }
 
-// NewResponseBuilder creates a new response builder with timestamp
 func NewResponseBuilder() *ResponseBuilder {
 	return &ResponseBuilder{
 		data:      make(map[string]interface{}),
@@ -129,14 +126,12 @@ func (rb *ResponseBuilder) AddData(key string, value interface{}) *ResponseBuild
 	return rb
 }
 
-// AddCacheStats adds standardized cache statistics
 func (rb *ResponseBuilder) AddCacheStats(stats cache.CacheStats, cacheType string) *ResponseBuilder {
 	rb.data["cache_stats"] = stats
 	rb.data["cache_type"] = cacheType
 	return rb
 }
 
-// AddPerformanceMetrics adds performance assessment
 func (rb *ResponseBuilder) AddPerformanceMetrics(stats cache.CacheStats) *ResponseBuilder {
 	totalRequests := stats.Hits + stats.Misses
 	performance := "excellent"
@@ -185,13 +180,11 @@ func (rb *ResponseBuilder) AddTimestamp() *ResponseBuilder {
 	return rb
 }
 
-// Build returns the final response map
 func (rb *ResponseBuilder) Build() map[string]interface{} {
 	rb.AddTimestamp()
 	return rb.data
 }
 
-// validateSteamID validates that a Steam ID follows Steam's 64-bit ID format
 func validateSteamID(steamID string) bool {
 	// Steam ID must be exactly 17 digits in length
 	if len(steamID) != 17 {
@@ -207,7 +200,6 @@ func validateSteamID(steamID string) bool {
 	return steamID[:7] == "7656119"
 }
 
-// isValidVanityURL validates that a vanity URL meets Steam's naming requirements
 func isValidVanityURL(vanity string) bool {
 	// Steam vanity URLs must be 3-32 characters, alphanumeric plus underscore/hyphen
 	if len(vanity) < 3 || len(vanity) > 32 {
@@ -218,7 +210,6 @@ func isValidVanityURL(vanity string) bool {
 	return vanityURLRegex.MatchString(vanity)
 }
 
-// validateSteamIDOrVanity validates input as either a Steam ID or vanity URL
 func validateSteamIDOrVanity(input string) *steam.APIError {
 	if input == "" {
 		return steam.NewValidationError("Steam ID or vanity URL required")
@@ -579,7 +570,6 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, response)
 }
 
-// isMetricsAccessAllowed checks if metrics access is allowed from the requesting IP
 func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 	// Production metrics endpoint security
 	// In production, you'd configure these from environment variables
@@ -627,7 +617,6 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 	return false
 }
 
-// GetMetrics returns Prometheus-style metrics for monitoring
 func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 	// Security: Only allow metrics scraping from specific IPs in production
 	if !h.isMetricsAccessAllowed(r) {
@@ -709,7 +698,6 @@ func (h *Handler) checkEvictionRateLimit(r *http.Request) bool {
 	return true
 }
 
-// Close gracefully shuts down the handler and its dependencies
 func (h *Handler) Close() error {
 	if h.cacheManager != nil {
 		return h.cacheManager.Close()
@@ -717,7 +705,6 @@ func (h *Handler) Close() error {
 	return nil
 }
 
-// writeErrorResponse writes a structured error response to the client
 func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	// Generate a unique request ID for tracing
 	requestID := generateRequestID()
@@ -801,7 +788,6 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	}
 }
 
-// determineStatusCode maps API error types to appropriate HTTP status codes
 func determineStatusCode(apiErr *steam.APIError) int {
 	// If the error already has a status code, use it but map appropriately
 	if apiErr.StatusCode != 0 {
@@ -843,12 +829,10 @@ func determineStatusCode(apiErr *steam.APIError) int {
 	}
 }
 
-// writeJSONResponse writes a successful JSON response to the client
 func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	writeJSONResponseWithStatus(w, data, http.StatusOK)
 }
 
-// writeJSONResponseWithStatus writes JSON response with custom status code
 func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -880,7 +864,6 @@ func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, status
 	}
 }
 
-// writePartialDataResponse handles responses where some data was retrieved but with warnings
 func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings []string) {
 	// Convert to map to add warnings
 	var responseData map[string]interface{}

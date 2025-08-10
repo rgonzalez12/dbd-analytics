@@ -30,7 +30,6 @@ type MemoryCacheConfig struct {
 	CleanupInterval time.Duration
 }
 
-// NewMemoryCache creates a new in-memory cache with validated configuration
 func NewMemoryCache(config MemoryCacheConfig) *MemoryCache {
 	// Validate and apply defaults with bounds checking
 	if config.MaxEntries <= 0 {

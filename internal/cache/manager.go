@@ -95,7 +95,6 @@ type Manager struct {
 	circuitBreaker *CircuitBreaker
 }
 
-// NewManager creates a new cache manager with the specified configuration
 func NewManager(config Config) (*Manager, error) {
 	manager := &Manager{
 		config: config,

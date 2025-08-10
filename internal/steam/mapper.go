@@ -38,12 +38,10 @@ var statMapping = map[string]string{
 	"DBD_LastUpdated":    "general.last_updated",
 }
 
-// GetDBDPlayerStats returns the nested structure for backward compatibility
 func GetDBDPlayerStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
 	return MapSteamStats(raw, steamID, displayName)
 }
 
-// MapSteamStats converts raw Steam API statistics into organized Dead by Daylight player data
 func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
 	// Initialize player stats structure with default values and basic information
 	stats := DBDPlayerStats{
@@ -74,7 +72,6 @@ func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats 
 	return stats
 }
 
-// setStatValue sets a value in the DBDPlayerStats struct based on the field path
 func setStatValue(stats *DBDPlayerStats, fieldPath string, value int) {
 	switch fieldPath {
 	// Killer stats
@@ -138,7 +135,6 @@ func setStatValue(stats *DBDPlayerStats, fieldPath string, value int) {
 	}
 }
 
-// GetMappedStatNames returns all known Steam stat keys for debugging/validation
 func GetMappedStatNames() []string {
 	keys := make([]string, 0, len(statMapping))
 	for key := range statMapping {
@@ -147,7 +143,6 @@ func GetMappedStatNames() []string {
 	return keys
 }
 
-// AddStatMapping allows dynamic addition of new stat mappings
 func AddStatMapping(steamKey, fieldPath string) {
 	statMapping[steamKey] = fieldPath
 }
