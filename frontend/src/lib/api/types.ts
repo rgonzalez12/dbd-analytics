@@ -9,6 +9,12 @@ export type PlayerStats = {
 	[k: string]: unknown;
 };
 
+export type PlayerStatsSurface = {
+	steam_id?: string;
+	persona_name?: string;
+	matches?: number;
+};
+
 export type ApiError = {
 	status: number;
 	message: string;

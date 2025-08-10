@@ -28,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit & { timeoutMs?: numbe
 		const res = await customFetch(path, {
 			...rest,
 			signal,
-			headers: { accept: 'application/json', ...rest.headers }
+			headers: { accept: 'application/json', ...(rest.headers as HeadersInit ?? {}) }
 		});
 		
 		if (!res.ok) {
@@ -44,8 +44,11 @@ async function request<T>(path: string, init?: RequestInit & { timeoutMs?: numbe
 
 export const api = {
 	player: {
-		summary: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}/summary`, undefined, customFetch),
-		stats: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}/stats`, undefined, customFetch),
-		combined: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}`, undefined, customFetch)
+		summary: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
+			request(`/api/player/${steamId}/summary`, init, customFetch),
+		stats: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
+			request(`/api/player/${steamId}/stats`, init, customFetch),
+		combined: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
+			request(`/api/player/${steamId}`, init, customFetch)
 	}
 };

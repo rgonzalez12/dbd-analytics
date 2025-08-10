@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { navigating } from '$app/stores';
 	import LoadingSkeleton from '$lib/LoadingSkeleton.svelte';
-	
-	export const data = undefined;
 </script>
 
 <svelte:head>
