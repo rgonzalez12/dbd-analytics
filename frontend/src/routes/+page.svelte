@@ -5,22 +5,22 @@
 	let input = '';
 	let error = '';
 
-	function parseSteamInput(value: string): string {
-		const trimmed = value.trim();
+	function parseSteamInput(v: string): string {
+		const trimmed = v.trim();
 		
-		// Match Steam profile URLs: https://steamcommunity.com/profiles/{steamID64}
+		// https://steamcommunity.com/profiles/<steamID64>
 		const profileMatch = trimmed.match(/steamcommunity\.com\/profiles\/(\d+)/);
 		if (profileMatch) {
 			return profileMatch[1];
 		}
 		
-		// Match Steam vanity URLs: https://steamcommunity.com/id/{vanity}
+		// https://steamcommunity.com/id/<vanity>
 		const vanityMatch = trimmed.match(/steamcommunity\.com\/id\/([^\/]+)/);
 		if (vanityMatch) {
 			return vanityMatch[1];
 		}
 		
-		// Return as-is for raw Steam IDs or vanity names
+		// raw vanity or raw steamID64
 		return trimmed;
 	}
 
@@ -33,7 +33,7 @@
 		
 		const steamId = parseSteamInput(rawInput);
 		error = '';
-		goto(`/player/${encodeURIComponent(steamId)}`);
+		goto('/player/' + steamId);
 	}
 </script>
 
