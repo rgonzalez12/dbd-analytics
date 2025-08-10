@@ -40,10 +40,10 @@ func TestAchievementMapperEnhancements(t *testing.T) {
 		
 		mapped := mapper.MapPlayerAchievements(unknownAchievements)
 		
-		// We expect all 84 adept achievements plus 2 unknown achievements = 86 total
-		expectedTotal := 84 + 2  // All adept achievements + unknown ones
+		// We expect all 85 adept achievements plus 2 unknown achievements = 87 total
+		expectedTotal := 85 + 2  // All adept achievements + unknown ones
 		if len(mapped) != expectedTotal {
-			t.Errorf("Expected %d mapped achievements (84 adept + 2 unknown), got %d", expectedTotal, len(mapped))
+			t.Errorf("Expected %d mapped achievements (85 adept + 2 unknown), got %d", expectedTotal, len(mapped))
 		}
 		
 		// Check that unknown achievements were tracked
