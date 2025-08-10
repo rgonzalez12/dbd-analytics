@@ -1,5 +1,8 @@
 <script lang="ts">
-	export let data;
+	import { navigating } from '$app/stores';
+	import LoadingSkeleton from '$lib/LoadingSkeleton.svelte';
+	
+	export const data = undefined;
 </script>
 
 <svelte:head>
@@ -12,5 +15,10 @@
 		<h1 class="text-2xl font-semibold tracking-tight">DBD Analytics</h1>
 		<a href="/" class="text-sm text-neutral-400 hover:text-neutral-200 transition">Home</a>
 	</header>
-	<slot />
+	
+	{#if $navigating}
+		<LoadingSkeleton />
+	{:else}
+		<slot />
+	{/if}
 </div>
