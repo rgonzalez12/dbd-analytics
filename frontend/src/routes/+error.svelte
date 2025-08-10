@@ -18,9 +18,10 @@
 		}
 		if (status === 429) {
 			const retryMatch = message.match(/Retry after (\d+) seconds/);
-			return retryMatch 
-				? `Too many requests. Please wait ${retryMatch[1]} seconds before trying again.`
-				: 'Too many requests. Please wait before trying again.';
+			const retrySeconds = retryMatch ? parseInt(retryMatch[1]) : null;
+			return retrySeconds 
+				? `Try again in ${retrySeconds} seconds.`
+				: 'Try again in a few seconds.';
 		}
 		if (status >= 500) {
 			return 'Server error. Please try again later.';
