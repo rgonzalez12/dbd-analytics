@@ -1,4 +1,5 @@
 import type { ApiError, PlayerSummary, PlayerStats, PlayerStatsWithAchievements } from './types';
+import { PlayerStatsWithAchievementsSchema } from './schemas';
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
@@ -64,7 +65,8 @@ export async function request<T>(
 			throw error;
 		}
 		
-		return await response.json();
+		const jsonData = await response.json();
+		return jsonData;
 	} finally {
 		cancel();
 	}
@@ -76,7 +78,18 @@ export const api = {
 			request<PlayerSummary>(`/api/player/${steamId}/summary`, init, customFetch),
 		stats: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
 			request<PlayerStats>(`/api/player/${steamId}/stats`, init, customFetch),
-		combined: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
-			request<PlayerStatsWithAchievements>(`/api/player/${steamId}`, init, customFetch)
+		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<PlayerStatsWithAchievements> => {
+			const data = await request<unknown>(`/api/player/${steamId}`, init, customFetch);
+			const result = PlayerStatsWithAchievementsSchema.safeParse(data);
+			if (!result.success) {
+				const error: ApiError = {
+					status: 502,
+					message: 'Invalid payload',
+					details: result.error
+				};
+				throw error;
+			}
+			return result.data as PlayerStatsWithAchievements;
+		}
 	}
 };

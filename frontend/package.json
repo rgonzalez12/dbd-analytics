@@ -36,6 +36,7 @@
 		"vite": "^7.0.4"
 	},
 	"dependencies": {
-		"@tailwindcss/postcss": "^4.1.11"
+		"@tailwindcss/postcss": "^4.1.11",
+		"zod": "^4.0.17"
 	}
 }
