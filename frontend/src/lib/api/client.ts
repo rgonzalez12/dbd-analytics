@@ -75,11 +75,11 @@ export async function request<T>(
 export const api = {
 	player: {
 		summary: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
-			request<PlayerSummary>(`/api/player/${steamId}/summary`, init, customFetch),
+			request<PlayerSummary>(`/player/${steamId}/summary`, init, customFetch),
 		stats: (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }) => 
-			request<PlayerStats>(`/api/player/${steamId}/stats`, init, customFetch),
+			request<PlayerStats>(`/player/${steamId}/stats`, init, customFetch),
 		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<PlayerStatsWithAchievements> => {
-			const data = await request<unknown>(`/api/player/${steamId}`, init, customFetch);
+			const data = await request<unknown>(`/player/${steamId}`, init, customFetch);
 			const result = PlayerStatsWithAchievementsSchema.safeParse(data);
 			if (!result.success) {
 				const error: ApiError = {

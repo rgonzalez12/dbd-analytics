@@ -100,7 +100,7 @@ describe('API client', () => {
 			api.player.combined('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/api/player/12345',
+				'/api/player/12345',
 				expect.any(Object)
 			);
 		});
@@ -115,7 +115,7 @@ describe('API client', () => {
 			api.player.stats('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/api/player/12345/stats',
+				'/api/player/12345/stats',
 				expect.any(Object)
 			);
 		});
@@ -130,7 +130,7 @@ describe('API client', () => {
 			api.player.summary('12345', mockFetch);
 
 			expect(mockFetch).toHaveBeenCalledWith(
-				'/api/api/player/12345/summary',
+				'/api/player/12345/summary',
 				expect.any(Object)
 			);
 		});
