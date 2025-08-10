@@ -40,8 +40,10 @@ func TestAchievementMapperEnhancements(t *testing.T) {
 		
 		mapped := mapper.MapPlayerAchievements(unknownAchievements)
 		
-		if len(mapped) != 2 {
-			t.Errorf("Expected 2 mapped achievements, got %d", len(mapped))
+		// We expect all 84 adept achievements plus 2 unknown achievements = 86 total
+		expectedTotal := 84 + 2  // All adept achievements + unknown ones
+		if len(mapped) != expectedTotal {
+			t.Errorf("Expected %d mapped achievements (84 adept + 2 unknown), got %d", expectedTotal, len(mapped))
 		}
 		
 		// Check that unknown achievements were tracked
@@ -86,6 +88,94 @@ func TestAchievementMapperEnhancements(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestAdeptSurvivorKillerInclusion(t *testing.T) {
+	// Test that both locked and unlocked adept achievements are included in the summary
+	mapper := NewAchievementMapper()
+	
+	// Create test data with both unlocked and locked achievements
+	testAchievements := []AchievementMapping{
+		{
+			ID:        "ACH_UNLOCK_DWIGHT_PERKS",
+			Character: "dwight",
+			Type:      "survivor",
+			Unlocked:  true, // Unlocked
+		},
+		{
+			ID:        "ACH_UNLOCK_MEG_PERKS",
+			Character: "meg",
+			Type:      "survivor", 
+			Unlocked:  false, // Locked
+		},
+		{
+			ID:        "ACH_UNLOCK_CHUCKLES_PERKS",
+			Character: "trapper",
+			Type:      "killer",
+			Unlocked:  true, // Unlocked
+		},
+		{
+			ID:        "ACH_UNLOCK_WRAITH_PERKS",
+			Character: "wraith",
+			Type:      "killer",
+			Unlocked:  false, // Locked
+		},
+	}
+	
+	// Get the summary
+	summary := mapper.GetAchievementSummary(testAchievements)
+	
+	// Extract the survivor and killer lists
+	adeptSurvivors := summary["adept_survivors"].([]string)
+	adeptKillers := summary["adept_killers"].([]string)
+	
+	// Verify ALL survivors are included regardless of unlock status
+	expectedSurvivors := []string{"dwight", "meg"}
+	if len(adeptSurvivors) != len(expectedSurvivors) {
+		t.Errorf("Expected %d survivors, got %d", len(expectedSurvivors), len(adeptSurvivors))
+	}
+	
+	for _, expected := range expectedSurvivors {
+		found := false
+		for _, actual := range adeptSurvivors {
+			if actual == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected survivor %s not found in adept_survivors list", expected)
+		}
+	}
+	
+	// Verify ALL killers are included regardless of unlock status
+	expectedKillers := []string{"trapper", "wraith"}
+	if len(adeptKillers) != len(expectedKillers) {
+		t.Errorf("Expected %d killers, got %d", len(expectedKillers), len(adeptKillers))
+	}
+	
+	for _, expected := range expectedKillers {
+		found := false
+		for _, actual := range adeptKillers {
+			if actual == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected killer %s not found in adept_killers list", expected)
+		}
+	}
+	
+	// Verify the unlocked count is still accurate (only counts unlocked achievements)
+	unlockedCount := summary["unlocked_count"].(int)
+	expectedUnlocked := 2 // dwight and trapper are unlocked
+	if unlockedCount != expectedUnlocked {
+		t.Errorf("Expected unlocked count %d, got %d", expectedUnlocked, unlockedCount)
+	}
+	
+	t.Logf("Test passed: All %d survivors and %d killers included in summary regardless of unlock status", 
+		len(adeptSurvivors), len(adeptKillers))
 }
 
 func TestAchievementMappingCompleteness(t *testing.T) {

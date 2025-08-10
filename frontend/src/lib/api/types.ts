@@ -22,3 +22,55 @@ export type ApiError = {
 	message: string;
 	code?: string;
 };
+
+// Achievement-related types to match backend models
+export type MappedAchievement = {
+	id: string;
+	name: string;
+	display_name: string;
+	description: string;
+	character?: string;
+	type: 'survivor' | 'killer' | 'general';
+	unlocked: boolean;
+	unlock_time?: number;
+};
+
+export type AchievementSummary = {
+	total_achievements: number;
+	unlocked_count: number;
+	survivor_count: number;
+	killer_count: number;
+	general_count: number;
+	adept_survivors: string[];
+	adept_killers: string[];
+	completion_rate: number;
+};
+
+export type AchievementData = {
+	// Legacy format for backward compatibility
+	adept_survivors: Record<string, boolean>;
+	adept_killers: Record<string, boolean>;
+	
+	// Enhanced achievement data
+	mapped_achievements?: MappedAchievement[];
+	summary?: AchievementSummary;
+	
+	last_updated: string;
+};
+
+export type DataSourceInfo = {
+	success: boolean;
+	source: 'cache' | 'api' | 'fallback';
+	error?: string;
+	fetched_at: string;
+};
+
+export type DataSourceStatus = {
+	stats: DataSourceInfo;
+	achievements: DataSourceInfo;
+};
+
+export type PlayerStatsWithAchievements = PlayerStats & {
+	achievements?: AchievementData;
+	data_sources: DataSourceStatus;
+};

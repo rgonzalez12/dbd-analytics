@@ -99,8 +99,9 @@ var AdeptAchievementMapping = map[string]AdeptCharacter{
 	"NEW_ACHIEVEMENT_280_7":       {Name: "vecna", Type: "killer"},
 	"NEW_ACHIEVEMENT_280_16":      {Name: "dark-lord", Type: "killer"},
 	"NEW_ACHIEVEMENT_280_22":      {Name: "houndmaster", Type: "killer"},
-	"NEW_ACHIEVEMENT_280_28":      {Name: "ghoul", Type: "killer"},
-	"NEW_ACHIEVEMENT_312_2":       {Name: "animatronic", Type: "killer"},
+	"NEW_ACHIEVEMENT_312_1":       {Name: "lich", Type: "killer"},
+	"NEW_ACHIEVEMENT_312_8":       {Name: "ghoul", Type: "killer"},
+	"NEW_ACHIEVEMENT_312_10":      {Name: "animatronic", Type: "killer"},
 }
 
 type AdeptCharacter struct {

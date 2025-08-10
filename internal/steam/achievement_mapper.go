@@ -61,13 +61,49 @@ func NewAchievementMapper() *AchievementMapper {
 }
 
 // MapPlayerAchievements converts raw achievements to human-readable format
+// This method ensures ALL possible adept achievements are included, not just unlocked ones
 func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchievements) []AchievementMapping {
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
 
 	var mapped []AchievementMapping
-
+	
+	// Create a map of unlocked achievements for quick lookup
+	unlockedMap := make(map[string]SteamAchievement)
 	for _, achievement := range achievements.Achievements {
+		unlockedMap[achievement.APIName] = achievement
+	}
+
+	// First, add all possible adept achievements (whether unlocked or not)
+	for apiName, adept := range AdeptAchievementMapping {
+		mapping := AchievementMapping{
+			ID:          apiName,
+			Name:        adept.Name,
+			DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
+			Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
+			Character:   adept.Name,
+			Type:        adept.Type,
+			Unlocked:    false, // Default to false
+		}
+		
+		// Check if this achievement is actually unlocked
+		if unlockedAchievement, exists := unlockedMap[apiName]; exists {
+			mapping.Unlocked = unlockedAchievement.Achieved == 1
+			if unlockedAchievement.UnlockTime > 0 {
+				mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+			}
+		}
+		
+		mapped = append(mapped, mapping)
+	}
+
+	// Then add any other achievements that were unlocked but aren't adept achievements
+	for _, achievement := range achievements.Achievements {
+		// Skip if this is an adept achievement (already processed above)
+		if _, isAdept := AdeptAchievementMapping[achievement.APIName]; isAdept {
+			continue
+		}
+		
 		mapping := am.getAchievementMapping(achievement.APIName)
 		mapping.Unlocked = achievement.Achieved == 1
 		if achievement.UnlockTime > 0 {
@@ -169,14 +205,10 @@ func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) 
 		switch achievement.Type {
 		case "survivor":
 			summary["survivor_count"] = summary["survivor_count"].(int) + 1
-			if achievement.Unlocked {
-				adeptSurvivors = append(adeptSurvivors, achievement.Character)
-			}
+			adeptSurvivors = append(adeptSurvivors, achievement.Character)
 		case "killer":
 			summary["killer_count"] = summary["killer_count"].(int) + 1
-			if achievement.Unlocked {
-				adeptKillers = append(adeptKillers, achievement.Character)
-			}
+			adeptKillers = append(adeptKillers, achievement.Character)
 		default:
 			summary["general_count"] = summary["general_count"].(int) + 1
 		}

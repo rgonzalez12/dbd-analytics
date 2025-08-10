@@ -1,10 +1,20 @@
 <script lang="ts">
-	import type { PlayerStatsSurface } from '$lib/api/types';
-	export let data: { steamId: string; stats: PlayerStatsSurface | Record<string, unknown>; source: 'combined' };
+	import type { PlayerStatsWithAchievements } from '$lib/api/types';
+	export let data: { steamId: string; stats: PlayerStatsWithAchievements; source: 'combined' };
 	
-	const s = data.stats as PlayerStatsSurface;
-	const displayName = s.display_name ?? '—';
-	const matches = s.total_matches ?? undefined;
+	const stats = data.stats;
+	const displayName = stats.display_name ?? '—';
+	const matches = stats.total_matches ?? undefined;
+	
+	// Achievement data
+	const achievements = stats.achievements;
+	const achievementSummary = achievements?.summary;
+	
+	// Convert mapped achievements to alphabetical lists of ONLY adept achievements
+	const adeptSurvivors = (achievements?.mapped_achievements?.filter(a => a.type === 'survivor' && a.character) || [])
+		.sort((a, b) => a.character.localeCompare(b.character));
+	const adeptKillers = (achievements?.mapped_achievements?.filter(a => a.type === 'killer' && a.character) || [])
+		.sort((a, b) => a.character.localeCompare(b.character));
 </script>
 
 <section class="space-y-6">
@@ -31,6 +41,98 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Achievement Data -->
+	{#if achievements}
+		<div class="rounded-2xl border border-neutral-800 p-4">
+			<h3 class="text-xl font-semibold mb-4">Achievements</h3>
+			
+			<!-- Debug Info -->
+			<div class="mb-4 p-3 bg-blue-900/20 border border-blue-600 rounded-lg">
+				<p class="text-xs text-blue-300">
+					Debug: achievements={!!achievements}, 
+					mapped_achievements={achievements?.mapped_achievements?.length || 0}, 
+					survivors={adeptSurvivors.length}, 
+					killers={adeptKillers.length}
+				</p>
+			</div>
+			
+			<!-- Achievement Summary -->
+			{#if achievementSummary}
+				<div class="mb-6">
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
+						<div class="rounded-xl border border-neutral-800 p-4">
+							<div class="text-xs text-neutral-400">Total</div>
+							<div class="text-lg">{achievementSummary.total_achievements}</div>
+						</div>
+						<div class="rounded-xl border border-neutral-800 p-4">
+							<div class="text-xs text-neutral-400">Unlocked</div>
+							<div class="text-lg">{achievementSummary.unlocked_count}</div>
+						</div>
+						<div class="rounded-xl border border-neutral-800 p-4">
+							<div class="text-xs text-neutral-400">Percentage</div>
+							<div class="text-lg">{achievementSummary.completion_rate.toFixed(1)}%</div>
+						</div>
+					</div>
+					
+					<!-- Adept Survivors -->
+					{#if adeptSurvivors.length > 0}
+						<div class="mb-6">
+							<h4 class="text-lg font-medium mb-3 text-blue-300">
+								Adept Survivors ({adeptSurvivors.filter(s => s.unlocked).length}/{adeptSurvivors.length})
+							</h4>
+							<div class="space-y-1">
+								{#each adeptSurvivors as survivor}
+									<div class="flex justify-between items-center py-2 px-3 rounded-lg bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors">
+										<span class="font-medium text-neutral-200 capitalize">
+											{survivor.character}
+										</span>
+										<span class="{survivor.unlocked ? 'text-green-400 font-semibold' : 'text-red-400'} font-mono">
+											{survivor.unlocked ? 'true' : 'false'}
+										</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else}
+						<div class="mb-6 p-4 border border-red-600 bg-red-900/20 rounded-lg">
+							<p class="text-red-300">No survivor achievements found</p>
+						</div>
+					{/if}
+					
+					<!-- Adept Killers -->
+					{#if adeptKillers.length > 0}
+						<div class="mb-6">
+							<h4 class="text-lg font-medium mb-3 text-red-300">
+								Adept Killers ({adeptKillers.filter(k => k.unlocked).length}/{adeptKillers.length})
+							</h4>
+							<div class="space-y-1">
+								{#each adeptKillers as killer}
+									<div class="flex justify-between items-center py-2 px-3 rounded-lg bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors">
+										<span class="font-medium text-neutral-200 capitalize">
+											{killer.character}
+										</span>
+										<span class="{killer.unlocked ? 'text-green-400 font-semibold' : 'text-red-400'} font-mono">
+											{killer.unlocked ? 'true' : 'false'}
+										</span>
+									</div>
+								{/each}
+							</div>
+						</div>
+					{:else}
+						<div class="mb-6 p-4 border border-red-600 bg-red-900/20 rounded-lg">
+							<p class="text-red-300">No killer achievements found</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<div class="rounded-2xl border border-neutral-800 p-4">
+			<h3 class="text-xl font-semibold mb-4">Achievements</h3>
+			<p class="text-neutral-400">No achievement data available</p>
+		</div>
+	{/if}
 
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<details>
