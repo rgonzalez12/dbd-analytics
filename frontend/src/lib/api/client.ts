@@ -12,11 +12,12 @@ function withTimeout(signal: AbortSignal | undefined, ms: number) {
 	return { signal: combo.signal, cancel: () => { clearTimeout(id); ctrl.signal.removeEventListener('abort', onAbort); } };
 }
 
-async function request<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
+async function request<T>(path: string, init?: RequestInit & { timeoutMs?: number }, customFetch?: typeof fetch): Promise<T> {
 	const { timeoutMs = DEFAULT_TIMEOUT_MS, ...rest } = init ?? {};
 	const { signal, cancel } = withTimeout(rest.signal || undefined, timeoutMs);
+	const fetchFn = customFetch || fetch;
 	try {
-		const res = await fetch(path, { ...rest, signal, headers: { 'accept': 'application/json', ...(rest?.headers ?? {}) } });
+		const res = await fetchFn(path, { ...rest, signal, headers: { 'accept': 'application/json', ...(rest?.headers ?? {}) } });
 		if (!res.ok) {
 			const text = await res.text();
 			const err: ApiError = { status: res.status, message: text || res.statusText };
@@ -30,8 +31,8 @@ async function request<T>(path: string, init?: RequestInit & { timeoutMs?: numbe
 
 export const api = {
 	player: {
-		summary: (steamId: string) => request(`/api/player/${steamId}/summary`),
-		stats: (steamId: string) => request(`/api/player/${steamId}/stats`),
-		combined: (steamId: string) => request(`/api/player/${steamId}`)
+		summary: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}/summary`, undefined, customFetch),
+		stats: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}/stats`, undefined, customFetch),
+		combined: (steamId: string, customFetch?: typeof fetch) => request(`/api/player/${steamId}`, undefined, customFetch)
 	}
 };

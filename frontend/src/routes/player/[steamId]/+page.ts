@@ -4,17 +4,10 @@ export const load = async ({ params, fetch }: { params: { steamId: string }, fet
 	const { steamId } = params;
 
 	try {
-		// Let our client use the page's fetch so the dev proxy applies.
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = fetch;
-		const stats = await api.player.stats(steamId);
-		globalThis.fetch = originalFetch;
+		const stats = await api.player.stats(steamId, fetch);
 		return { steamId, stats, source: 'stats' as const };
 	} catch {
-		const originalFetch = globalThis.fetch;
-		globalThis.fetch = fetch;
-		const combined = await api.player.combined(steamId);
-		globalThis.fetch = originalFetch;
+		const combined = await api.player.combined(steamId, fetch);
 		return { steamId, stats: combined, source: 'combined' as const };
 	}
 };

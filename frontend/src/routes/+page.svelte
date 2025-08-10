@@ -10,8 +10,9 @@
 </script>
 
 <form class="mx-auto max-w-xl space-y-3" on:submit|preventDefault={handleSubmit}>
-	<label class="block text-sm text-neutral-300">Steam64 ID or Vanity</label>
+	<label for="steamId" class="block text-sm text-neutral-300">Steam64 ID or Vanity</label>
 	<input
+		id="steamId"
 		class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-neutral-400"
 		bind:value={input}
 		placeholder="7656119… or your vanity"
