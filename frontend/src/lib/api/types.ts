@@ -26,6 +26,13 @@ export type ApiError = {
 	retryAfter?: number;
 };
 
+export type DataSourceInfo = {
+	success: boolean;
+	source: 'cache' | 'api' | 'fallback';
+	error?: string;
+	fetched_at: string;
+};
+
 // Achievement-related types to match backend models
 export type MappedAchievement = {
 	id: string;
@@ -59,13 +66,6 @@ export type AchievementData = {
 	summary?: AchievementSummary;
 	
 	last_updated: string;
-};
-
-export type DataSourceInfo = {
-	success: boolean;
-	source: 'cache' | 'api' | 'fallback';
-	error?: string;
-	fetched_at: string;
 };
 
 export type DataSourceStatus = {

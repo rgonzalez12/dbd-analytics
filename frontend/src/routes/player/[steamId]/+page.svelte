@@ -33,7 +33,7 @@
 			</div>
 			<div class="rounded-xl border border-neutral-800 p-4">
 				<div class="text-xs text-neutral-400">Steam ID</div>
-				<div class="text-lg">{data.steamId}</div>
+				<div class="text-lg">{stats.steam_id}</div>
 			</div>
 			<div class="rounded-xl border border-neutral-800 p-4">
 				<div class="text-xs text-neutral-400">Total Matches</div>

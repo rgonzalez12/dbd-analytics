@@ -3,7 +3,7 @@ import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
 import type { ApiError, PlayerStatsWithAchievements } from '$lib/api/types';
 
-export const load: PageServerLoad = async ({ params, fetch }): Promise<{ data: PlayerStatsWithAchievements }> => {
+export const load: PageServerLoad<{ data: PlayerStatsWithAchievements }> = async ({ params, fetch }) => {
 	const { steamId } = params;
 	
 	try {
