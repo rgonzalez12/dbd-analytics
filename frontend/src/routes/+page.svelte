@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { navigating } from '$app/stores';
+	import { browser } from '$app/environment';
 	
 	let input = '';
 	let error = '';
@@ -24,22 +25,36 @@
 		return trimmed;
 	}
 
-	function handleSubmit() {
+	function handleSubmit(event?: Event) {
+		if (event) {
+			event.preventDefault();
+		}
+		
 		const rawInput = input.trim();
 		if (!rawInput) {
 			error = 'Please enter a Steam ID or vanity URL';
 			return;
 		}
-		
+
 		const steamId = parseSteamInput(rawInput);
 		error = '';
-		goto('/player/' + steamId);
+		
+		// Only navigate if we're in the browser
+		if (browser) {
+			try {
+				// Use proper encoding for the Steam ID
+				goto(`/player/${encodeURIComponent(steamId)}`);
+			} catch (err) {
+				console.error('Navigation error:', err);
+				error = 'Navigation failed. Please try again.';
+			}
+		}
 	}
 </script>
 
 <form 
 	class="mx-auto max-w-xl space-y-3" 
-	on:submit|preventDefault={handleSubmit}
+	on:submit={handleSubmit}
 	aria-busy={$navigating ? 'true' : 'false'}
 >
 	<label for="steamId" class="block text-sm text-neutral-300">Steam64 ID or Vanity</label>
