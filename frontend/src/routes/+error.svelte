@@ -9,6 +9,7 @@
 	function getErrorTitle(status: number): string {
 		if (status === 404) return 'Player Not Found';
 		if (status === 429) return 'Rate Limited';
+		if (status === 503) return 'Service Unavailable';
 		return 'Something Went Wrong';
 	}
 	
@@ -22,6 +23,9 @@
 			return retrySeconds 
 				? `Try again in ${retrySeconds} seconds.`
 				: 'Try again in a few seconds.';
+		}
+		if (status === 503) {
+			return message || 'Steam API is currently unavailable. Please try again later.';
 		}
 		if (status >= 500) {
 			return 'Server error. Please try again later.';

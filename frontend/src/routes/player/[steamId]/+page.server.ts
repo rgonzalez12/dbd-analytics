@@ -11,6 +11,7 @@ export const load: PageServerLoad<{ data: PlayerStatsWithAchievements }> = async
 		return { data };
 	} catch (err) {
 		const apiError = err as ApiError;
+		console.error('Player data fetch error:', apiError);
 		
 		if (apiError?.status === 404) {
 			throw error(404, 'Player not found');
@@ -23,6 +24,14 @@ export const load: PageServerLoad<{ data: PlayerStatsWithAchievements }> = async
 			throw error(429, message);
 		}
 		
-		throw error(502, 'Upstream error');
+		// Check if it's a Steam API authentication issue
+		if (apiError?.status === 500 || apiError?.status === 502) {
+			const errorMessage = apiError.message?.toLowerCase() || '';
+			if (errorMessage.includes('403') && errorMessage.includes('steam')) {
+				throw error(503, 'Steam API access issue. The player profile might be private or the Steam ID might be invalid.');
+			}
+		}
+		
+		throw error(502, `API error: ${apiError?.message || 'Unknown upstream error'}`);
 	}
 };
