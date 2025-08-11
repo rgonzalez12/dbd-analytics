@@ -39,6 +39,7 @@ export async function request<T>(
 		const response = await customFetch(url, {
 			...rest,
 			signal,
+			cache: 'no-store',
 			headers: {
 				'Accept': 'application/json',
 				'Content-Type': 'application/json',

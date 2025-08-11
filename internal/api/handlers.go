@@ -713,6 +713,9 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	statusCode := determineStatusCode(apiErr)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	w.Header().Set("X-Request-ID", requestID)
 	w.WriteHeader(statusCode)
 
@@ -835,6 +838,9 @@ func writeJSONResponse(w http.ResponseWriter, data interface{}) {
 
 func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 
 	// Marshal to get response size for logging
 	responseBytes, err := json.Marshal(data)
@@ -1350,6 +1356,9 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(status)
 }
