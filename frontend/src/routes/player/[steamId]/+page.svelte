@@ -65,7 +65,7 @@
 	$: hasNoData = matches === 0;
 	
 	// Helper function to properly format character names
-	function formatCharacterName(name: string): string {
+	function formatCharacterName(name: string | undefined): string {
 		if (!name) return '';
 		
 		// Handle special cases for proper formatting
@@ -76,8 +76,9 @@
 		};
 		
 		// Check for special cases first
-		if (specialCases[name.toLowerCase()]) {
-			return specialCases[name.toLowerCase()];
+		const lowerName = name.toLowerCase();
+		if (specialCases[lowerName]) {
+			return specialCases[lowerName];
 		}
 		
 		// Default: capitalize first letter of each word (handles hyphens properly)
@@ -88,7 +89,7 @@
 	}
 </script>
 
-{#key pdata.data.steamId}
+{#key steamId}
 <section class="space-y-6">
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<div class="flex items-center justify-between gap-4">
