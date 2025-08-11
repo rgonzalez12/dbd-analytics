@@ -9,8 +9,6 @@ function safeNumber(value: number | string | null | undefined, defaultValue: num
 }
 
 export function toDomainPlayer(raw: unknown): Player {
-  console.log('Raw API data received for Steam ID:', (raw as any)?.steam_id);
-  
   const result = ApiPlayerStatsSchema.safeParse(raw);
   
   if (!result.success) {
@@ -27,7 +25,6 @@ export function toDomainPlayer(raw: unknown): Player {
   }
 
   const data = result.data;
-  console.log('Schema validation passed, transforming data for Steam ID:', data.steam_id);
 
   return {
     id: data.steam_id,
@@ -64,7 +61,7 @@ export function toDomainPlayer(raw: unknown): Player {
     achievements: {
       total: safeNumber(data.achievements?.summary?.total_achievements),
       unlocked: safeNumber(data.achievements?.summary?.unlocked_count),
-      mapped: Array.isArray(data.achievements?.mapped_achievements) ? data.achievements.mapped_achievements : [],
+      mapped: Array.isArray(data.achievements?.mapped_achievements) ? data.achievements.mapped_achievements as any[] : [],
       adepts: {
         survivors: data.achievements?.adept_survivors || {},
         killers: data.achievements?.adept_killers || {}

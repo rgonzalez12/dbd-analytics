@@ -3,8 +3,16 @@ import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
 import type { ApiError, Player } from '$lib/api/types';
 
-export const load: PageServerLoad<{ data: Player }> = async ({ params, fetch }) => {
+export const load: PageServerLoad<{ data: Player }> = async ({ params, fetch, depends, setHeaders }) => {
 	const { steamId } = params;
+	
+	// Prevent payload caching
+	setHeaders({
+		'cache-control': 'no-store'
+	});
+	
+	// Explicitly depend on steamId parameter to prevent SvelteKit caching across different players
+	depends(`player:${steamId}`);
 	
 	try {
 		const data = await api.player.combined(steamId, fetch);

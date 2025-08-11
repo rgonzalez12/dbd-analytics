@@ -21,7 +21,9 @@ export default [
 			'@typescript-eslint': ts
 		},
 		rules: {
-			'@typescript-eslint/no-unused-vars': 'error'
+			'@typescript-eslint/no-unused-vars': ['error', { 'argsIgnorePattern': '^_', 'varsIgnorePattern': '^_' }],
+			'no-console': ['error', { 'allow': ['error', 'warn'] }],
+			'no-debugger': 'error'
 		}
 	},
 	{

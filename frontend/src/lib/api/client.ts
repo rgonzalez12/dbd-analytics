@@ -42,6 +42,8 @@ export async function request<T>(
 			headers: {
 				'Accept': 'application/json',
 				'Content-Type': 'application/json',
+				'Cache-Control': 'no-cache, no-store, must-revalidate',
+				'Pragma': 'no-cache',
 				...rest.headers
 			}
 		});
@@ -83,7 +85,6 @@ export async function request<T>(
 export const api = {
 	player: {
 		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<Player> => {
-			console.log('API: Fetching player data for Steam ID:', steamId);
 			const data = await request<unknown>(`/player/${steamId}`, init, customFetch);
 			return toDomainPlayer(data);
 		}
