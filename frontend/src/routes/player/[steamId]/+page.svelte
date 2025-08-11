@@ -88,7 +88,7 @@
 	}
 </script>
 
-{#key steamId}
+{#key pdata.data.steamId}
 <section class="space-y-6">
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<div class="flex items-center justify-between gap-4">
