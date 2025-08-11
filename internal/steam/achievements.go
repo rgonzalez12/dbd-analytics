@@ -89,6 +89,7 @@ var AdeptAchievementMapping = map[string]AdeptCharacter{
 	"ACH_CHAPTER18_KILLER_3":      {Name: "twins", Type: "killer"},
 	"ACH_CHAPTER19_KILLER_3":      {Name: "trickster", Type: "killer"},
 	"ACH_CHAPTER20_KILLER_3":      {Name: "nemesis", Type: "killer"},
+	"ACH_CHAPTER21_KILLER_3":      {Name: "cenobite", Type: "killer"},
 	"ACH_CHAPTER22_KILLER_3":      {Name: "artist", Type: "killer"},
 	"NEW_ACHIEVEMENT_211_12":      {Name: "onryo", Type: "killer"},
 	"NEW_ACHIEVEMENT_211_18":      {Name: "dredge", Type: "killer"},
