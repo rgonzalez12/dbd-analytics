@@ -208,8 +208,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 	return &resp.Playerstats, nil
 }
 
-// GetPlayerAchievements retrieves player achievements for a specific game
-func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievements, *APIError) {
+func (c *Client) GetPlayerAchievements(steamID string, appID int) (*PlayerAchievements, *APIError) {
 	start := time.Now()
 	if c.apiKey == "" {
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
@@ -235,8 +234,8 @@ func (c *Client) GetPlayerAchievements(steamID, appID string) (*PlayerAchievemen
 	params := url.Values{}
 	params.Set("key", c.apiKey)
 	params.Set("steamid", steamID64)
-	params.Set("appid", appID)
-	params.Set("l", "english") // Add language parameter for localized names
+	params.Set("appid", strconv.Itoa(appID))
+	params.Set("l", "english")
 
 	var resp playerAchievementsResponse
 
@@ -444,7 +443,6 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 	return lastErr
 }
 
-// calculateRetryDelay calculates the delay before the next retry attempt
 func (c *Client) calculateRetryDelay(lastErr *APIError, attempt int) time.Duration {
 	// If we have a rate limit error, check if we have rate limit headers
 	if lastErr != nil && lastErr.Type == ErrorTypeRateLimit && lastErr.StatusCode == 429 {
@@ -458,8 +456,6 @@ func (c *Client) calculateRetryDelay(lastErr *APIError, attempt int) time.Durati
 	return calculateBackoffDelay(attempt, c.retryConfig)
 }
 
-// parseRateLimitHeaders parses rate limit headers and returns retry time in seconds
-// Checks Retry-After and X-RateLimit-Reset headers, defaulting to 60 if not found
 func (c *Client) parseRateLimitHeaders(headers http.Header) int {
 	// First check Retry-After header (preferred)
 	if retryAfter := headers.Get("Retry-After"); retryAfter != "" {

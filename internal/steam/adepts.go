@@ -32,7 +32,6 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 		return nil, err
 	}
 
-	// Create lookup maps from hardcoded data for type determination
 	killerNames := make(map[string]bool)
 	survivorNames := make(map[string]bool)
 	

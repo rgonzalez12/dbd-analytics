@@ -11,7 +11,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
-// AchievementMapping represents a mapped achievement with human-readable information
 type AchievementMapping struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -64,8 +63,6 @@ func NewAchievementMapper() *AchievementMapper {
 	}
 }
 
-// MapPlayerAchievements converts raw achievements to human-readable format
-// This method ensures ALL possible adept achievements are included, not just unlocked ones
 func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchievements) []AchievementMapping {
 	return am.MapPlayerAchievementsWithCache(achievements, nil)
 }

@@ -52,21 +52,19 @@ func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats 
 		General:     GeneralStats{},
 	}
 
-	// Create a map for fast lookup of raw stats
-	rawStatMap := make(map[string]int)
+		rawStatsMap := make(map[string]interface{})
 	for _, stat := range raw {
-		rawStatMap[stat.Name] = int(stat.Value) // Convert float64 to int
+		rawStatsMap[stat.Name] = int(stat.Value)
 	}
 
 	// Map each known stat to the appropriate field
 	for steamKey, fieldPath := range statMapping {
-		value, exists := rawStatMap[steamKey]
+		value, exists := rawStatsMap[steamKey]
 		if !exists {
-			continue // Skip missing stats, use default zero values
+			continue
 		}
 
-		// Set the value in the appropriate struct field
-		setStatValue(&stats, fieldPath, value)
+		setStatValue(&stats, fieldPath, value.(int))
 	}
 
 	return stats

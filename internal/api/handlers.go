@@ -1185,7 +1185,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		result, err := h.cacheManager.GetCircuitBreaker().ExecuteWithStaleCache(
 			cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID),
 			func() (interface{}, error) {
-				achievements, apiErr := h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
+				achievements, apiErr := h.steamClient.GetPlayerAchievements(steamID, 381210)
 				if apiErr != nil {
 					return nil, fmt.Errorf("steam API error: %s", apiErr.Message)
 				}
@@ -1203,7 +1203,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 	} else {
 		// Fallback to direct API call if no circuit breaker
 		var steamErr *steam.APIError
-		rawAchievements, steamErr = h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
+		rawAchievements, steamErr = h.steamClient.GetPlayerAchievements(steamID, 381210)
 		if steamErr != nil {
 			apiErr = fmt.Errorf("steam API error: %s", steamErr.Message)
 		}

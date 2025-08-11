@@ -94,19 +94,18 @@ func TestRetryLogic_ExhaustAllAttempts(t *testing.T) {
 
 func TestRetryLogic_SpecificStatusCodes(t *testing.T) {
 	retryableCodes := []int{
-		http.StatusTooManyRequests,     // 429
-		http.StatusInternalServerError, // 500 - now retryable in enhanced implementation
-		http.StatusBadGateway,          // 502
-		http.StatusServiceUnavailable,  // 503
-		http.StatusGatewayTimeout,      // 504
+		http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
 	}
 
 	nonRetryableCodes := []int{
-		http.StatusBadRequest,   // 400
-		http.StatusUnauthorized, // 401
-		http.StatusForbidden,    // 403
-		http.StatusNotFound,     // 404
-		// Note: 500 is now retryable in our enhanced implementation
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
 	}
 
 	config := steam.RetryConfig{
@@ -287,7 +286,7 @@ func TestRetryLogic_HTTP429Failures(t *testing.T) {
 }
 
 func TestRetryLogic_HTTP500Failures(t *testing.T) {
-	// Test specific HTTP 500 (Internal Server Error) - should retry in enhanced implementation
+	// Test HTTP 500 retry behavior
 	requestCount := 0
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

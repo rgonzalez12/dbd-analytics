@@ -18,7 +18,6 @@ type ValidationResult struct {
 	Performance       ValidationPerformance `json:"performance"`
 }
 
-// ValidationPerformance tracks performance metrics during validation
 type ValidationPerformance struct {
 	EntriesPerSecond    float64 `json:"entries_per_second"`
 	MemoryMBValidated   float64 `json:"memory_mb_validated"`

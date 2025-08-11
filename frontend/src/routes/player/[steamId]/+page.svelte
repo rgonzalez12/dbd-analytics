@@ -13,7 +13,7 @@
 	// Safe comparator for sorting
 	const cmp = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '');
 	
-	// Reactive, total-order safe derivations with deduplication by character name
+	// Reactive derivations with deduplication by character name
 	$: adeptSurvivors = (achievements?.mapped ?? [])
 		.filter(a => a.type === 'survivor' && a.character)
 		.reduce((unique, achievement) => {
@@ -29,7 +29,7 @@
 		const killerAchievements = (achievements?.mapped ?? [])
 			.filter(a => a.type === 'killer' && a.character);
 		
-		// Use robust deduplication - normalize character names for comparison
+		// Use robust deduplication
 		return killerAchievements
 			.reduce((unique, achievement) => {
 				const normalizedChar = achievement.character?.toLowerCase()?.trim() || '';
@@ -61,7 +61,7 @@
 			return specialCases[lowerName];
 		}
 		
-		// Default: capitalize first letter of each word (handles hyphens properly)
+		// Capitalize first letter of each word
 		return name.toLowerCase()
 			.split(/[-\s]/)
 			.map(word => word.charAt(0).toUpperCase() + word.slice(1))
