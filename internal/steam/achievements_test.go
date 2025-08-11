@@ -95,7 +95,6 @@ func TestProcessAchievements(t *testing.T) {
 }
 
 func TestAdeptAchievementMapping(t *testing.T) {
-	// Test that mapping contains expected characters
 	survivorCount := 0
 	killerCount := 0
 
@@ -110,32 +109,36 @@ func TestAdeptAchievementMapping(t *testing.T) {
 		}
 	}
 
-	// Verify we have a reasonable number of characters
-	if survivorCount < 20 {
-		t.Errorf("Expected at least 20 survivors, got %d", survivorCount)
+	// Verify we have the correct counts for current DBD roster
+	if survivorCount != 46 {
+		t.Errorf("Expected 46 survivors, got %d", survivorCount)
 	}
-	if killerCount < 15 {
-		t.Errorf("Expected at least 15 killers, got %d", killerCount)
+	if killerCount != 39 {
+		t.Errorf("Expected 39 killers, got %d", killerCount)
 	}
 
-	// Check specific known characters exist
-	foundDwight := false
-	foundTrapper := false
+	// Check that specific known characters exist with correct types
+	testCharacters := []struct {
+		name     string
+		charType string
+	}{
+		{"dwight", "survivor"},
+		{"trapper", "killer"},
+		{"onryo", "killer"}, // Verify Onryo classification fix
+		{"animatronic", "killer"}, // Verify Animatronic classification fix
+	}
 
-	for _, character := range AdeptAchievementMapping {
-		if character.Name == "dwight" && character.Type == "survivor" {
-			foundDwight = true
+	for _, tc := range testCharacters {
+		found := false
+		for _, character := range AdeptAchievementMapping {
+			if character.Name == tc.name && character.Type == tc.charType {
+				found = true
+				break
+			}
 		}
-		if character.Name == "trapper" && character.Type == "killer" {
-			foundTrapper = true
+		if !found {
+			t.Errorf("Expected to find %s as %s in achievements mapping", tc.name, tc.charType)
 		}
-	}
-
-	if !foundDwight {
-		t.Error("Expected to find Dwight in survivor achievements")
-	}
-	if !foundTrapper {
-		t.Error("Expected to find Trapper in killer achievements")
 	}
 }
 
