@@ -1219,15 +1219,40 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
 	}
 
-	// Map achievements using the new mapping service
-	mappedData := steam.GetMappedAchievements(rawAchievements)
+	// Get adept map from schema
+	ctx := context.Background()
+	adeptMap, err := h.steamClient.GetAdeptMapCached(ctx, h.cacheManager.GetCache())
+	if err != nil {
+		log.Warn("Failed to get adept map from schema, falling back to hardcoded mapping",
+			"error", err)
+		// Continue without schema-based adepts - use fallback
+		adeptMap = make(map[string]steam.AdeptEntry)
+	}
+
+	// Map achievements using the new schema-based approach
+	mappedData := steam.GetMappedAchievementsWithCache(rawAchievements, h.cacheManager.GetCache())
 	mappedAchievements := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
 
+	// Process adepts using schema-based mapping
+	adeptSurv := make(map[string]bool)
+	adeptKill := make(map[string]bool)
+
+	// Process raw achievements to build adept maps using schema
+	for _, rawAch := range rawAchievements.Achievements {
+		if entry, ok := adeptMap[rawAch.APIName]; ok {
+			if entry.Kind == "killer" {
+				adeptKill[entry.Character] = rawAch.Achieved == 1
+			} else {
+				adeptSurv[entry.Character] = rawAch.Achieved == 1
+			}
+		}
+	}
+
 	// Convert to models format
 	processedAchievements := &models.AchievementData{
-		AdeptSurvivors:     make(map[string]bool), // Legacy format
-		AdeptKillers:       make(map[string]bool), // Legacy format
+		AdeptSurvivors:     adeptSurv,
+		AdeptKillers:       adeptKill,
 		MappedAchievements: make([]models.MappedAchievement, len(mappedAchievements)),
 		Summary: models.AchievementSummary{
 			TotalAchievements: summary["total_achievements"].(int),
@@ -1242,7 +1267,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		LastUpdated: time.Now(),
 	}
 
-	// Convert mapped achievements to models format and populate legacy maps
+	// Convert mapped achievements to models format
 	for i, mapped := range mappedAchievements {
 		processedAchievements.MappedAchievements[i] = models.MappedAchievement{
 			ID:          mapped.ID,
@@ -1254,16 +1279,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 			Unlocked:    mapped.Unlocked,
 			UnlockTime:  mapped.UnlockTime,
 		}
-
-		// Populate legacy maps for backward compatibility
-		if mapped.Character != "" && mapped.Unlocked {
-			switch mapped.Type {
-			case "survivor":
-				processedAchievements.AdeptSurvivors[mapped.Character] = true
-			case "killer":
-				processedAchievements.AdeptKillers[mapped.Character] = true
-			}
-		}
+		// Note: Legacy AdeptSurvivors/AdeptKillers are now populated directly from schema above
 	}
 
 	// Cache the achievements with longer TTL

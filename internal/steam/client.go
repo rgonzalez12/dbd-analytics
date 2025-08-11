@@ -509,3 +509,41 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// GetSchemaForGame retrieves the game schema including achievements and stats
+func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
+	if c.apiKey == "" {
+		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
+	}
+
+	url := fmt.Sprintf("%s/ISteamUserStats/GetSchemaForGame/v2/?key=%s&appid=%s",
+		BaseURL, c.apiKey, appID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, NewNetworkError(err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, NewNetworkError(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, NewAPIError(resp.StatusCode,
+			fmt.Sprintf("HTTP %d from %s", resp.StatusCode, url))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, NewInternalError(err)
+	}
+
+	var response schemaForGameResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, NewInternalError(err)
+	}
+
+	return &response.Game, nil
+}

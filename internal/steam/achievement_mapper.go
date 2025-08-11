@@ -1,11 +1,13 @@
 package steam
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/rgonzalez12/dbd-analytics/internal/cache"
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
@@ -35,6 +37,7 @@ type AchievementMapper struct {
 	cacheDuration   time.Duration
 	mutex           sync.RWMutex
 	unknownsMutex   sync.RWMutex
+	client          *Client // Steam client for schema-based mapping
 }
 
 func NewAchievementMapper() *AchievementMapper {
@@ -57,12 +60,18 @@ func NewAchievementMapper() *AchievementMapper {
 		mapping:        make(map[string]AchievementMapping),
 		unknownAchievs: make(map[string]*UnknownAchievement),
 		cacheDuration:  24 * time.Hour, // Cache for 24 hours
+		client:         NewClient(),    // Create Steam client for schema access
 	}
 }
 
 // MapPlayerAchievements converts raw achievements to human-readable format
 // This method ensures ALL possible adept achievements are included, not just unlocked ones
 func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchievements) []AchievementMapping {
+	return am.MapPlayerAchievementsWithCache(achievements, nil)
+}
+
+// MapPlayerAchievementsWithCache converts raw achievements using schema-based mapping when cache is available
+func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) []AchievementMapping {
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
 
@@ -74,33 +83,83 @@ func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchieveme
 		unlockedMap[achievement.APIName] = achievement
 	}
 
+	// Try to get schema-based adept mapping if cache is available
+	var schemaAdeptMap map[string]AdeptEntry
+	if cacheManager != nil && am.client != nil {
+		ctx := context.Background()
+		if adeptMap, err := am.client.GetAdeptMapCached(ctx, cacheManager); err == nil {
+			schemaAdeptMap = adeptMap
+			log.Info("Using schema-based adept mapping", "adept_count", len(schemaAdeptMap))
+		} else {
+			log.Warn("Failed to get schema-based adepts, using hardcoded fallback", "error", err)
+		}
+	}
+
 	// First, add all possible adept achievements (whether unlocked or not)
-	for apiName, adept := range AdeptAchievementMapping {
-		mapping := AchievementMapping{
-			ID:          apiName,
-			Name:        adept.Name,
-			DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
-			Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
-			Character:   adept.Name,
-			Type:        adept.Type,
-			Unlocked:    false, // Default to false
-		}
-		
-		// Check if this achievement is actually unlocked
-		if unlockedAchievement, exists := unlockedMap[apiName]; exists {
-			mapping.Unlocked = unlockedAchievement.Achieved == 1
-			if unlockedAchievement.UnlockTime > 0 {
-				mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+	// Use schema-based mapping if available, otherwise fall back to hardcoded
+	if schemaAdeptMap != nil {
+		// Use schema-based adept mapping
+		for apiName, entry := range schemaAdeptMap {
+			mapping := AchievementMapping{
+				ID:          apiName,
+				Name:        entry.Character,
+				DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
+				Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(entry.Character)),
+				Character:   entry.Character,
+				Type:        entry.Kind,
+				Unlocked:    false, // Default to false
 			}
+			
+			// Check if this achievement is actually unlocked
+			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
+				mapping.Unlocked = unlockedAchievement.Achieved == 1
+				if unlockedAchievement.UnlockTime > 0 {
+					mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+				}
+			}
+			
+			mapped = append(mapped, mapping)
 		}
-		
-		mapped = append(mapped, mapping)
+	} else {
+		// Fall back to hardcoded adept mapping
+		for apiName, adept := range AdeptAchievementMapping {
+			mapping := AchievementMapping{
+				ID:          apiName,
+				Name:        adept.Name,
+				DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
+				Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
+				Character:   adept.Name,
+				Type:        adept.Type,
+				Unlocked:    false, // Default to false
+			}
+			
+			// Check if this achievement is actually unlocked
+			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
+				mapping.Unlocked = unlockedAchievement.Achieved == 1
+				if unlockedAchievement.UnlockTime > 0 {
+					mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+				}
+			}
+			
+			mapped = append(mapped, mapping)
+		}
 	}
 
 	// Then add any other achievements that were unlocked but aren't adept achievements
+	adeptAPINames := make(map[string]bool)
+	if schemaAdeptMap != nil {
+		for apiName := range schemaAdeptMap {
+			adeptAPINames[apiName] = true
+		}
+	} else {
+		for apiName := range AdeptAchievementMapping {
+			adeptAPINames[apiName] = true
+		}
+	}
+
 	for _, achievement := range achievements.Achievements {
 		// Skip if this is an adept achievement (already processed above)
-		if _, isAdept := AdeptAchievementMapping[achievement.APIName]; isAdept {
+		if adeptAPINames[achievement.APIName] {
 			continue
 		}
 		
@@ -306,7 +365,12 @@ func MapAchievements(achievements *PlayerAchievements) []AchievementMapping {
 
 // GetMappedAchievements returns mapped achievements with summary and monitoring
 func GetMappedAchievements(achievements *PlayerAchievements) map[string]interface{} {
-	mapped := MapAchievements(achievements)
+	return GetMappedAchievementsWithCache(achievements, nil)
+}
+
+// GetMappedAchievementsWithCache returns mapped achievements with schema-based mapping when cache is available
+func GetMappedAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) map[string]interface{} {
+	mapped := globalAchievementMapper.MapPlayerAchievementsWithCache(achievements, cacheManager)
 	summary := globalAchievementMapper.GetAchievementSummary(mapped)
 	unknowns := globalAchievementMapper.GetUnknownAchievements()
 

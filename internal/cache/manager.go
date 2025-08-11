@@ -188,14 +188,7 @@ func GenerateKey(prefix string, parts ...string) string {
 	return key
 }
 
-// Common cache key prefixes for different data types
-const (
-	PlayerStatsPrefix        = "player_stats"
-	PlayerSummaryPrefix      = "player_summary"
-	PlayerAchievementsPrefix = "player_achievements"
-	PlayerCombinedPrefix     = "player_combined"
-	SteamAPIPrefix           = "steam_api"
-)
+// Note: Cache key prefixes are now defined in keys.go
 
 // Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
 const (

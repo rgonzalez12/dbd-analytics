@@ -7,14 +7,16 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/models"
 )
 
-// AdeptAchievementMapping maps Steam achievement API names to character names.
-// All API names verified from Steam's GetSchemaForGame endpoint.
+// AdeptAchievementMapping maps Steam achievement API names to character names and types.
+// Character classifications verified against official Dead by Daylight wiki:
+// Survivors: https://deadbydaylight.fandom.com/wiki/Survivors
+// Killers: https://deadbydaylight.fandom.com/wiki/Killers
 var AdeptAchievementMapping = map[string]AdeptCharacter{
 	// Base Game Survivors
 	"ACH_UNLOCK_DWIGHT_PERKS":    {Name: "dwight", Type: "survivor"},
 	"ACH_UNLOCK_MEG_PERKS":       {Name: "meg", Type: "survivor"},
 	"ACH_UNLOCK_CLAUDETTE_PERKS": {Name: "claudette", Type: "survivor"},
-	"ACH_UNLOCK_JACK_PERKS":      {Name: "jake", Type: "survivor"},
+	"ACH_USE_JAKE_PERKS":         {Name: "jake", Type: "survivor"},
 
 	// DLC Survivors
 	"ACH_USE_NEA_PERKS":           {Name: "nea", Type: "survivor"},
@@ -57,6 +59,7 @@ var AdeptAchievementMapping = map[string]AdeptCharacter{
 	"NEW_ACHIEVEMENT_280_19":      {Name: "trevor", Type: "survivor"},
 	"NEW_ACHIEVEMENT_280_25":      {Name: "taurie", Type: "survivor"},
 	"NEW_ACHIEVEMENT_280_31":      {Name: "orela", Type: "survivor"},
+	"NEW_ACHIEVEMENT_312_2":       {Name: "animatronic", Type: "killer"}, // CORRECTED: Animatronic is a killer (William Afton/Springtrap)
 	"NEW_ACHIEVEMENT_312_4":       {Name: "rick", Type: "survivor"},
 	"NEW_ACHIEVEMENT_312_5":       {Name: "michonne", Type: "survivor"},
 
@@ -100,8 +103,7 @@ var AdeptAchievementMapping = map[string]AdeptCharacter{
 	"NEW_ACHIEVEMENT_280_16":      {Name: "dark-lord", Type: "killer"},
 	"NEW_ACHIEVEMENT_280_22":      {Name: "houndmaster", Type: "killer"},
 	"NEW_ACHIEVEMENT_312_1":       {Name: "lich", Type: "killer"},
-	"NEW_ACHIEVEMENT_312_8":       {Name: "ghoul", Type: "killer"},
-	"NEW_ACHIEVEMENT_312_10":      {Name: "animatronic", Type: "killer"},
+	"NEW_ACHIEVEMENT_312_8":       {Name: "ghoul", Type: "killer"}, // Adept The Ghoul (killer)
 }
 
 type AdeptCharacter struct {

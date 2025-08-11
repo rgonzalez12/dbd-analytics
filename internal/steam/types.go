@@ -114,3 +114,36 @@ type SteamAchievement struct {
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
 }
+
+// Steam Schema API Response Types
+
+type schemaForGameResponse struct {
+	Game SchemaGame `json:"game"`
+}
+
+type SchemaGame struct {
+	GameName              string               `json:"gameName"`
+	GameVersion           string               `json:"gameVersion"`
+	AvailableGameStats    AvailableGameStats   `json:"availableGameStats"`
+}
+
+type AvailableGameStats struct {
+	Achievements []SchemaAchievement `json:"achievements"`
+	Stats        []SchemaStat        `json:"stats"`
+}
+
+type SchemaAchievement struct {
+	Name         string `json:"name"`         // API name (apiname)
+	DefaultValue int    `json:"defaultvalue"`
+	DisplayName  string `json:"displayName"`
+	Hidden       int    `json:"hidden"`
+	Description  string `json:"description"`
+	Icon         string `json:"icon"`
+	IconGray     string `json:"icongray"`
+}
+
+type SchemaStat struct {
+	Name         string `json:"name"`
+	DefaultValue int    `json:"defaultvalue"`
+	DisplayName  string `json:"displayName"`
+}
