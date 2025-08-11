@@ -13,24 +13,31 @@
 		return 'Something Went Wrong';
 	}
 	
-	function getErrorMessage(status: number, message: string, isPlayerContext: boolean): string {
+	function getErrorMessage(status: number, message: string | any, isPlayerContext: boolean): string {
 		if (status === 404 && isPlayerContext) {
 			return 'This Steam profile might be private, the ID might be incorrect, or the player might not have Dead by Daylight data.';
 		}
 		if (status === 429) {
-			const retryMatch = message?.match(/Try again in (\d+) seconds/);
+			// Handle structured 429 error with retryAfter
+			if (typeof message === 'object' && message?.retryAfter) {
+				return `Try again in ${message.retryAfter} seconds.`;
+			}
+			// Fallback for string message parsing
+			const retryMatch = (typeof message === 'string' ? message : '')?.match(/Try again in (\d+) seconds/);
 			const retrySeconds = retryMatch?.[1] ? parseInt(retryMatch[1]) : null;
 			return retrySeconds 
 				? `Try again in ${retrySeconds} seconds.`
 				: 'Try again in a few seconds.';
 		}
 		if (status === 503) {
-			return message || 'Steam API is currently unavailable. Please try again later.';
+			const msgText = typeof message === 'string' ? message : '';
+			return msgText || 'Steam API is currently unavailable. Please try again later.';
 		}
 		if (status >= 500) {
 			return 'Server error. Please try again later.';
 		}
-		return message || 'An unexpected error occurred.';
+		const msgText = typeof message === 'string' ? message : '';
+		return msgText || 'An unexpected error occurred.';
 	}
 </script>
 

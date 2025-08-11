@@ -1,5 +1,5 @@
-import type { ApiError, PlayerStatsWithAchievements } from './types';
-import { PlayerStatsWithAchievementsSchema } from './schemas';
+import type { ApiError, Player } from './types';
+import { toDomainPlayer } from './adapters';
 import { env } from '$env/dynamic/public';
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -82,18 +82,9 @@ export async function request<T>(
 
 export const api = {
 	player: {
-		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<PlayerStatsWithAchievements> => {
+		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<Player> => {
 			const data = await request<unknown>(`/player/${steamId}`, init, customFetch);
-			const result = PlayerStatsWithAchievementsSchema.safeParse(data);
-			if (!result.success) {
-				const error: ApiError = {
-					status: 502,
-					message: 'Invalid payload',
-					details: result.error
-				};
-				throw error;
-			}
-			return result.data as PlayerStatsWithAchievements;
+			return toDomainPlayer(data);
 		}
 	}
 };

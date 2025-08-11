@@ -1,32 +1,31 @@
 <script lang="ts">
-	import type { PlayerStatsWithAchievements } from '$lib/api/types';
-	export let data: { data: PlayerStatsWithAchievements };
+	import type { Player } from '$lib/api/types';
+	export let data: { data: Player };
 	
-	const stats = data.data;
-	const displayName = stats.display_name ?? '—';
-	const matches = stats.total_matches ?? undefined;
+	const player = data.data;
+	const displayName = player.name ?? '—';
+	const matches = player.matches;
 	
 	// Achievement data
-	const achievements = stats.achievements;
-	const achievementSummary = achievements?.summary;
+	const achievements = player.achievements;
 	
 	// Safe comparator for sorting
 	const cmp = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '');
 	
 	// Convert mapped achievements to alphabetical lists of ONLY adept achievements
-	const adeptSurvivors = (achievements?.mapped_achievements?.filter(a => a.type === 'survivor' && a.character) || [])
+	const adeptSurvivors = (achievements?.mapped?.filter(a => a.type === 'survivor' && a.character) || [])
 		.sort((a, b) => cmp(a.character, b.character));
-	const adeptKillers = (achievements?.mapped_achievements?.filter(a => a.type === 'killer' && a.character) || [])
+	const adeptKillers = (achievements?.mapped?.filter(a => a.type === 'killer' && a.character) || [])
 		.sort((a, b) => cmp(a.character, b.character));
 	
 	// Check for empty/private profile state
-	const hasNoData = !matches || matches === 0;
+	const hasNoData = matches === 0;
 </script>
 
 <section class="space-y-6">
 	<div class="rounded-2xl border border-neutral-800 p-4">
 		<div class="flex items-center justify-between gap-4">
-			<h2 class="text-xl font-semibold">Player {stats.steam_id}</h2>
+			<h2 class="text-xl font-semibold">Player {player.id}</h2>
 			<span class="text-xs rounded-full border border-neutral-700 px-2 py-1 text-neutral-400">
 				API Data
 			</span>
@@ -39,11 +38,11 @@
 			</div>
 			<div class="rounded-xl border border-neutral-800 p-4">
 				<div class="text-xs text-neutral-400">Steam ID</div>
-				<div class="text-lg">{stats.steam_id}</div>
+				<div class="text-lg">{player.id}</div>
 			</div>
 			<div class="rounded-xl border border-neutral-800 p-4">
 				<div class="text-xs text-neutral-400">Total Matches</div>
-				<div class="text-lg">{matches ?? '—'}</div>
+				<div class="text-lg">{matches}</div>
 			</div>
 		</div>
 
@@ -59,31 +58,21 @@
 		<div class="rounded-2xl border border-neutral-800 p-4">
 			<h3 class="text-xl font-semibold mb-4">Achievements</h3>
 			
-			<!-- Debug Info -->
-			<div class="mb-4 p-3 bg-blue-900/20 border border-blue-600 rounded-lg">
-				<p class="text-xs text-blue-300">
-					Debug: achievements={!!achievements}, 
-					mapped_achievements={achievements?.mapped_achievements?.length || 0}, 
-					survivors={adeptSurvivors.length}, 
-					killers={adeptKillers.length}
-				</p>
-			</div>
-			
 			<!-- Achievement Summary -->
-			{#if achievementSummary}
+			{#if achievements.total > 0 || achievements.unlocked > 0}
 				<div class="mb-6">
 					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Total</div>
-							<div class="text-lg">{achievementSummary.total}</div>
+							<div class="text-lg">{achievements.total}</div>
 						</div>
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Unlocked</div>
-							<div class="text-lg">{achievementSummary.unlocked}</div>
+							<div class="text-lg">{achievements.unlocked}</div>
 						</div>
 						<div class="rounded-xl border border-neutral-800 p-4">
 							<div class="text-xs text-neutral-400">Percentage</div>
-							<div class="text-lg">{((achievementSummary.unlocked / achievementSummary.total) * 100).toFixed(1)}%</div>
+							<div class="text-lg">{achievements.total > 0 ? ((achievements.unlocked / achievements.total) * 100).toFixed(1) : '0.0'}%</div>
 						</div>
 					</div>
 					
