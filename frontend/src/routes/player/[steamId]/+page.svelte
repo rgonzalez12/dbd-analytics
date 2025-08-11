@@ -29,30 +29,10 @@
 		const killerAchievements = (achievements?.mapped ?? [])
 			.filter(a => a.type === 'killer' && a.character);
 		
-		// Debug: Log potential duplicates
-		const characterCounts = new Map();
-		killerAchievements.forEach(a => {
-			const normalizedChar = a.character?.toLowerCase()?.trim() || '';
-			const count = characterCounts.get(normalizedChar) || 0;
-			characterCounts.set(normalizedChar, count + 1);
-		});
-		
-		// Log any characters that appear more than once
-		characterCounts.forEach((count, character) => {
-			if (count > 1) {
-				console.log(`Duplicate killer character found: "${character}" appears ${count} times`);
-				const duplicates = killerAchievements.filter(a => 
-					(a.character?.toLowerCase()?.trim() || '') === character
-				);
-				console.log('Duplicate entries:', duplicates);
-			}
-		});
-		
-		// Use more robust deduplication - normalize character names for comparison
+		// Use robust deduplication - normalize character names for comparison
 		return killerAchievements
 			.reduce((unique, achievement) => {
 				const normalizedChar = achievement.character?.toLowerCase()?.trim() || '';
-				// Only keep the first occurrence of each normalized character name
 				if (!unique.some(u => (u.character?.toLowerCase()?.trim() || '') === normalizedChar)) {
 					unique.push(achievement);
 				}

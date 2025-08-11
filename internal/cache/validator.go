@@ -65,10 +65,10 @@ type QuarantinedEntry struct {
 // DefaultValidationConfig returns production-safe validation settings
 func DefaultValidationConfig() ValidationConfig {
 	return ValidationConfig{
-		MaxSerializationTime: 10 * time.Millisecond, // Fail if serialization takes too long
-		BatchSize:            100,                   // Process in batches to reduce lock time
-		EnableDeepCheck:      false,                 // Disable expensive checks by default
-		MaxAgeThreshold:      365 * 24 * time.Hour,  // 1 year max age
+		MaxSerializationTime: 10 * time.Millisecond,
+		BatchSize:            100,
+		EnableDeepCheck:      false,
+		MaxAgeThreshold:      365 * 24 * time.Hour,
 		CorruptionPolicy: CorruptionPolicy{
 			Mode:               CorruptionPurge,
 			MaxQuarantineSize:  100,

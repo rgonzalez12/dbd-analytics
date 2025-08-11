@@ -12,19 +12,19 @@ import (
 // APIConfig holds configurable parameters for API resilience and performance
 type APIConfig struct {
 	// Circuit Breaker Configuration
-	CBMaxFails         int `json:"cb_max_fails"`          // Max consecutive failures before opening
-	CBResetTimeoutSecs int `json:"cb_reset_timeout_secs"` // Seconds to wait before attempting reset
-	CBHalfOpenRequests int `json:"cb_half_open_requests"` // Requests to test in half-open state
+	CBMaxFails         int `json:"cb_max_fails"`
+	CBResetTimeoutSecs int `json:"cb_reset_timeout_secs"`
+	CBHalfOpenRequests int `json:"cb_half_open_requests"`
 
 	// API Timeout Configuration
-	APITimeoutSecs          int `json:"api_timeout_secs"`          // Per-request timeout
-	OverallTimeoutSecs      int `json:"overall_timeout_secs"`      // Total operation timeout
-	AchievementsTimeoutSecs int `json:"achievements_timeout_secs"` // Achievements fetch timeout
+	APITimeoutSecs          int `json:"api_timeout_secs"`
+	OverallTimeoutSecs      int `json:"overall_timeout_secs"`
+	AchievementsTimeoutSecs int `json:"achievements_timeout_secs"`
 
 	// Retry Configuration
-	MaxRetries    int `json:"max_retries"`     // Maximum retry attempts
-	BaseBackoffMs int `json:"base_backoff_ms"` // Base backoff in milliseconds
-	MaxBackoffMs  int `json:"max_backoff_ms"`  // Maximum backoff cap
+	MaxRetries    int `json:"max_retries"`
+	BaseBackoffMs int `json:"base_backoff_ms"`
+	MaxBackoffMs  int `json:"max_backoff_ms"`
 
 	// Rate Limiting
 	RateLimit  int `json:"rate_limit"`  // Requests per minute
@@ -42,15 +42,15 @@ type APIConfig struct {
 // DefaultAPIConfig returns sensible production defaults
 func DefaultAPIConfig() APIConfig {
 	config := APIConfig{
-		// Circuit Breaker - Conservative defaults
-		CBMaxFails:         5,  // Allow 5 failures before opening
-		CBResetTimeoutSecs: 60, // Wait 1 minute before reset attempt
-		CBHalfOpenRequests: 3,  // Test with 3 requests in half-open
+		// Circuit Breaker
+		CBMaxFails:         5,
+		CBResetTimeoutSecs: 60,
+		CBHalfOpenRequests: 3,
 
-		// Timeouts - Reasonable for Steam API
-		APITimeoutSecs:          10, // 10 second per-request timeout
-		OverallTimeoutSecs:      30, // 30 second total operation timeout
-		AchievementsTimeoutSecs: 5,  // 5 second achievements fetch timeout
+		// Timeouts
+		APITimeoutSecs:          10,
+		OverallTimeoutSecs:      30,
+		AchievementsTimeoutSecs: 5,
 
 		// Retry - Exponential backoff with jitter
 		MaxRetries:    3,    // Up to 3 retries

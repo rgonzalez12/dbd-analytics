@@ -73,10 +73,9 @@ func PlayerStatsConfig() Config {
 // DevelopmentConfig returns a configuration suitable for development/testing
 func DevelopmentConfig() Config {
 	config := DefaultConfig()
-	config.Memory.MaxEntries = 100                  // Small for testing
-	config.Memory.DefaultTTL = 30 * time.Second     // Short TTL for testing
-	config.Memory.CleanupInterval = 5 * time.Second // Frequent cleanup
-	// Override TTL config for development
+	config.Memory.MaxEntries = 100
+	config.Memory.DefaultTTL = 30 * time.Second
+	config.Memory.CleanupInterval = 5 * time.Second
 	config.TTL = TTLConfig{
 		PlayerStats:        30 * time.Second,
 		PlayerSummary:      1 * time.Minute,
@@ -192,10 +191,10 @@ func GenerateKey(prefix string, parts ...string) string {
 
 // Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
 const (
-	PlayerStatsTTL   = 5 * time.Minute  // Deprecated: use config.TTL.PlayerStats
-	PlayerSummaryTTL = 10 * time.Minute // Deprecated: use config.TTL.PlayerSummary
-	SteamAPITTL      = 3 * time.Minute  // Deprecated: use config.TTL.SteamAPI
-	DefaultTTL       = 3 * time.Minute  // Deprecated: use config.TTL.DefaultTTL
+	PlayerStatsTTL   = 5 * time.Minute
+	PlayerSummaryTTL = 10 * time.Minute
+	SteamAPITTL      = 3 * time.Minute
+	DefaultTTL       = 3 * time.Minute
 )
 
 // TTLConfig holds configurable TTL values for different data types

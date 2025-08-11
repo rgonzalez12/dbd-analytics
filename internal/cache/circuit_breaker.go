@@ -19,10 +19,10 @@ const (
 
 // CircuitBreakerConfig defines circuit breaker behavior
 type CircuitBreakerConfig struct {
-	MaxFailures            int           `json:"max_failures"`             // Failures before opening
-	ResetTimeout           time.Duration `json:"reset_timeout"`            // Time before trying half-open
-	SuccessReset           int           `json:"success_reset"`            // Successes needed to close
-	FailureThreshold       float64       `json:"failure_threshold"`        // Failure rate threshold
+	MaxFailures            int           `json:"max_failures"`
+	ResetTimeout           time.Duration `json:"reset_timeout"`
+	SuccessReset           int           `json:"success_reset"`
+	FailureThreshold       float64       `json:"failure_threshold"`
 	RequestVolumeThreshold int           `json:"request_volume_threshold"` // Min requests for evaluation
 	SlidingWindowSize      time.Duration `json:"sliding_window_size"`      // Time window for metrics
 }

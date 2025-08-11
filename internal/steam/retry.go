@@ -28,10 +28,10 @@ func DefaultRetryConfig() RetryConfig {
 
 	return RetryConfig{
 		MaxAttempts: maxRetries,
-		BaseDelay:   500 * time.Millisecond, // Initial delay for exponential backoff
-		MaxDelay:    10 * time.Second,       // Maximum delay cap to prevent excessive waiting
-		Multiplier:  2.0,                    // Exponential backoff: 500ms → 1s → 2s → 4s → 8s
-		Jitter:      true,                   // Add randomization to prevent thundering herd
+		BaseDelay:   500 * time.Millisecond,
+		MaxDelay:    10 * time.Second,
+		Multiplier:  2.0,
+		Jitter:      true,
 	}
 }
 

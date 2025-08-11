@@ -7,10 +7,7 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/models"
 )
 
-// AdeptAchievementMapping maps Steam achievement API names to character names and types.
-// Character classifications verified against official Dead by Daylight wiki:
-// Survivors: https://deadbydaylight.fandom.com/wiki/Survivors
-// Killers: https://deadbydaylight.fandom.com/wiki/Killers
+// AdeptAchievementMapping maps Steam achievement API names to character names and types
 var AdeptAchievementMapping = map[string]AdeptCharacter{
 	// Base Game Survivors
 	"ACH_UNLOCK_DWIGHT_PERKS":    {Name: "dwight", Type: "survivor"},

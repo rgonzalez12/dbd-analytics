@@ -574,10 +574,10 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 	// Production metrics endpoint security
 	// In production, you'd configure these from environment variables
 	allowedIPs := []string{
-		"127.0.0.1",      // localhost
-		"::1",            // IPv6 localhost
-		"10.0.0.0/8",     // Private network ranges
-		"172.16.0.0/12",  // Private network ranges
+		"127.0.0.1",
+		"::1",
+		"10.0.0.0/8",
+		"172.16.0.0/12",
 		"192.168.0.0/16", // Private network ranges
 	}
 

@@ -25,8 +25,7 @@ func normalizeChar(s string) string {
 	return s
 }
 
-// BuildAdeptMap parses GetSchemaForGame achievements, selects those whose displayName starts with "Adept ",
-// and returns map[apiname]AdeptEntry
+// BuildAdeptMap parses GetSchemaForGame achievements and returns map[apiname]AdeptEntry
 func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 	schema, err := c.GetSchemaForGame(DBDAppID)
 	if err != nil {
@@ -46,16 +45,15 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 		}
 	}
 	
-	// Add additional name variations for characters that might appear with different display names
-	// Killers with spaces in names that get normalized differently
-	killerNames["dark lord"] = true     // "Adept The Dark Lord" → "Dark Lord"
-	killerNames["ghost face"] = true   // "Adept Ghost Face" 
-	killerNames["good guy"] = true     // "Adept Good Guy" (Chucky)
-	killerNames["skull merchant"] = true // "Adept The Skull Merchant" → "Skull Merchant"
-	killerNames["onryo"] = true         // "Adept The Onryo" → "Onryo" (case variations)
-	killerNames["onryō"] = true         // "Adept The Onryō" → "Onryō" (with macron)
-	killerNames["sadako"] = true        // Alternative name for Onryo
-	killerNames["the onryo"] = true     // In case the "The" doesn't get stripped
+	// Add character name variations for proper type detection
+	killerNames["dark lord"] = true
+	killerNames["ghost face"] = true
+	killerNames["good guy"] = true
+	killerNames["skull merchant"] = true
+	killerNames["onryo"] = true
+	killerNames["onryō"] = true
+	killerNames["sadako"] = true
+	killerNames["the onryo"] = true
 
 	m := make(map[string]AdeptEntry, 128)
 	for _, ach := range schema.AvailableGameStats.Achievements {
