@@ -13,13 +13,53 @@
 	// Safe comparator for sorting
 	const cmp = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '');
 	
-	// Reactive, total-order safe derivations
+	// Reactive, total-order safe derivations with deduplication by character name
 	$: adeptSurvivors = (achievements?.mapped ?? [])
 		.filter(a => a.type === 'survivor' && a.character)
+		.reduce((unique, achievement) => {
+			const normalizedChar = achievement.character?.toLowerCase()?.trim() || '';
+			// Only keep the first occurrence of each normalized character name
+			if (!unique.some(u => (u.character?.toLowerCase()?.trim() || '') === normalizedChar)) {
+				unique.push(achievement);
+			}
+			return unique;
+		}, [] as any[])
 		.sort((a, b) => cmp(a.character, b.character));
-	$: adeptKillers = (achievements?.mapped ?? [])
-		.filter(a => a.type === 'killer' && a.character)
-		.sort((a, b) => cmp(a.character, b.character));
+	$: adeptKillers = (() => {
+		const killerAchievements = (achievements?.mapped ?? [])
+			.filter(a => a.type === 'killer' && a.character);
+		
+		// Debug: Log potential duplicates
+		const characterCounts = new Map();
+		killerAchievements.forEach(a => {
+			const normalizedChar = a.character?.toLowerCase()?.trim() || '';
+			const count = characterCounts.get(normalizedChar) || 0;
+			characterCounts.set(normalizedChar, count + 1);
+		});
+		
+		// Log any characters that appear more than once
+		characterCounts.forEach((count, character) => {
+			if (count > 1) {
+				console.log(`Duplicate killer character found: "${character}" appears ${count} times`);
+				const duplicates = killerAchievements.filter(a => 
+					(a.character?.toLowerCase()?.trim() || '') === character
+				);
+				console.log('Duplicate entries:', duplicates);
+			}
+		});
+		
+		// Use more robust deduplication - normalize character names for comparison
+		return killerAchievements
+			.reduce((unique, achievement) => {
+				const normalizedChar = achievement.character?.toLowerCase()?.trim() || '';
+				// Only keep the first occurrence of each normalized character name
+				if (!unique.some(u => (u.character?.toLowerCase()?.trim() || '') === normalizedChar)) {
+					unique.push(achievement);
+				}
+				return unique;
+			}, [] as any[])
+			.sort((a, b) => cmp(a.character, b.character));
+	})();
 	
 	// Check for empty/private profile state
 	$: hasNoData = matches === 0;

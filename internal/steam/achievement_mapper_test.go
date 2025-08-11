@@ -19,12 +19,13 @@ func TestAchievementMapper(t *testing.T) {
 			t.Errorf("Expected 46 survivors mapped, got %d", survivorCount)
 		}
 		
-		if killerCount != 39 {
-			t.Errorf("Expected 39 killers mapped, got %d", killerCount)
+		// Note: 40 killers total in DBD, all should be mappable even though Demogorgon has no achievement
+		if killerCount != 40 {
+			t.Errorf("Expected 40 killers mapped, got %d", killerCount)
 		}
 		
-		if totalCount != 85 {
-			t.Errorf("Expected 85 total characters, got %d", totalCount)
+		if totalCount != 86 {
+			t.Errorf("Expected 86 total characters, got %d", totalCount)
 		}
 		
 		if totalCount != survivorCount+killerCount {
@@ -44,8 +45,8 @@ func TestAchievementMapper(t *testing.T) {
 		
 		mapped := mapper.MapPlayerAchievements(unknownAchievements)
 		
-		// Expect 85 adept achievements + 2 unknown = 87 total
-		expectedTotal := 87
+		// Expect 86 adept achievements + 2 unknown = 88 total
+		expectedTotal := 88
 		if len(mapped) != expectedTotal {
 			t.Errorf("Expected %d mapped achievements, got %d", expectedTotal, len(mapped))
 		}
