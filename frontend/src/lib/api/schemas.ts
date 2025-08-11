@@ -16,13 +16,20 @@ const MappedAchievementSchema = z.object({
 
 const AchievementDataSchema = z.object({
   summary: z.object({
-    total: z.coerce.number().int().nonnegative().optional(),
-    unlocked: z.coerce.number().int().nonnegative().optional(),
+    total_achievements: z.coerce.number().int().nonnegative().optional(),
+    unlocked_count: z.coerce.number().int().nonnegative().optional(),
+    survivor_count: z.coerce.number().int().nonnegative().optional(),
+    killer_count: z.coerce.number().int().nonnegative().optional(),
+    general_count: z.coerce.number().int().nonnegative().optional(),
+    completion_rate: z.coerce.number().nonnegative().optional(),
+    adept_survivors: z.array(z.unknown()).optional(),
+    adept_killers: z.array(z.unknown()).optional(),
     last_updated: z.string().optional()
   }).partial().optional(),
-  mapped_achievements: z.array(MappedAchievementSchema).optional(),
+  mapped_achievements: z.array(z.unknown()).optional(), // Make this more permissive
   adept_survivors: z.record(z.string(), z.boolean()).optional(),
-  adept_killers: z.record(z.string(), z.boolean()).optional()
+  adept_killers: z.record(z.string(), z.boolean()).optional(),
+  last_updated: z.string().optional()
 }).passthrough();
 
 export const ApiPlayerStatsSchema = z.object({

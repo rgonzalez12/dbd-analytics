@@ -9,9 +9,15 @@ function safeNumber(value: number | string | null | undefined, defaultValue: num
 }
 
 export function toDomainPlayer(raw: unknown): Player {
+  console.log('Raw API data received for Steam ID:', (raw as any)?.steam_id);
+  
   const result = ApiPlayerStatsSchema.safeParse(raw);
   
   if (!result.success) {
+    console.error('Schema validation failed in adapter:', {
+      raw,
+      error: result.error.format()
+    });
     const error: ApiError = {
       status: 502,
       message: 'Invalid payload',
@@ -21,6 +27,7 @@ export function toDomainPlayer(raw: unknown): Player {
   }
 
   const data = result.data;
+  console.log('Schema validation passed, transforming data for Steam ID:', data.steam_id);
 
   return {
     id: data.steam_id,
@@ -55,9 +62,9 @@ export function toDomainPlayer(raw: unknown): Player {
       timePlayedHours: safeNumber(data.time_played_hours)
     },
     achievements: {
-      total: safeNumber(data.achievements?.summary?.total),
-      unlocked: safeNumber(data.achievements?.summary?.unlocked),
-      mapped: data.achievements?.mapped_achievements || [],
+      total: safeNumber(data.achievements?.summary?.total_achievements),
+      unlocked: safeNumber(data.achievements?.summary?.unlocked_count),
+      mapped: Array.isArray(data.achievements?.mapped_achievements) ? data.achievements.mapped_achievements : [],
       adepts: {
         survivors: data.achievements?.adept_survivors || {},
         killers: data.achievements?.adept_killers || {}

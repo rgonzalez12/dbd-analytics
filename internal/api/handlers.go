@@ -908,11 +908,22 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Check combined cache first
+	// Resolve vanity URL first to ensure consistent cache keys
+	resolvedSteamID, resolveErr := h.steamClient.ResolveSteamID(steamID)
+	if resolveErr != nil {
+		requestLogger.Error("Failed to resolve Steam ID/vanity URL",
+			"error", resolveErr.Message,
+			"error_type", string(resolveErr.Type),
+			"duration", time.Since(start))
+		writeErrorResponse(w, resolveErr)
+		return
+	}
+
+	// Check combined cache using resolved Steam ID
 	var combinedCacheKey string
 	var combinedCacheHit bool
 	if h.cacheManager != nil {
-		combinedCacheKey = cache.GenerateKey(cache.PlayerCombinedPrefix, steamID)
+		combinedCacheKey = cache.GenerateKey(cache.PlayerCombinedPrefix, resolvedSteamID)
 		if cached, found := h.cacheManager.GetCache().Get(combinedCacheKey); found {
 			if response, ok := cached.(models.PlayerStatsWithAchievements); ok {
 				combinedCacheHit = true
@@ -934,17 +945,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 
 	requestLogger.Info("Processing combined player data request",
 		"combined_cache_hit", combinedCacheHit)
-
-	// Resolve vanity URL once before parallel execution to prevent race conditions
-	resolvedSteamID, resolveErr := h.steamClient.ResolveSteamID(steamID)
-	if resolveErr != nil {
-		requestLogger.Error("Failed to resolve Steam ID/vanity URL",
-			"error", resolveErr.Message,
-			"error_type", string(resolveErr.Type),
-			"duration", time.Since(start))
-		writeErrorResponse(w, resolveErr)
-		return
-	}
 
 	requestLogger.Info("Steam ID resolution completed",
 		"original_input", steamID,
