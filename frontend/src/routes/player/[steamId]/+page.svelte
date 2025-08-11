@@ -23,6 +23,29 @@
 	
 	// Check for empty/private profile state
 	$: hasNoData = matches === 0;
+	
+	// Helper function to properly format character names
+	function formatCharacterName(name: string): string {
+		if (!name) return '';
+		
+		// Handle special cases for proper formatting
+		const specialCases: Record<string, string> = {
+			'skull-merchant': 'Skull Merchant',
+			'dark-lord': 'Dark Lord', 
+			'yun-jin': 'Yun-Jin',
+		};
+		
+		// Check for special cases first
+		if (specialCases[name.toLowerCase()]) {
+			return specialCases[name.toLowerCase()];
+		}
+		
+		// Default: capitalize first letter of each word (handles hyphens properly)
+		return name.toLowerCase()
+			.split(/[-\s]/)
+			.map(word => word.charAt(0).toUpperCase() + word.slice(1))
+			.join(name.includes('-') ? '-' : ' ');
+	}
 </script>
 
 {#key steamId}
@@ -89,8 +112,8 @@
 							<div class="space-y-1">
 								{#each adeptSurvivors as survivor}
 									<div class="flex justify-between items-center py-2 px-3 rounded-lg bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors">
-										<span class="font-medium text-neutral-200 capitalize">
-											{survivor.character}
+										<span class="font-medium text-neutral-200">
+											{formatCharacterName(survivor.character)}
 										</span>
 										<span class="{survivor.unlocked ? 'text-green-400 font-semibold' : 'text-red-400'} font-mono">
 											{survivor.unlocked ? 'true' : 'false'}
@@ -114,8 +137,8 @@
 							<div class="space-y-1">
 								{#each adeptKillers as killer}
 									<div class="flex justify-between items-center py-2 px-3 rounded-lg bg-neutral-800/30 hover:bg-neutral-800/50 transition-colors">
-										<span class="font-medium text-neutral-200 capitalize">
-											{killer.character}
+										<span class="font-medium text-neutral-200">
+											{formatCharacterName(killer.character)}
 										</span>
 										<span class="{killer.unlocked ? 'text-green-400 font-semibold' : 'text-red-400'} font-mono">
 											{killer.unlocked ? 'true' : 'false'}
