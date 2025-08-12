@@ -25,14 +25,8 @@ export interface DbdStats {
 	kills?: number;
 }
 
-export interface Player {
-	steamId: string;
-	personaName: string;
-	avatarUrl?: string;
-}
-
 export interface PlayerBundle {
-	player: Player;
+	player: { id: string; name: string };
 	stats: DbdStats;
 	adepts: DbdAdept[];
 	achievements: DbdAchievement[];

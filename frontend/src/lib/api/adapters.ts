@@ -1,5 +1,5 @@
-import type { Player as DomainPlayer } from '$lib/api/types';
-import type { Player, PlayerBundle, DbdAdept, DbdAchievement, DbdStats } from '$lib/types';
+import type { Player } from '$lib/api/types';
+import type { PlayerBundle, DbdAdept, DbdAchievement, DbdStats } from '$lib/types';
 import type { ApiPlayerStats } from '$lib/api/types';
 
 function toNum(v: unknown, d = 0): number {
@@ -11,7 +11,7 @@ function toNum(v: unknown, d = 0): number {
 	return d;
 }
 
-export function toDomainPlayer(raw: ApiPlayerStats): DomainPlayer {
+export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const mapped = raw.achievements?.mapped_achievements?.map(achievement => ({
 		id: achievement.id,
 		type: achievement.type,
@@ -74,9 +74,9 @@ export function toDomainPlayer(raw: ApiPlayerStats): DomainPlayer {
 }
 
 export function toPlayerBundle(raw: ApiPlayerStats): PlayerBundle {
-	const player: Player = {
-		steamId: raw.steam_id,
-		personaName: raw.display_name
+	const player = {
+		id: raw.steam_id,
+		name: raw.display_name
 	};
 
 	const stats: DbdStats = {
