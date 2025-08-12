@@ -1,75 +1,140 @@
-import type { ApiError, ApiPlayerStats, Player } from './types';
-import { ApiPlayerStatsSchema } from './schemas';
+import type { Player as DomainPlayer } from '$lib/api/types';
+import type { Player, PlayerBundle, DbdAdept, DbdAchievement, DbdStats } from '$lib/types';
+import type { ApiPlayerStats } from '$lib/api/types';
 
-function safeNumber(value: number | string | null | undefined, defaultValue: number = 0): number {
-  if (value === null || value === undefined) return defaultValue;
-  if (typeof value === 'number') return value;
-  const parsed = Number(value);
-  return isNaN(parsed) ? defaultValue : parsed;
+function toNum(v: unknown, d = 0): number {
+	if (typeof v === 'number') return isNaN(v) ? d : v;
+	if (typeof v === 'string') {
+		const parsed = parseFloat(v);
+		return isNaN(parsed) ? d : parsed;
+	}
+	return d;
 }
 
-export function toDomainPlayer(raw: unknown): Player {
-  const result = ApiPlayerStatsSchema.safeParse(raw);
-  
-  if (!result.success) {
-    console.error('Schema validation failed in adapter:', {
-      raw,
-      error: result.error.format()
-    });
-    const error: ApiError = {
-      status: 502,
-      message: 'Invalid payload',
-      details: result.error
-    };
-    throw error;
-  }
+export function toDomainPlayer(raw: ApiPlayerStats): DomainPlayer {
+	const mapped = raw.achievements?.mapped_achievements?.map(achievement => ({
+		id: achievement.id,
+		type: achievement.type,
+		character: achievement.character,
+		unlocked: achievement.unlocked
+	})) ?? [];
 
-  const data = result.data;
+	const totalFromSummary = toNum(raw.achievements?.summary?.total);
+	const unlockedFromSummary = toNum(raw.achievements?.summary?.unlocked);
 
-  return {
-    id: data.steam_id,
-    name: data.display_name,
-    matches: safeNumber(data.total_matches),
-    lastUpdated: data.last_updated || null,
-    stats: {
-      killerPips: safeNumber(data.killer_pips),
-      survivorPips: safeNumber(data.survivor_pips),
-      killedCampers: safeNumber(data.killed_campers),
-      sacrificedCampers: safeNumber(data.sacrificed_campers),
-      moriKills: safeNumber(data.mori_kills),
-      hooksPerformed: safeNumber(data.hooks_performed),
-      uncloakAttacks: safeNumber(data.uncloak_attacks),
-      generatorPct: safeNumber(data.generator_pct),
-      healPct: safeNumber(data.heal_pct),
-      escapesKo: safeNumber(data.escapes_ko),
-      escapes: safeNumber(data.escapes),
-      skillCheckSuccess: safeNumber(data.skill_check_success),
-      hookedAndEscape: safeNumber(data.hooked_and_escape),
-      unhookOrHeal: safeNumber(data.unhook_or_heal),
-      healsPerformed: safeNumber(data.heals_performed),
-      unhookOrHealPostExit: safeNumber(data.unhook_or_heal_post_exit),
-      postExitActions: safeNumber(data.post_exit_actions),
-      escapeThroughHatch: safeNumber(data.escape_through_hatch),
-      bloodwebPoints: safeNumber(data.bloodweb_points),
-      camperPerfectGames: safeNumber(data.camper_perfect_games),
-      killerPerfectGames: safeNumber(data.killer_perfect_games),
-      camperFullLoadout: safeNumber(data.camper_full_loadout),
-      killerFullLoadout: safeNumber(data.killer_full_loadout),
-      camperNewItem: safeNumber(data.camper_new_item),
-      timePlayedHours: safeNumber(data.time_played_hours)
-    },
-    achievements: {
-      total: safeNumber(data.achievements?.summary?.total_achievements),
-      unlocked: safeNumber(data.achievements?.summary?.unlocked_count),
-      mapped: Array.isArray(data.achievements?.mapped_achievements) ? data.achievements.mapped_achievements as any[] : [],
-      adepts: {
-        survivors: data.achievements?.adept_survivors || {},
-        killers: data.achievements?.adept_killers || {}
-      }
-    },
-    sources: {
-      stats: data.data_sources?.stats as any,
-      achievements: data.data_sources?.achievements as any
-    }
-  };
+	const total = totalFromSummary || mapped.length;
+	const unlocked = unlockedFromSummary || mapped.filter(a => a.unlocked).length;
+
+	return {
+		id: raw.steam_id,
+		name: raw.display_name,
+		matches: toNum(raw.total_matches),
+		lastUpdated: raw.last_updated ?? null,
+		stats: {
+			killerPips: toNum(raw.killer_pips),
+			survivorPips: toNum(raw.survivor_pips),
+			killedCampers: toNum(raw.killed_campers),
+			sacrificedCampers: toNum(raw.sacrificed_campers),
+			moriKills: toNum(raw.mori_kills),
+			hooksPerformed: toNum(raw.hooks_performed),
+			uncloakAttacks: toNum(raw.uncloak_attacks),
+			generatorPct: toNum(raw.generator_pct),
+			healPct: toNum(raw.heal_pct),
+			escapesKo: toNum(raw.escapes_ko),
+			escapes: toNum(raw.escapes),
+			skillCheckSuccess: toNum(raw.skill_check_success),
+			hookedAndEscape: toNum(raw.hooked_and_escape),
+			unhookOrHeal: toNum(raw.unhook_or_heal),
+			healsPerformed: toNum(raw.heals_performed),
+			unhookOrHealPostExit: toNum(raw.unhook_or_heal_post_exit),
+			postExitActions: toNum(raw.post_exit_actions),
+			escapeThroughHatch: toNum(raw.escape_through_hatch),
+			bloodwebPoints: toNum(raw.bloodweb_points),
+			camperPerfectGames: toNum(raw.camper_perfect_games),
+			killerPerfectGames: toNum(raw.killer_perfect_games),
+			camperFullLoadout: toNum(raw.camper_full_loadout),
+			killerFullLoadout: toNum(raw.killer_full_loadout),
+			camperNewItem: toNum(raw.camper_new_item),
+			timePlayedHours: toNum(raw.time_played_hours)
+		},
+		achievements: {
+			total,
+			unlocked,
+			mapped,
+			adepts: {
+				survivors: raw.achievements?.adept_survivors ?? {},
+				killers: raw.achievements?.adept_killers ?? {}
+			}
+		},
+		sources: {
+			...(raw.data_sources?.stats && { stats: raw.data_sources.stats }),
+			...(raw.data_sources?.achievements && { achievements: raw.data_sources.achievements })
+		}
+	};
+}
+
+export function toPlayerBundle(raw: ApiPlayerStats): PlayerBundle {
+	const player: Player = {
+		steamId: raw.steam_id,
+		personaName: raw.display_name
+	};
+
+	const stats: DbdStats = {
+		matchesPlayed: toNum(raw.total_matches),
+		escapes: toNum(raw.escapes),
+		kills: toNum(raw.killed_campers),
+		killerPips: toNum(raw.killer_pips),
+		survivorPips: toNum(raw.survivor_pips),
+		sacrificedCampers: toNum(raw.sacrificed_campers),
+		moriKills: toNum(raw.mori_kills),
+		hooksPerformed: toNum(raw.hooks_performed),
+		uncloakAttacks: toNum(raw.uncloak_attacks),
+		generatorPct: toNum(raw.generator_pct),
+		healPct: toNum(raw.heal_pct),
+		escapesKo: toNum(raw.escapes_ko),
+		skillCheckSuccess: toNum(raw.skill_check_success),
+		hookedAndEscape: toNum(raw.hooked_and_escape),
+		unhookOrHeal: toNum(raw.unhook_or_heal),
+		healsPerformed: toNum(raw.heals_performed),
+		unhookOrHealPostExit: toNum(raw.unhook_or_heal_post_exit),
+		postExitActions: toNum(raw.post_exit_actions),
+		escapeThroughHatch: toNum(raw.escape_through_hatch),
+		bloodwebPoints: toNum(raw.bloodweb_points),
+		camperPerfectGames: toNum(raw.camper_perfect_games),
+		killerPerfectGames: toNum(raw.killer_perfect_games),
+		camperFullLoadout: toNum(raw.camper_full_loadout),
+		killerFullLoadout: toNum(raw.killer_full_loadout),
+		camperNewItem: toNum(raw.camper_new_item),
+		timePlayedHours: toNum(raw.time_played_hours)
+	};
+
+	const adepts: DbdAdept[] = [
+		...Object.entries(raw.achievements?.adept_survivors ?? {}).map(([character, unlocked]) => ({
+			id: `adept_survivor_${character}`,
+			name: `Adept ${character}`,
+			unlocked: Boolean(unlocked),
+			unlockTime: null
+		})),
+		...Object.entries(raw.achievements?.adept_killers ?? {}).map(([character, unlocked]) => ({
+			id: `adept_killer_${character}`,
+			name: `Adept ${character}`,
+			unlocked: Boolean(unlocked),
+			unlockTime: null
+		}))
+	];
+
+	const achievements: DbdAchievement[] = raw.achievements?.mapped_achievements?.map(achievement => ({
+		id: achievement.id,
+		name: achievement.character || achievement.id,
+		description: `${achievement.type} achievement for ${achievement.character}`,
+		unlocked: achievement.unlocked,
+		unlockTime: null
+	})) ?? [];
+
+	return {
+		player,
+		stats,
+		adepts,
+		achievements
+	};
 }

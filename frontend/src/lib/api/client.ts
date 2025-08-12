@@ -1,5 +1,6 @@
-import type { ApiError, Player } from './types';
-import { toDomainPlayer } from './adapters';
+import type { Player } from '$lib/types';
+import type { ApiError, ApiPlayerStats, Player as DomainPlayer } from './types';
+import { toDomainPlayer, toPlayerBundle } from './adapters';
 import { env } from '$env/dynamic/public';
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -85,9 +86,16 @@ export async function request<T>(
 
 export const api = {
 	player: {
-		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<Player> => {
-			const data = await request<unknown>(`/player/${steamId}`, init, customFetch);
+		combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<DomainPlayer> => {
+			const data = await request<ApiPlayerStats>(`/player/${steamId}`, init, customFetch);
 			return toDomainPlayer(data);
 		}
 	}
 };
+
+export async function fetchPlayerByName(name: string, signal?: AbortSignal): Promise<Player> {
+	const requestInit = signal ? { signal } : {};
+	const data = await request<ApiPlayerStats>(`/player?name=${encodeURIComponent(name)}`, requestInit);
+	const bundle = toPlayerBundle(data);
+	return bundle.player;
+}
