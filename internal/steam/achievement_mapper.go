@@ -142,21 +142,48 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		}
 	}
 
-	// Then add any other achievements that were unlocked but aren't adept achievements
-	adeptAPINames := make(map[string]bool)
+	// Next, add all possible general achievements (whether unlocked or not)
+	// This ensures complete catalog guarantee like we do for adepts
+	generalAchievements := am.getAllGeneralAchievements()
+	for _, general := range generalAchievements {
+		mapping := AchievementMapping{
+			ID:          general.APIName,
+			Name:        general.Name,
+			DisplayName: general.DisplayName,
+			Description: general.Description,
+			Type:        general.Type,
+			Unlocked:    false, // Default to false
+		}
+		
+		// Check if this achievement is actually unlocked
+		if unlockedAchievement, exists := unlockedMap[general.APIName]; exists {
+			mapping.Unlocked = unlockedAchievement.Achieved == 1
+			if unlockedAchievement.UnlockTime > 0 {
+				mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+			}
+		}
+		
+		mapped = append(mapped, mapping)
+	}
+
+	// Finally, add any unknown achievements that were unlocked but aren't in our catalogs
+	knownAPINames := make(map[string]bool)
 	if schemaAdeptMap != nil {
 		for apiName := range schemaAdeptMap {
-			adeptAPINames[apiName] = true
+			knownAPINames[apiName] = true
 		}
 	} else {
 		for apiName := range AdeptAchievementMapping {
-			adeptAPINames[apiName] = true
+			knownAPINames[apiName] = true
 		}
+	}
+	for _, general := range generalAchievements {
+		knownAPINames[general.APIName] = true
 	}
 
 	for _, achievement := range achievements.Achievements {
-		// Skip if this is an adept achievement (already processed above)
-		if adeptAPINames[achievement.APIName] {
+		// Skip if this is a known achievement (already processed above)
+		if knownAPINames[achievement.APIName] {
 			continue
 		}
 		
@@ -406,6 +433,87 @@ func GetMappedAchievementsWithCache(achievements *PlayerAchievements, cacheManag
 	}
 
 	return result
+}
+
+// getAllGeneralAchievements returns all general achievements from schema/config with complete catalog guarantee
+func (am *AchievementMapper) getAllGeneralAchievements() []struct {
+	APIName     string
+	Name        string
+	DisplayName string
+	Description string
+	Type        string
+} {
+	var generalAchievements []struct {
+		APIName     string
+		Name        string
+		DisplayName string
+		Description string
+		Type        string
+	}
+
+	// First try schema-based general achievements if available
+	if am.config != nil {
+		for _, general := range am.config.General {
+			generalAchievements = append(generalAchievements, struct {
+				APIName     string
+				Name        string
+				DisplayName string
+				Description string
+				Type        string
+			}{
+				APIName:     general.APIName,
+				Name:        general.Name,
+				DisplayName: general.DisplayName,
+				Description: general.Description,
+				Type:        "general",
+			})
+		}
+	}
+
+	// Add hardcoded general achievements as fallback/supplement
+	hardcodedGeneral := map[string]struct {
+		Name        string
+		DisplayName string
+		Description string
+	}{
+		"ACH_SAVE_YOURSELF":         {Name: "self_preservation", DisplayName: "Taking One For The Team", Description: "Protect a Survivor from being hit 25 times"},
+		"ACH_PERFECT_KILLER":        {Name: "perfect_killer", DisplayName: "Perfect Killer", Description: "Get a perfect score as a Killer"},
+		"ACH_PERFECT_SURVIVOR":      {Name: "perfect_survivor", DisplayName: "Perfect Escape", Description: "Get a perfect score as a Survivor"},
+		"ACH_ESCAPE_OBSESSION":      {Name: "obsession_escape", DisplayName: "Escaped!", Description: "Escape as the Obsession"},
+		"ACH_GENERATOR_SOLO":        {Name: "generator_solo", DisplayName: "Technician", Description: "Repair a generator in the Killer's Terror Radius"},
+		"ACH_HEAL_SURVIVOR":         {Name: "healer", DisplayName: "Medic", Description: "Heal 25 Survivors"},
+		"ACH_RESCUE_UNHOOK":         {Name: "rescuer", DisplayName: "Savior", Description: "Rescue 25 Survivors from hooks"},
+		"ACH_KILL_BY_HAND":          {Name: "mori_master", DisplayName: "By Your Hand", Description: "Kill 25 Survivors by your hand"},
+		"ACH_BASEMENT_HOOK":         {Name: "basement_master", DisplayName: "Basement Party", Description: "Hook a Survivor in the basement"},
+		"ACH_HIT_SURVIVORS_EXPOSED": {Name: "exposed_master", DisplayName: "Exposed", Description: "Hit 25 Survivors suffering from the Exposed Status Effect"},
+	}
+
+	// Track which achievements we already have from schema to avoid duplicates
+	existingAPINames := make(map[string]bool)
+	for _, general := range generalAchievements {
+		existingAPINames[general.APIName] = true
+	}
+
+	// Add hardcoded achievements that aren't already in schema
+	for apiName, hardcoded := range hardcodedGeneral {
+		if !existingAPINames[apiName] {
+			generalAchievements = append(generalAchievements, struct {
+				APIName     string
+				Name        string
+				DisplayName string
+				Description string
+				Type        string
+			}{
+				APIName:     apiName,
+				Name:        hardcoded.Name,
+				DisplayName: hardcoded.DisplayName,
+				Description: hardcoded.Description,
+				Type:        "general",
+			})
+		}
+	}
+
+	return generalAchievements
 }
 
 // GetUnknownAchievements returns list of unmapped achievements for monitoring
