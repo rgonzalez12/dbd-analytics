@@ -81,7 +81,7 @@ func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID s
 
 	// Fetch player stats - CRITICAL PATH
 	g.Go(func() error {
-		result.Stats, result.StatsError, result.StatsSource = f.fetchStatsWithRetry(gCtx, steamID)
+		result.Stats, result.StatsSource, result.StatsError = f.fetchStatsWithRetry(gCtx, steamID)
 
 		// Update data source tracking
 		result.DataSources.Stats = models.DataSourceInfo{
@@ -111,7 +111,7 @@ func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID s
 
 	// Fetch achievements - NON-CRITICAL PATH (fail-soft)
 	g.Go(func() error {
-		achievementData, achErr, achSource := f.fetchAchievementsWithRetry(gCtx, steamID)
+		achievementData, achSource, achErr := f.fetchAchievementsWithRetry(gCtx, steamID)
 
 		result.AchError = achErr
 		result.AchSource = achSource
@@ -183,7 +183,7 @@ func (f *ParallelFetcher) FetchPlayerDataParallel(ctx context.Context, steamID s
 }
 
 // fetchStatsWithRetry fetches player stats with exponential backoff retry
-func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID string) (models.PlayerStats, error, string) {
+func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID string) (models.PlayerStats, string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= f.config.MaxRetries; attempt++ {
@@ -199,7 +199,7 @@ func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID strin
 			case <-time.After(backoff):
 				// Continue with retry
 			case <-ctx.Done():
-				return models.PlayerStats{}, ctx.Err(), "timeout"
+				return models.PlayerStats{}, "timeout", ctx.Err()
 			}
 		}
 
@@ -216,7 +216,7 @@ func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID strin
 					"attempt", attempt,
 					"source", source)
 			}
-			return stats, nil, source
+			return stats, source, nil
 		}
 
 		lastErr = err
@@ -231,11 +231,11 @@ func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID strin
 		}
 	}
 
-	return models.PlayerStats{}, lastErr, "api"
+	return models.PlayerStats{}, "api", lastErr
 }
 
 // fetchAchievementsWithRetry fetches achievements with exponential backoff retry
-func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamID string) (*models.AchievementData, error, string) {
+func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamID string) (*models.AchievementData, string, error) {
 	var lastErr error
 
 	for attempt := 0; attempt <= f.config.MaxRetries; attempt++ {
@@ -250,7 +250,7 @@ func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamI
 			case <-time.After(backoff):
 				// Continue with retry
 			case <-ctx.Done():
-				return nil, ctx.Err(), "timeout"
+				return nil, "timeout", ctx.Err()
 			}
 		}
 
@@ -266,7 +266,7 @@ func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamI
 					"attempt", attempt,
 					"source", source)
 			}
-			return achievements, nil, source
+			return achievements, source, nil
 		}
 
 		lastErr = err
@@ -281,7 +281,7 @@ func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamI
 		}
 	}
 
-	return nil, lastErr, "api"
+	return nil, "api", lastErr
 }
 
 // fetchStatsOnce performs a single stats fetch attempt
