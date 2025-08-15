@@ -15,6 +15,13 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
+type contextKey string
+
+const (
+	requestIDKey        contextKey = "request_id"
+	clientFingerprintKey contextKey = "client_fingerprint"
+)
+
 func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +29,7 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 			
 			w.Header().Set("X-Request-ID", requestID)
 			
-			ctx := context.WithValue(r.Context(), "request_id", requestID)
+			ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 			
 			log.Info("Request started",
 				"request_id", requestID,
@@ -131,7 +138,7 @@ func RateLimitMiddleware(limiter *RequestLimiter) func(http.Handler) http.Handle
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Use client fingerprint for more accurate rate limiting
-			clientFingerprint, ok := r.Context().Value("client_fingerprint").(string)
+			clientFingerprint, ok := r.Context().Value(clientFingerprintKey).(string)
 			if !ok {
 				// Fallback to IP if fingerprint not available
 				clientFingerprint = getClientIP(r)
@@ -235,7 +242,7 @@ func SecurityMiddleware() func(http.Handler) http.Handler {
 			clientFingerprint := getClientFingerprint(r)
 			
 			// Add client fingerprint to context for downstream middleware
-			ctx := context.WithValue(r.Context(), "client_fingerprint", clientFingerprint)
+			ctx := context.WithValue(r.Context(), clientFingerprintKey, clientFingerprint)
 			
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)

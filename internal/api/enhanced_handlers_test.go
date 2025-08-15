@@ -115,13 +115,13 @@ func (h *EnhancedTestHandler) GetPlayerStatsWithAchievements(w http.ResponseWrit
 	// Fetch player stats
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(steamID)
+		result.stats, result.statsSource, result.statsError = h.fetchPlayerStatsWithSource(steamID)
 	}()
 
 	// Fetch achievements
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(steamID)
+		result.achievements, result.achSource, result.achError = h.fetchPlayerAchievementsWithSource(steamID)
 	}()
 
 	// Wait for both to complete
@@ -168,31 +168,31 @@ func (h *EnhancedTestHandler) GetPlayerStatsWithAchievements(w http.ResponseWrit
 	writeJSONResponse(w, response)
 }
 
-func (h *EnhancedTestHandler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, error, string) {
+func (h *EnhancedTestHandler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, string, error) {
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		return models.PlayerStats{}, fmt.Errorf("steam summary failed: %w", err), "api"
+		return models.PlayerStats{}, "api", fmt.Errorf("steam summary failed: %w", err)
 	}
 
 	rawStats, err := h.steamClient.GetPlayerStats(steamID)
 	if err != nil {
-		return models.PlayerStats{}, fmt.Errorf("steam stats failed: %w", err), "api"
+		return models.PlayerStats{}, "api", fmt.Errorf("steam stats failed: %w", err)
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
 	flatPlayerStats := convertToPlayerStats(playerStats)
 
-	return flatPlayerStats, nil, "api"
+	return flatPlayerStats, "api", nil
 }
 
-func (h *EnhancedTestHandler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, error, string) {
+func (h *EnhancedTestHandler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, string, error) {
 	rawAchievements, err := h.steamClient.GetPlayerAchievements(steamID, steam.DBDAppID)
 	if err != nil {
-		return nil, fmt.Errorf("steam achievements failed: %w", err), "api"
+		return nil, "api", fmt.Errorf("steam achievements failed: %w", err)
 	}
 
 	processedAchievements := steam.ProcessAchievements(rawAchievements.Achievements)
-	return processedAchievements, nil, "api"
+	return processedAchievements, "api", nil
 }
 
 func TestGetPlayerStatsWithAchievements_HappyPath(t *testing.T) {

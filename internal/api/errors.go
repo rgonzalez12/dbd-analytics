@@ -18,7 +18,7 @@ type StandardError struct {
 
 func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
 	requestID := ""
-	if id := r.Context().Value("request_id"); id != nil {
+	if id := r.Context().Value(requestIDKey); id != nil {
 		if idStr, ok := id.(string); ok {
 			requestID = idStr
 		}

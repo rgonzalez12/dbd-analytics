@@ -1,4 +1,4 @@
-// Quick test to verify complete achievement catalog guarantee
+// Verify complete achievement catalog guarantee
 package main
 
 import (

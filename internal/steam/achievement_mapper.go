@@ -516,9 +516,10 @@ func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
 	killerCount := 0
 	
 	for _, character := range AdeptAchievementMapping {
-		if character.Type == "survivor" {
+		switch character.Type {
+		case "survivor":
 			survivorCount++
-		} else if character.Type == "killer" {
+		case "killer":
 			killerCount++
 		}
 	}

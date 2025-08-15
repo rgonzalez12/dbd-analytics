@@ -206,7 +206,7 @@ func (f *ParallelFetcher) fetchStatsWithRetry(ctx context.Context, steamID strin
 		// Create per-request context with timeout
 		reqCtx, cancel := context.WithTimeout(ctx, f.config.APITimeout)
 
-		stats, err, source := f.fetchStatsOnce(reqCtx, steamID)
+		stats, source, err := f.fetchStatsOnce(reqCtx, steamID)
 		cancel()
 
 		if err == nil {
@@ -256,7 +256,7 @@ func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamI
 
 		reqCtx, cancel := context.WithTimeout(ctx, f.config.APITimeout)
 
-		achievements, err, source := f.fetchAchievementsOnce(reqCtx, steamID)
+		achievements, source, err := f.fetchAchievementsOnce(reqCtx, steamID)
 		cancel()
 
 		if err == nil {
@@ -285,26 +285,26 @@ func (f *ParallelFetcher) fetchAchievementsWithRetry(ctx context.Context, steamI
 }
 
 // fetchStatsOnce performs a single stats fetch attempt
-func (f *ParallelFetcher) fetchStatsOnce(ctx context.Context, steamID string) (models.PlayerStats, error, string) {
+func (f *ParallelFetcher) fetchStatsOnce(_ context.Context, steamID string) (models.PlayerStats, string, error) {
 	// Use the Steam client to fetch stats
 	steamStats, apiErr := f.steamClient.GetPlayerStats(steamID)
 	if apiErr != nil {
-		return models.PlayerStats{}, apiErr, "api"
+		return models.PlayerStats{}, "api", apiErr
 	}
 
 	// Convert steam stats to models.PlayerStats using existing mappers
 	return models.PlayerStats{
 		SteamID: steamStats.SteamID,
 		// Integration with steam.MapSteamStats would be implemented here
-	}, nil, "api"
+	}, "api", nil
 }
 
 // fetchAchievementsOnce performs a single achievements fetch attempt
-func (f *ParallelFetcher) fetchAchievementsOnce(ctx context.Context, steamID string) (*models.AchievementData, error, string) {
+func (f *ParallelFetcher) fetchAchievementsOnce(_ context.Context, steamID string) (*models.AchievementData, string, error) {
 	// Use the Steam client to fetch achievements
 	_, apiErr := f.steamClient.GetPlayerAchievements(steamID, "381210") // DBD App ID
 	if apiErr != nil {
-		return nil, apiErr, "api"
+		return nil, "api", apiErr
 	}
 
 	// Convert steam achievements to models.AchievementData using existing mappers
@@ -312,7 +312,7 @@ func (f *ParallelFetcher) fetchAchievementsOnce(ctx context.Context, steamID str
 		AdeptSurvivors: make(map[string]bool),
 		AdeptKillers:   make(map[string]bool),
 		LastUpdated:    time.Now(),
-	}, nil, "api"
+	}, "api", nil
 }
 
 // calculateBackoff calculates exponential backoff with jitter

@@ -135,9 +135,10 @@ func buildHardcodedConfig() *AchievementConfig {
 			Category:    "adept",
 		}
 
-		if character.Type == "survivor" {
+		switch character.Type {
+		case "survivor":
 			config.Survivors = append(config.Survivors, entry)
-		} else if character.Type == "killer" {
+		case "killer":
 			config.Killers = append(config.Killers, entry)
 		}
 	}

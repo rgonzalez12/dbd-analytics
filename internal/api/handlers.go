@@ -889,12 +889,12 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(resolvedSteamID)
+		result.stats, result.statsSource, result.statsError = h.fetchPlayerStatsWithSource(resolvedSteamID)
 	}()
 
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
-		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
+		result.achievements, result.achSource, result.achError = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
 	}()
 
 	timeout := time.After(SteamAPITimeout)
@@ -953,21 +953,22 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		response.DataSources.Achievements.Error = result.achError.Error()
 
 		// Log with different severity based on error type
-		if errorType == "steam_api_down" || errorType == "rate_limited" {
+		switch errorType {
+		case "steam_api_down", "rate_limited":
 			requestLogger.Error("Steam achievements API unavailable - returning stats only",
 				"error", result.achError,
 				"error_type", errorType,
 				"steam_id", steamID,
 				"persona_name", result.stats.DisplayName,
 				"impact", "partial_data_served")
-		} else if errorType == "private_profile" || errorType == "no_achievements" {
+		case "private_profile", "no_achievements":
 			requestLogger.Info("Player achievements not accessible - returning stats only",
 				"error", result.achError,
 				"error_type", errorType,
 				"steam_id", steamID,
 				"persona_name", result.stats.DisplayName,
 				"reason", "expected_user_privacy_or_no_data")
-		} else {
+		default:
 			requestLogger.Warn("Unexpected achievement fetch error - returning stats only",
 				"error", result.achError,
 				"error_type", errorType,
@@ -1014,24 +1015,24 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, error, string) {
+func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, string, error) {
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
 			if playerStats, ok := cached.(models.PlayerStats); ok {
-				return playerStats, nil, "cache"
+				return playerStats, "cache", nil
 			}
 		}
 	}
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		return models.PlayerStats{}, fmt.Errorf("steam summary failed: %w", err), "api"
+		return models.PlayerStats{}, "api", fmt.Errorf("steam summary failed: %w", err)
 	}
 
 	rawStats, err := h.steamClient.GetPlayerStats(steamID)
 	if err != nil {
-		return models.PlayerStats{}, fmt.Errorf("steam stats failed: %w", err), "api"
+		return models.PlayerStats{}, "api", fmt.Errorf("steam stats failed: %w", err)
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
@@ -1043,10 +1044,10 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 		h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, config.TTL.PlayerStats)
 	}
 
-	return flatPlayerStats, nil, "api"
+	return flatPlayerStats, "api", nil
 }
 
-func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, error, string) {
+func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, string, error) {
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
@@ -1056,7 +1057,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 					"steam_id", steamID,
 					"cache_age", age,
 					"cache_key", cacheKey)
-				return achievements, nil, "cache"
+				return achievements, "cache", nil
 			} else {
 				log.Warn("Invalid achievement cache entry type, removing",
 					"steam_id", steamID,
@@ -1104,7 +1105,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 			"error", apiErr,
 			"error_type", classifyError(apiErr),
 			"circuit_breaker_active", h.cacheManager != nil && h.cacheManager.GetCircuitBreaker() != nil)
-		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
+		return nil, "api", fmt.Errorf("steam achievements failed: %w", apiErr)
 	}
 
 	ctx := context.Background()
@@ -1218,7 +1219,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	return processedAchievements, nil, "api"
+	return processedAchievements, "api", nil
 }
 
 func classifyError(err error) string {

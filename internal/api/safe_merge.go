@@ -110,7 +110,7 @@ func (m *SafeAchievementMerger) SafeMergeAchievements(
 }
 
 // validateAchievementData performs validation checks on achievement data
-func (m *SafeAchievementMerger) validateAchievementData(data *models.AchievementData, steamID string) error {
+func (m *SafeAchievementMerger) validateAchievementData(data *models.AchievementData, _ string) error {
 	if data == nil {
 		return fmt.Errorf("achievement data is nil")
 	}

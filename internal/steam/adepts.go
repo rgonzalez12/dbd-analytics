@@ -36,9 +36,10 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 	
 	for _, char := range AdeptAchievementMapping {
 		normalizedName := strings.ToLower(char.Name)
-		if char.Type == "killer" {
+		switch char.Type {
+		case "killer":
 			killerNames[normalizedName] = true
-		} else {
+		default:
 			survivorNames[normalizedName] = true
 		}
 	}
@@ -66,11 +67,12 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 			
 			// Determine type using hardcoded mapping first, then heuristics
 			kind := "survivor" // default
-			if killerNames[normalizedChar] {
+			switch {
+			case killerNames[normalizedChar]:
 				kind = "killer"
-			} else if survivorNames[normalizedChar] {
+			case survivorNames[normalizedChar]:
 				kind = "survivor"
-			} else {
+			default:
 				// Fallback heuristics for unknown characters
 				if strings.HasPrefix(matches[1], "The ") {
 					kind = "killer"

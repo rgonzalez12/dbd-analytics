@@ -81,6 +81,7 @@ func TestRetryLogic_ExhaustAllAttempts(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected error after exhausting all attempts")
+		return
 	}
 
 	if attempts != 3 {
@@ -227,6 +228,7 @@ func TestRetryLogic_MaxRetryCap(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected error after exhausting max attempts")
+		return
 	}
 
 	if attempts != 5 {
@@ -274,6 +276,7 @@ func TestRetryLogic_HTTP429Failures(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected rate limit error after all retries")
+		return
 	}
 
 	if requestCount != 4 {
@@ -320,6 +323,7 @@ func TestRetryLogic_HTTP500Failures(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected API error for 500 status")
+		return
 	}
 
 	// Should make all retry attempts since 500 errors are now retryable

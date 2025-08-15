@@ -79,18 +79,20 @@ func (cw *CacheWarmer) WarmUp(ctx context.Context, jobs []WarmUpJob) error {
 	}
 
 	// Send jobs
+sendLoop:
 	for _, job := range jobs {
 		select {
 		case jobChan <- job:
 		case <-ctx.Done():
 			log.Warn("Cache warm-up timeout reached while queuing jobs")
-			break
+			break sendLoop
 		}
 	}
 	close(jobChan)
 
 	// Collect results
 	var successful, failed int
+collectLoop:
 	for i := 0; i < len(jobs); i++ {
 		select {
 		case result := <-resultChan:
@@ -105,7 +107,7 @@ func (cw *CacheWarmer) WarmUp(ctx context.Context, jobs []WarmUpJob) error {
 			}
 		case <-ctx.Done():
 			log.Warn("Cache warm-up timeout reached while collecting results")
-			break
+			break collectLoop
 		}
 	}
 
