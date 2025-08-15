@@ -15,7 +15,6 @@ type SecurityConfig struct {
 	SensitiveEnvVars []string
 }
 
-// ValidateEnvironment performs security checks on environment variables
 func ValidateEnvironment() error {
 	config := SecurityConfig{
 		RequiredEnvVars: []string{

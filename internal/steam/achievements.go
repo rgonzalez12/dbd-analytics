@@ -7,7 +7,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/models"
 )
 
-// AdeptAchievementMapping maps Steam achievement API names to character names and types
 var AdeptAchievementMapping = map[string]AdeptCharacter{
 	// Base Game Survivors
 	"ACH_UNLOCK_DWIGHT_PERKS":    {Name: "dwight", Type: "survivor"},
@@ -109,7 +108,6 @@ type AdeptCharacter struct {
 	Type string // "survivor" or "killer"
 }
 
-// ProcessAchievements converts Steam achievements to our structured format
 func ProcessAchievements(steamAchievements []SteamAchievement) *models.AchievementData {
 	adeptSurvivors := make(map[string]bool)
 	adeptKillers := make(map[string]bool)

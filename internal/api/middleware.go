@@ -15,19 +15,15 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// RequestIDMiddleware adds a unique request ID to each request for tracing
 func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := generateRequestID()
 			
-			// Add to response headers for client reference
 			w.Header().Set("X-Request-ID", requestID)
 			
-			// Add to request context for handler access
 			ctx := context.WithValue(r.Context(), "request_id", requestID)
 			
-			// Log request start with ID
 			log.Info("Request started",
 				"request_id", requestID,
 				"method", r.Method,
@@ -40,7 +36,6 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// generateRequestID creates a unique request identifier
 func generateRequestID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)

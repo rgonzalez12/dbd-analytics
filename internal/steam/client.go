@@ -97,7 +97,6 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		// Wrap Steam ID resolution errors with additional context for debugging
 		wrappedErr := &APIError{
 			Type:       err.Type,
 			Message:    fmt.Sprintf("GetPlayerSummary failed during Steam ID resolution: %s", err.Message),
@@ -120,17 +119,15 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 
 	var resp playerSummaryResponse
 
-	// Execute API request with enhanced retry logic and structured logging
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			// Wrap API request errors with additional context for troubleshooting
 			wrappedErr := &APIError{
 				Type:       err.Type,
 				Message:    fmt.Sprintf("GetPlayerSummary API request failed: %s", err.Message),
 				StatusCode: err.StatusCode,
 				Retryable:  err.Retryable,
 			}
-			return wrappedErr, false // Allow retry logic to determine if request should be retried
+			return wrappedErr, false
 		}
 		return nil, false
 	}, "GetPlayerSummary")

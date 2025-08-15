@@ -9,7 +9,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// StandardError represents the consistent JSON error response format that matches frontend ApiError type
 type StandardError struct {
 	Status    int                    `json:"status"`
 	Message   string                 `json:"message"`
@@ -17,9 +16,7 @@ type StandardError struct {
 	RetryAfter *int                  `json:"retryAfter,omitempty"`
 }
 
-// writeStandardErrorResponse writes standardized JSON error responses
 func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
-	// Get request ID from context if available
 	requestID := ""
 	if id := r.Context().Value("request_id"); id != nil {
 		if idStr, ok := id.(string); ok {
@@ -27,12 +24,10 @@ func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code str
 		}
 	}
 
-	// If no request ID in context, generate one
 	if requestID == "" {
 		requestID = generateRequestID()
 	}
 
-	// Add request_id to details for debugging
 	if details == nil {
 		details = make(map[string]interface{})
 	}
@@ -50,7 +45,6 @@ func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code str
 	w.Header().Set("X-Request-ID", requestID)
 	w.WriteHeader(statusCode)
 
-	// Log the error with context
 	log.Error("API error response",
 		"request_id", requestID,
 		"error_code", code,
@@ -63,12 +57,10 @@ func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code str
 		log.Error("Failed to encode error response",
 			"request_id", requestID,
 			"encoding_error", err.Error())
-		// Fallback to plain text
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
-// writeValidationError writes standardized validation error responses
 func writeValidationError(w http.ResponseWriter, r *http.Request, message string, field string) {
 	details := map[string]interface{}{
 		"field": field,
@@ -76,14 +68,12 @@ func writeValidationError(w http.ResponseWriter, r *http.Request, message string
 	writeStandardErrorResponse(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details, nil)
 }
 
-// writeSteamAPIError converts Steam API errors to standardized format
 func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.APIError) {
 	var code string
 	var statusCode int
 	var retryAfter *int
 	details := make(map[string]interface{})
 
-	// Map Steam API errors to standard error codes
 	switch apiErr.Type {
 	case steam.ErrorTypeValidation:
 		code = "VALIDATION_ERROR"
@@ -123,7 +113,6 @@ func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.AP
 		statusCode = http.StatusInternalServerError
 	}
 
-	// Add retryability information
 	if apiErr.Retryable {
 		details["retryable"] = true
 	}
@@ -142,7 +131,6 @@ func writeTimeoutError(w http.ResponseWriter, r *http.Request, operation string)
 		http.StatusRequestTimeout, details, nil)
 }
 
-// writeInternalError writes standardized internal error responses
 func writeInternalError(w http.ResponseWriter, r *http.Request, message string) {
 	writeStandardErrorResponse(w, r, "INTERNAL_ERROR", message, http.StatusInternalServerError, nil, nil)
 }

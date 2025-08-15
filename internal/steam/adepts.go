@@ -25,7 +25,6 @@ func normalizeChar(s string) string {
 	return s
 }
 
-// BuildAdeptMap parses GetSchemaForGame achievements and returns map[apiname]AdeptEntry
 func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 	schema, err := c.GetSchemaForGame(DBDAppID)
 	if err != nil {

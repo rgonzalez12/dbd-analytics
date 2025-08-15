@@ -35,7 +35,6 @@ type RedisConfig struct {
 	WriteTimeout time.Duration `json:"write_timeout"`
 }
 
-// DefaultConfig returns a sensible default configuration for production
 func DefaultConfig() Config {
 	ttlConfig := GetTTLFromEnv()
 	return Config{
@@ -58,7 +57,6 @@ func DefaultConfig() Config {
 	}
 }
 
-// PlayerStatsConfig returns cache configuration optimized for player statistics
 func PlayerStatsConfig() Config {
 	config := DefaultConfig()
 	// Use configurable TTL for player stats
@@ -70,7 +68,6 @@ func PlayerStatsConfig() Config {
 	return config
 }
 
-// DevelopmentConfig returns a configuration suitable for development/testing
 func DevelopmentConfig() Config {
 	config := DefaultConfig()
 	config.Memory.MaxEntries = 100
@@ -113,7 +110,6 @@ func NewManager(config Config) (*Manager, error) {
 	return manager, nil
 }
 
-// GetCache returns the underlying cache implementation
 func (m *Manager) GetCache() Cache {
 	return m.cache
 }

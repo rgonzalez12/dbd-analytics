@@ -197,7 +197,6 @@ func (mc *MemoryCache) Get(key string) (interface{}, bool) {
 	return entry.Value, true
 }
 
-// Delete removes a specific key from the cache
 func (mc *MemoryCache) Delete(key string) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -215,7 +214,6 @@ func (mc *MemoryCache) Delete(key string) error {
 	return nil
 }
 
-// Clear removes all entries from the cache
 func (mc *MemoryCache) Clear() error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()

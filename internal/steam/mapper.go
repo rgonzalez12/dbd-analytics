@@ -2,8 +2,6 @@ package steam
 
 import "time"
 
-// statMapping maps Steam API stat keys to human-readable field names
-// This mapping can be expanded as new Dead by Daylight statistics are discovered
 var statMapping = map[string]string{
 	// Killer Statistics
 	"DBD_KilledCampers":      "killer.total_kills",
@@ -43,7 +41,6 @@ func GetDBDPlayerStats(raw []SteamStat, steamID, displayName string) DBDPlayerSt
 }
 
 func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats {
-	// Initialize player stats structure with default values and basic information
 	stats := DBDPlayerStats{
 		SteamID:     steamID,
 		DisplayName: displayName,
@@ -57,7 +54,6 @@ func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats 
 		rawStatsMap[stat.Name] = int(stat.Value)
 	}
 
-	// Map each known stat to the appropriate field
 	for steamKey, fieldPath := range statMapping {
 		value, exists := rawStatsMap[steamKey]
 		if !exists {
@@ -145,7 +141,6 @@ func AddStatMapping(steamKey, fieldPath string) {
 	statMapping[steamKey] = fieldPath
 }
 
-// ConvertToFlatPlayerStats converts the nested DBDPlayerStats structure to the flat models.PlayerStats structure
 func ConvertToFlatPlayerStats(dbdStats DBDPlayerStats) interface{} {
 	// This would need to import models package, but to avoid circular imports,
 	// we'll return a map that can be easily converted

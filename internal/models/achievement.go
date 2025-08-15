@@ -2,7 +2,6 @@ package models
 
 import "time"
 
-// AchievementData represents processed achievement information for a player
 type AchievementData struct {
 	// Legacy format for backward compatibility
 	AdeptSurvivors map[string]bool `json:"adept_survivors"` // character name -> unlocked status
@@ -15,7 +14,6 @@ type AchievementData struct {
 	LastUpdated time.Time `json:"last_updated"`
 }
 
-// MappedAchievement represents a single achievement with human-readable information
 type MappedAchievement struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`

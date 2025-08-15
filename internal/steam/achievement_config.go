@@ -36,9 +36,7 @@ type ConfigMetadata struct {
 	TotalCount  int    `json:"total_count"`
 }
 
-// LoadAchievementConfig loads achievement mapping from JSON file or falls back to hardcoded
 func LoadAchievementConfig() (*AchievementConfig, error) {
-	// Try to load from file first
 	configPath := os.Getenv("ACHIEVEMENT_CONFIG_PATH")
 	if configPath == "" {
 		configPath = "config/achievements.json"

@@ -18,7 +18,6 @@ type RetryConfig struct {
 }
 
 func DefaultRetryConfig() RetryConfig {
-	// Read max retries from STEAM_MAX_RETRIES environment variable, default to 3
 	maxRetries := 3
 	if envRetries := os.Getenv("STEAM_MAX_RETRIES"); envRetries != "" {
 		if parsed, err := strconv.Atoi(envRetries); err == nil && parsed >= 0 {
@@ -42,25 +41,21 @@ func shouldRetryError(err *APIError) bool {
 		return false
 	}
 
-	// Don't retry validation errors or not found errors
 	if err.Type == ErrorTypeValidation || err.Type == ErrorTypeNotFound {
 		return false
 	}
 
-	// Evaluate status codes to determine retry eligibility - only retry on 429 and 5xx errors
 	if err.StatusCode > 0 {
 		switch err.StatusCode {
-		case 429: // Too Many Requests - always retryable
+		case 429:
 			return true
-		case 403, 404: // Forbidden, Not Found - permanent failures that should not be retried
+		case 403, 404:
 			return false
 		default:
-			// Only retry on 5xx server errors (500-599)
 			return err.StatusCode >= 500 && err.StatusCode < 600
 		}
 	}
 
-	// For other error types, use the existing Retryable field
 	return err.Retryable
 }
 
@@ -86,7 +81,6 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 	}
 
 	for attempt := 0; attempt < config.MaxAttempts; attempt++ {
-		// Log retry attempt details if this is not the initial attempt
 		if attempt > 0 && operation != "" {
 			slog.Warn("Retrying operation after failure",
 				slog.String("operation", operation),
@@ -97,7 +91,6 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 				slog.String("last_error", lastErr.Message))
 		}
 
-		// Execute the function
 		err, shouldStop := fn()
 
 		// Success case
@@ -172,7 +165,6 @@ func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Du
 	return calculateBackoffDelay(attempt, config)
 }
 
-// calculateBackoffDelay implements exponential backoff with optional jitter
 func calculateBackoffDelay(attempt int, config RetryConfig) time.Duration {
 	// Exponential backoff: baseDelay * multiplier^attempt
 	delay := float64(config.BaseDelay) * math.Pow(config.Multiplier, float64(attempt))

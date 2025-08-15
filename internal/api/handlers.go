@@ -35,7 +35,6 @@ type Handler struct {
 }
 
 func NewHandler() *Handler {
-	// Initialize cache with player stats configuration
 	cacheManager, err := cache.NewManager(cache.PlayerStatsConfig())
 	if err != nil {
 		log.Error("Failed to initialize cache manager, proceeding without cache",
@@ -59,22 +58,18 @@ func NewHandler() *Handler {
 
 func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 	return models.PlayerStats{
-		// Core player identification
 		SteamID:     dbdStats.SteamID,
 		DisplayName: dbdStats.DisplayName,
 
-		// Progression metrics
 		KillerPips:   dbdStats.Killer.KillerPips,
 		SurvivorPips: dbdStats.Survivor.SurvivorPips,
 
-		// Killer statistics
 		KilledCampers:     dbdStats.Killer.TotalKills,
 		SacrificedCampers: dbdStats.Killer.SacrificedVictims,
 		MoriKills:         dbdStats.Killer.MoriKills,
 		HooksPerformed:    dbdStats.Killer.HooksPerformed,
 		UncloakAttacks:    dbdStats.Killer.UncloakAttacks,
 
-		// Survivor statistics
 		GeneratorPct:         dbdStats.Survivor.GeneratorsCompleted,
 		HealPct:              dbdStats.Survivor.HealingCompleted,
 		EscapesKO:            dbdStats.Survivor.EscapesKnockedOut,
@@ -87,23 +82,18 @@ func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
 		PostExitActions:      dbdStats.Survivor.PostExitActions,
 		EscapeThroughHatch:   dbdStats.Survivor.EscapesThroughHatch,
 
-		// Game progression
 		BloodwebPoints: dbdStats.General.BloodwebPoints,
 
-		// Achievement counters
 		CamperPerfectGames: dbdStats.Survivor.PerfectGames,
 		KillerPerfectGames: dbdStats.Killer.PerfectGames,
 
-		// Equipment tracking
 		CamperFullLoadout: dbdStats.Survivor.FullLoadoutGames,
 		KillerFullLoadout: dbdStats.Killer.FullLoadoutGames,
 		CamperNewItem:     dbdStats.Survivor.NewItemsFound,
 
-		// General game statistics
 		TotalMatches: dbdStats.General.TotalMatches,
 		TimePlayed:   dbdStats.General.TimePlayed,
 
-		// Metadata
 		LastUpdated: dbdStats.General.LastUpdated,
 	}
 }
@@ -120,7 +110,6 @@ func NewResponseBuilder() *ResponseBuilder {
 	}
 }
 
-// AddData adds key-value data to the response
 func (rb *ResponseBuilder) AddData(key string, value interface{}) *ResponseBuilder {
 	rb.data[key] = value
 	return rb
@@ -155,7 +144,6 @@ func (rb *ResponseBuilder) AddPerformanceMetrics(stats cache.CacheStats) *Respon
 		}(),
 	}
 
-	// Add performance recommendations
 	var recs []string
 	if stats.HitRate < 70 && totalRequests > 100 {
 		recs = append(recs, "Consider increasing TTL values or reviewing cache key strategy")
@@ -174,7 +162,6 @@ func (rb *ResponseBuilder) AddPerformanceMetrics(stats cache.CacheStats) *Respon
 	return rb
 }
 
-// AddTimestamp adds timestamp to response
 func (rb *ResponseBuilder) AddTimestamp() *ResponseBuilder {
 	rb.data["timestamp"] = rb.timestamp
 	return rb
@@ -186,27 +173,22 @@ func (rb *ResponseBuilder) Build() map[string]interface{} {
 }
 
 func validateSteamID(steamID string) bool {
-	// Steam ID must be exactly 17 digits in length
 	if len(steamID) != 17 {
 		return false
 	}
 
-	// Ensure all characters are numeric
 	if _, err := strconv.ParseUint(steamID, 10, 64); err != nil {
 		return false
 	}
 
-	// Steam IDs must start with 7656119 (Steam's standardized base)
 	return steamID[:7] == "7656119"
 }
 
 func isValidVanityURL(vanity string) bool {
-	// Steam vanity URLs must be 3-32 characters, alphanumeric plus underscore/hyphen
 	if len(vanity) < 3 || len(vanity) > 32 {
 		return false
 	}
 
-	// Use pre-compiled regex for optimal performance
 	return vanityURLRegex.MatchString(vanity)
 }
 
@@ -215,12 +197,10 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 		return steam.NewValidationError("Steam ID or vanity URL required")
 	}
 
-	// Prevent excessively long inputs that could cause DoS
 	if len(input) > 64 {
 		return steam.NewValidationError("Input too long. Steam ID must be 17 digits or vanity URL 3-32 characters")
 	}
 
-	// If input starts with Steam ID prefix (7656119), validate as Steam ID
 	if len(input) >= 7 && input[:7] == "7656119" {
 		if !validateSteamID(input) {
 			return steam.NewValidationError("Invalid Steam ID format. Must be 17 digits starting with 7656119")
@@ -228,12 +208,10 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 		return nil
 	}
 
-	// If it's all digits but doesn't start with Steam prefix, it's an invalid Steam ID
 	if digitOnlyRegex.MatchString(input) {
 		return steam.NewValidationError("Invalid Steam ID format. Must be 17 digits starting with 7656119")
 	}
 
-	// Otherwise validate as vanity URL
 	if !isValidVanityURL(input) {
 		return steam.NewValidationError("Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only")
 	}
@@ -244,16 +222,13 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	
-	// Create context with timeout
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
 	
 	steamID := mux.Vars(r)["steamid"]
 
-	// Create structured logger with comprehensive request context
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 
-	// Validate Steam ID format before making any external API calls
 	if err := validateSteamIDOrVanity(steamID); err != nil {
 		log.ErrorContext(string(err.Type), steamID).Warn("Invalid Steam ID format in GetPlayerSummary",
 			"user_agent", r.UserAgent(),
@@ -263,7 +238,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check cache first if caching is enabled
 	var cacheKey string
 	var cacheHit bool
 	if h.cacheManager != nil {
@@ -279,7 +253,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 				writeJSONResponse(w, summary)
 				return
 			} else {
-				// Invalid cache entry type - this indicates a cache corruption issue
 				h.cacheManager.GetCache().Delete(cacheKey)
 				log.ErrorContext("cache_corruption", steamID).Error("Cache corruption detected: invalid entry type",
 					"cache_key", cacheKey,
@@ -297,7 +270,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		"cache_hit", cacheHit,
 		"operation", "steam_api_call")
 
-	// Check context timeout before making Steam API call
 	select {
 	case <-ctx.Done():
 		writeTimeoutError(w, r, "player_summary")
@@ -307,7 +279,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
-		// Log Steam API errors with comprehensive context for debugging
 		durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
 		log.ErrorContext(string(err.Type), steamID).Error("Failed to get player summary",
 			"error_message", err.Message,
@@ -317,16 +288,12 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
-		// Check context timeout before caching
 		select {
 		case <-ctx.Done():
-			// Don't fail if we can't cache - just log and return the data we have
 			requestLogger.Info("Context timeout during cache write", "steam_id", steamID)
 		default:
 			config := h.cacheManager.GetConfig()
-			// Cache with timeout protection (but don't use the context in Set call for now)
 			if err := h.cacheManager.GetCache().Set(cacheKey, summary, config.TTL.PlayerSummary); err != nil {
 				requestLogger.Error("Failed to cache player summary",
 					"error", err,
@@ -339,7 +306,6 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 					"cache_status", "set_success")
 			}
 
-			// Log cache performance stats periodically
 			if stats := h.cacheManager.GetCache().Stats(); (stats.Hits+stats.Misses)%100 == 0 {
 				requestLogger.Info("Cache performance snapshot",
 					"hit_rate", fmt.Sprintf("%.1f%%", stats.HitRate),
@@ -363,7 +329,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
 
-	// Create structured logger with comprehensive request context
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 
 	if err := validateSteamIDOrVanity(steamID); err != nil {
@@ -375,7 +340,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check cache first if caching is enabled
 	var cacheKey string
 	var cacheHit bool
 	if h.cacheManager != nil {
@@ -390,7 +354,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 				writeJSONResponse(w, playerStats)
 				return
 			} else {
-				// Invalid cache entry type - log and remove
 				requestLogger.Warn("Invalid cache entry type, removing",
 					"cache_key", cacheKey,
 					"expected", "models.PlayerStats",
@@ -404,7 +367,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	requestLogger.Info("Processing player stats request", "cache_hit", cacheHit)
 
-	// Check context timeout before making Steam API calls
 	select {
 	case <-ctx.Done():
 		writeTimeoutError(w, r, "player_stats")
@@ -422,7 +384,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check context timeout before second API call
 	select {
 	case <-ctx.Done():
 		writeTimeoutError(w, r, "player_stats")
@@ -443,10 +404,8 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
 
-	// Convert nested structure to flat API response format
 	flatPlayerStats := convertToPlayerStats(playerStats)
 
-	// Store in cache if caching is enabled
 	if h.cacheManager != nil && cacheKey != "" {
 		config := h.cacheManager.GetConfig()
 		if err := h.cacheManager.GetCache().Set(cacheKey, flatPlayerStats, config.TTL.PlayerStats); err != nil {
@@ -454,7 +413,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 				"error", err,
 				"cache_key", cacheKey,
 				"stats_size", len(fmt.Sprintf("%+v", flatPlayerStats)))
-			// Don't fail the request if caching fails - log and continue
 		} else {
 			requestLogger.Debug("Player stats cached successfully",
 				"cache_key", cacheKey,
@@ -471,7 +429,6 @@ func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, flatPlayerStats)
 }
 
-// GetCacheStats returns comprehensive cache performance metrics for monitoring
 func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 	if h.cacheManager == nil {
 		writeErrorResponse(w, steam.NewInternalError(fmt.Errorf("caching not enabled")))
@@ -480,10 +437,8 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 
 	stats := h.cacheManager.GetCache().Stats()
 
-	// Calculate additional derived metrics
 	totalRequests := stats.Hits + stats.Misses
 
-	// Performance assessment
 	performance := "excellent"
 	if stats.HitRate < 90 && totalRequests > 1000 {
 		performance = "good"
@@ -495,7 +450,6 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 		performance = "critical"
 	}
 
-	// Create comprehensive response using ResponseBuilder
 	response := NewResponseBuilder().
 		AddCacheStats(stats, string(h.cacheManager.GetConfig().Type)).
 		AddPerformanceMetrics(stats).
@@ -512,17 +466,13 @@ func (h *Handler) GetCacheStats(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(w, response)
 }
 
-// EvictExpiredEntries manually triggers cache cleanup and returns statistics
-// This is an admin-only endpoint and should be protected in production
 func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
-	// Rate limiting: only allow one eviction per 30 seconds
 	if !h.checkEvictionRateLimit(r) {
 		w.Header().Set("Retry-After", "30")
 		writeErrorResponse(w, steam.NewRateLimitErrorWithRetryAfter(30))
 		return
 	}
 
-	// Basic admin check - in production, replace with proper auth
 	adminToken := r.Header.Get("X-Admin-Token")
 	if adminToken == "" {
 		log.Warn("Unauthorized cache eviction attempt - missing token",
@@ -571,26 +521,21 @@ func (h *Handler) EvictExpiredEntries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
-	// Production metrics endpoint security
-	// In production, you'd configure these from environment variables
 	allowedIPs := []string{
 		"127.0.0.1",
 		"::1",
 		"10.0.0.0/8",
 		"172.16.0.0/12",
-		"192.168.0.0/16", // Private network ranges
+		"192.168.0.0/16",
 	}
 
 	clientIP := r.RemoteAddr
-	// Extract IP from "IP:port" format
 	if colon := strings.LastIndex(clientIP, ":"); colon != -1 {
 		clientIP = clientIP[:colon]
 	}
 
-	// Simple IP allowlist check (in production, use proper CIDR matching)
 	for _, allowedIP := range allowedIPs {
 		if strings.Contains(allowedIP, "/") {
-			// CIDR range - simple prefix check for common private ranges
 			if allowedIP == "10.0.0.0/8" && strings.HasPrefix(clientIP, "10.") {
 				return true
 			}
@@ -607,7 +552,6 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 		}
 	}
 
-	// For development/testing, allow all local traffic
 	if strings.HasPrefix(clientIP, "127.") || strings.HasPrefix(clientIP, "192.168.") ||
 		strings.HasPrefix(clientIP, "10.") || strings.HasPrefix(clientIP, "172.16.") ||
 		clientIP == "::1" {
@@ -618,7 +562,6 @@ func (h *Handler) isMetricsAccessAllowed(r *http.Request) bool {
 }
 
 func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
-	// Security: Only allow metrics scraping from specific IPs in production
 	if !h.isMetricsAccessAllowed(r) {
 		log.Warn("Metrics access denied",
 			"remote_addr", r.RemoteAddr,
@@ -635,7 +578,6 @@ func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 	stats := h.cacheManager.GetCache().Stats()
 
-	// Generate Prometheus-style metrics
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
 
 	fmt.Fprintf(w, "# HELP cache_hits_total Total number of cache hits\n")
@@ -684,7 +626,6 @@ func (h *Handler) GetMetrics(w http.ResponseWriter, r *http.Request) {
 		"entries", stats.Entries)
 }
 
-// checkEvictionRateLimit implements basic rate limiting for cache eviction
 func (h *Handler) checkEvictionRateLimit(r *http.Request) bool {
 	now := time.Now()
 	if now.Sub(h.lastEvictionTime) < 30*time.Second {
@@ -706,10 +647,8 @@ func (h *Handler) Close() error {
 }
 
 func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
-	// Generate a unique request ID for tracing
 	requestID := generateRequestID()
 
-	// Determine the appropriate HTTP status code
 	statusCode := determineStatusCode(apiErr)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -719,19 +658,16 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	w.Header().Set("X-Request-ID", requestID)
 	w.WriteHeader(statusCode)
 
-	// Create enhanced error response format
 	errorResponse := map[string]interface{}{
 		"error":      apiErr.Message,
 		"type":       string(apiErr.Type),
 		"request_id": requestID,
 	}
 
-	// Add details for specific error types
 	switch apiErr.Type {
 	case steam.ErrorTypeRateLimit:
 		errorResponse["details"] = "Steam API rate limit exceeded"
-		// Use the actual retry_after value from the Steam API response
-		retryAfter := 60 // Default fallback
+		retryAfter := 60
 		if apiErr.RetryAfter > 0 {
 			retryAfter = apiErr.RetryAfter
 		}
@@ -740,7 +676,6 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 	case steam.ErrorTypeAPIError:
 		if apiErr.StatusCode != 0 {
 			errorResponse["details"] = fmt.Sprintf("Steam API returned %d %s", apiErr.StatusCode, http.StatusText(apiErr.StatusCode))
-			// Differentiate client vs server errors from Steam
 			if apiErr.StatusCode >= 400 && apiErr.StatusCode < 500 {
 				errorResponse["source"] = "client_error"
 			} else {
@@ -748,7 +683,7 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 			}
 		}
 		if apiErr.Retryable {
-			errorResponse["retry_after"] = 30 // Retry after 30 seconds for API errors
+			errorResponse["retry_after"] = 30
 		}
 
 	case steam.ErrorTypeNetwork:
@@ -769,12 +704,10 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 		errorResponse["source"] = "server_error"
 	}
 
-	// Add retryable flag for client guidance
 	if apiErr.Retryable {
 		errorResponse["retryable"] = true
 	}
 
-	// Log the error with request ID for tracing
 	log.Error("API error response generated",
 		"request_id", requestID,
 		"error_type", string(apiErr.Type),
@@ -786,28 +719,21 @@ func writeErrorResponse(w http.ResponseWriter, apiErr *steam.APIError) {
 			"request_id", requestID,
 			"error", err.Error(),
 			"original_error", apiErr.Message)
-		// Fallback to plain text if JSON encoding fails
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
 func determineStatusCode(apiErr *steam.APIError) int {
-	// If the error already has a status code, use it but map appropriately
 	if apiErr.StatusCode != 0 {
 		switch apiErr.Type {
 		case steam.ErrorTypeAPIError:
-			// For Steam API errors, differentiate client vs server issues
 			if apiErr.StatusCode == http.StatusForbidden || apiErr.StatusCode == http.StatusNotFound {
-				// Steam returned 403/404 - pass through as client error
 				return apiErr.StatusCode
 			} else if apiErr.StatusCode >= 500 {
-				// Steam server errors - return 502 Bad Gateway
 				return http.StatusBadGateway
 			} else if apiErr.StatusCode == http.StatusTooManyRequests {
-				// Rate limiting - pass through
 				return apiErr.StatusCode
 			} else {
-				// Other 4xx from Steam - return 502 as it's likely Steam API issue
 				return http.StatusBadGateway
 			}
 		default:
@@ -815,20 +741,19 @@ func determineStatusCode(apiErr *steam.APIError) int {
 		}
 	}
 
-	// Map error types to status codes when no status code is set
 	switch apiErr.Type {
 	case steam.ErrorTypeValidation:
 		return http.StatusBadRequest // 400
 	case steam.ErrorTypeNotFound:
 		return http.StatusNotFound // 404
 	case steam.ErrorTypeRateLimit:
-		return http.StatusTooManyRequests // 429
+		return http.StatusTooManyRequests
 	case steam.ErrorTypeAPIError, steam.ErrorTypeNetwork:
-		return http.StatusBadGateway // 502 - Steam API is down/unreachable
+		return http.StatusBadGateway
 	case steam.ErrorTypeInternal:
-		return http.StatusInternalServerError // 500
+		return http.StatusInternalServerError
 	default:
-		return http.StatusInternalServerError // 500 - Safe default
+		return http.StatusInternalServerError
 	}
 }
 
@@ -842,7 +767,6 @@ func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, status
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
-	// Marshal to get response size for logging
 	responseBytes, err := json.Marshal(data)
 	if err != nil {
 		log.Error("Failed to marshal JSON response",
@@ -851,30 +775,24 @@ func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, status
 		return
 	}
 
-	// Set status code
 	w.WriteHeader(statusCode)
 
-	// Log successful response
 	log.Info("successful_response_sent",
 		"status_code", statusCode,
 		"response_size", len(responseBytes),
 		"content_type", "application/json")
 
-	// Write the response
 	if _, err := w.Write(responseBytes); err != nil {
 		log.Error("Failed to write JSON response",
 			"error", err.Error(),
 			"response_size", len(responseBytes))
-		// Can't call writeErrorResponse here as headers are already sent
 		return
 	}
 }
 
 func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings []string) {
-	// Convert to map to add warnings
 	var responseData map[string]interface{}
 	
-	// Convert data to map
 	dataBytes, _ := json.Marshal(data)
 	json.Unmarshal(dataBytes, &responseData)
 	
@@ -883,18 +801,15 @@ func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings 
 		responseData["data"] = data
 	}
 	
-	// Add warnings to response
 	if len(warnings) > 0 {
 		responseData["warnings"] = warnings
 		responseData["status"] = "partial_success"
-		// Use 206 Partial Content for partial data scenarios
 		writeJSONResponseWithStatus(w, responseData, http.StatusPartialContent)
 	} else {
 		writeJSONResponseWithStatus(w, data, http.StatusOK)
 	}
 }
 
-// GetPlayerStatsWithAchievements fetches both player stats and achievements in a single endpoint
 func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
@@ -902,7 +817,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
 
-	// Create structured logger with comprehensive request context
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
 
 	if err := validateSteamIDOrVanity(steamID); err != nil {
@@ -914,7 +828,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Resolve vanity URL first to ensure consistent cache keys
 	resolvedSteamID, resolveErr := h.steamClient.ResolveSteamID(steamID)
 	if resolveErr != nil {
 		requestLogger.Error("Failed to resolve Steam ID/vanity URL",
@@ -925,7 +838,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Check combined cache using resolved Steam ID
 	var combinedCacheKey string
 	var combinedCacheHit bool
 	if h.cacheManager != nil {
@@ -940,7 +852,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 				writeJSONResponse(w, response)
 				return
 			} else {
-				// Invalid cache entry - remove it
 				requestLogger.Warn("Invalid combined cache entry type, removing",
 					"expected", "models.PlayerStatsWithAchievements",
 					"actual", fmt.Sprintf("%T", cached))
@@ -957,7 +868,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		"resolved_steam_id", resolvedSteamID,
 		"was_vanity_url", steamID != resolvedSteamID)
 
-	// Fetch data in parallel for better performance using resolved Steam ID
 	type fetchResult struct {
 		stats        models.PlayerStats
 		achievements *models.AchievementData
@@ -977,13 +887,11 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	result := fetchResult{}
 	resultChan := make(chan struct{}, 2)
 
-	// Fetch player stats using resolved Steam ID
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
 		result.stats, result.statsError, result.statsSource = h.fetchPlayerStatsWithSource(resolvedSteamID)
 	}()
 
-	// Fetch achievements using resolved Steam ID
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
 		result.achievements, result.achError, result.achSource = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
@@ -1004,7 +912,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		}
 	}
 
-	// Determine response strategy based on what succeeded
 	response := models.PlayerStatsWithAchievements{
 		PlayerStats: result.stats,
 		DataSources: models.DataSourceStatus{
@@ -1021,9 +928,7 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		},
 	}
 
-	// Handle different failure scenarios with detailed classification
 	if result.statsError != nil {
-		// Stats failed - this is critical, return error
 		response.DataSources.Stats.Error = result.statsError.Error()
 		requestLogger.Error("Failed to fetch player stats - critical failure",
 			"error", result.statsError,
@@ -1070,7 +975,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 				"persona_name", result.stats.DisplayName)
 		}
 	} else {
-		// Both succeeded - populate with actual data
 		response.Achievements = result.achievements
 		requestLogger.Debug("Successfully fetched both stats and achievements",
 			"steam_id", steamID,
@@ -1079,7 +983,6 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 			"killer_unlocks", countUnlocked(result.achievements.AdeptKillers))
 	}
 
-	// Cache the combined result
 	if h.cacheManager != nil && combinedCacheKey != "" {
 		config := h.cacheManager.GetConfig()
 		if err := h.cacheManager.GetCache().Set(combinedCacheKey, response, config.TTL.PlayerCombined); err != nil {
@@ -1101,22 +1004,17 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		"achievements_success", result.achError == nil,
 		"duration", time.Since(start))
 
-	// Use appropriate response based on whether we have partial data
 	if result.achError != nil {
-		// Partial data - stats succeeded but achievements failed
 		warnings := []string{
 			"Achievement data unavailable: " + result.achError.Error(),
 		}
 		writePartialDataResponse(w, response, warnings)
 	} else {
-		// Complete data - both stats and achievements succeeded
 		writeJSONResponse(w, response)
 	}
 }
 
-// fetchPlayerStatsWithSource fetches player stats and returns the data source information
 func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats, error, string) {
-	// Check stats cache first
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
@@ -1126,7 +1024,6 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 		}
 	}
 
-	// Fetch from Steam API
 	summary, err := h.steamClient.GetPlayerSummary(steamID)
 	if err != nil {
 		return models.PlayerStats{}, fmt.Errorf("steam summary failed: %w", err), "api"
@@ -1140,7 +1037,6 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
 	flatPlayerStats := convertToPlayerStats(playerStats)
 
-	// Cache the stats
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
 		config := h.cacheManager.GetConfig()
@@ -1150,14 +1046,11 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 	return flatPlayerStats, nil, "api"
 }
 
-// fetchPlayerAchievementsWithSource fetches player achievements and returns the data source information
 func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.AchievementData, error, string) {
-	// Check achievements cache first - longer TTL since achievements change infrequently
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
 		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
 			if achievements, ok := cached.(*models.AchievementData); ok {
-				// Log cache hit with age information for monitoring
 				age := time.Since(achievements.LastUpdated)
 				log.Debug("Achievement cache hit",
 					"steam_id", steamID,
@@ -1165,7 +1058,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 					"cache_key", cacheKey)
 				return achievements, nil, "cache"
 			} else {
-				// Invalid cache entry - clean it up
 				log.Warn("Invalid achievement cache entry type, removing",
 					"steam_id", steamID,
 					"cache_key", cacheKey,
@@ -1176,12 +1068,10 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	// Use circuit breaker for Steam API protection
 	var rawAchievements *steam.PlayerAchievements
 	var apiErr error
 
 	if h.cacheManager != nil && h.cacheManager.GetCircuitBreaker() != nil {
-		// Execute with circuit breaker protection
 		result, err := h.cacheManager.GetCircuitBreaker().ExecuteWithStaleCache(
 			cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID),
 			func() (interface{}, error) {
@@ -1201,7 +1091,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 			apiErr = fmt.Errorf("circuit breaker returned unexpected type: %T", result)
 		}
 	} else {
-		// Fallback to direct API call if no circuit breaker
 		var steamErr *steam.APIError
 		rawAchievements, steamErr = h.steamClient.GetPlayerAchievements(steamID, 381210)
 		if steamErr != nil {
@@ -1210,7 +1099,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 	}
 
 	if apiErr != nil {
-		// Enhanced error logging with context
 		log.Error("Steam achievements API failed",
 			"steam_id", steamID,
 			"error", apiErr,
@@ -1219,13 +1107,11 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
 	}
 
-	// Get the complete adept catalog from schema or fallback
 	ctx := context.Background()
 	adeptMap, err := h.steamClient.GetAdeptMapCached(ctx, h.cacheManager.GetCache())
 	if err != nil {
 		log.Warn("Failed to get adept map from schema, falling back to hardcoded mapping",
 			"error", err)
-		// Convert hardcoded mapping to AdeptEntry format for consistency
 		adeptMap = make(map[string]steam.AdeptEntry)
 		for apiName, character := range steam.AdeptAchievementMapping {
 			adeptMap[apiName] = steam.AdeptEntry{
@@ -1235,16 +1121,13 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	// Map achievements using the new schema-based approach
 	mappedData := steam.GetMappedAchievementsWithCache(rawAchievements, h.cacheManager.GetCache())
 	mappedAchievements := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
 
-	// Build complete adept catalogs - ALWAYS include all characters regardless of unlock status
 	adeptSurv := make(map[string]bool)
 	adeptKill := make(map[string]bool)
 
-	// Initialize all adepts as false from complete catalog
 	for _, entry := range adeptMap {
 		if entry.Kind == "killer" {
 			adeptKill[entry.Character] = false
@@ -1253,7 +1136,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	// Then mark the unlocked ones as true from raw achievements
 	for _, rawAch := range rawAchievements.Achievements {
 		if entry, ok := adeptMap[rawAch.APIName]; ok {
 			if entry.Kind == "killer" {
@@ -1264,7 +1146,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	// Count unlocked adepts for logging
 	survivorUnlocked := 0
 	killerUnlocked := 0
 	for _, unlocked := range adeptSurv {
@@ -1278,7 +1159,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	// Log complete catalog information
 	log.Info("Achievement catalog processing completed",
 		"steam_id", steamID,
 		"total_survivor_adepts", len(adeptSurv),
@@ -1288,7 +1168,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		"mapped_achievements_count", len(mappedAchievements),
 		"data_source", "schema_with_hardcoded_fallback")
 
-	// Convert to models format
 	processedAchievements := &models.AchievementData{
 		AdeptSurvivors:     adeptSurv,
 		AdeptKillers:       adeptKill,
@@ -1306,7 +1185,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		LastUpdated: time.Now(),
 	}
 
-	// Convert mapped achievements to models format
 	for i, mapped := range mappedAchievements {
 		processedAchievements.MappedAchievements[i] = models.MappedAchievement{
 			ID:          mapped.ID,
@@ -1318,10 +1196,8 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 			Unlocked:    mapped.Unlocked,
 			UnlockTime:  mapped.UnlockTime,
 		}
-		// Note: Legacy AdeptSurvivors/AdeptKillers are now populated directly from schema above
 	}
 
-	// Cache the achievements with longer TTL
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerAchievementsPrefix, steamID)
 		config := h.cacheManager.GetConfig()
@@ -1345,13 +1221,11 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 	return processedAchievements, nil, "api"
 }
 
-// classifyError categorizes errors for better logging and monitoring
 func classifyError(err error) string {
 	if err == nil {
 		return "none"
 	}
 
-	// Handle interface{} with nil underlying value
 	if err == (*steam.APIError)(nil) {
 		return "none"
 	}
@@ -1378,7 +1252,6 @@ func classifyError(err error) string {
 	}
 }
 
-// countUnlocked counts the number of unlocked achievements in a map
 func countUnlocked(achievements map[string]bool) int {
 	count := 0
 	for _, unlocked := range achievements {
@@ -1389,7 +1262,6 @@ func countUnlocked(achievements map[string]bool) int {
 	return count
 }
 
-// HealthCheck provides a simple health check endpoint for load balancers
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	status := map[string]interface{}{
 		"status":    "healthy",
@@ -1401,7 +1273,6 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	// Check cache health if enabled
 	if h.cacheManager != nil {
 		cacheStatus := h.cacheManager.GetCacheStatus()
 		status["services"].(map[string]string)["cache"] = "available"

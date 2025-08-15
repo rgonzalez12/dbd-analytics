@@ -22,7 +22,6 @@ type AchievementMapping struct {
 	UnlockTime  int64  `json:"unlock_time,omitempty"`
 }
 
-// UnknownAchievement tracks achievements not in our mapping
 type UnknownAchievement struct {
 	APIName     string    `json:"api_name"`
 	FirstSeen   time.Time `json:"first_seen"`
@@ -30,13 +29,13 @@ type UnknownAchievement struct {
 }
 
 type AchievementMapper struct {
-	config          *AchievementConfig             // Configurable achievement mapping
+	config          *AchievementConfig
 	mapping         map[string]AchievementMapping
 	unknownAchievs  map[string]*UnknownAchievement
 	cacheDuration   time.Duration
 	mutex           sync.RWMutex
 	unknownsMutex   sync.RWMutex
-	client          *Client // Steam client for schema-based mapping
+	client          *Client
 }
 
 func NewAchievementMapper() *AchievementMapper {
@@ -67,20 +66,17 @@ func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchieveme
 	return am.MapPlayerAchievementsWithCache(achievements, nil)
 }
 
-// MapPlayerAchievementsWithCache converts raw achievements using schema-based mapping when cache is available
 func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) []AchievementMapping {
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
 
 	var mapped []AchievementMapping
 	
-	// Create a map of unlocked achievements for quick lookup
 	unlockedMap := make(map[string]SteamAchievement)
 	for _, achievement := range achievements.Achievements {
 		unlockedMap[achievement.APIName] = achievement
 	}
 
-	// Try to get schema-based adept mapping if cache is available
 	var schemaAdeptMap map[string]AdeptEntry
 	if cacheManager != nil && am.client != nil {
 		ctx := context.Background()
@@ -92,10 +88,7 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		}
 	}
 
-	// First, add all possible adept achievements (whether unlocked or not)
-	// Use schema-based mapping if available, otherwise fall back to hardcoded
 	if schemaAdeptMap != nil {
-		// Use schema-based adept mapping
 		for apiName, entry := range schemaAdeptMap {
 			mapping := AchievementMapping{
 				ID:          apiName,
@@ -104,10 +97,9 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(entry.Character)),
 				Character:   entry.Character,
 				Type:        entry.Kind,
-				Unlocked:    false, // Default to false
+				Unlocked:    false,
 			}
 			
-			// Check if this achievement is actually unlocked
 			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
 				mapping.Unlocked = unlockedAchievement.Achieved == 1
 				if unlockedAchievement.UnlockTime > 0 {
@@ -130,7 +122,6 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				Unlocked:    false, // Default to false
 			}
 			
-			// Check if this achievement is actually unlocked
 			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
 				mapping.Unlocked = unlockedAchievement.Achieved == 1
 				if unlockedAchievement.UnlockTime > 0 {
@@ -142,8 +133,6 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		}
 	}
 
-	// Next, add all possible general achievements (whether unlocked or not)
-	// This ensures complete catalog guarantee like we do for adepts
 	generalAchievements := am.getAllGeneralAchievements()
 	for _, general := range generalAchievements {
 		mapping := AchievementMapping{
@@ -155,7 +144,6 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 			Unlocked:    false, // Default to false
 		}
 		
-		// Check if this achievement is actually unlocked
 		if unlockedAchievement, exists := unlockedMap[general.APIName]; exists {
 			mapping.Unlocked = unlockedAchievement.Achieved == 1
 			if unlockedAchievement.UnlockTime > 0 {
@@ -166,7 +154,6 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		mapped = append(mapped, mapping)
 	}
 
-	// Finally, add any unknown achievements that were unlocked but aren't in our catalogs
 	knownAPINames := make(map[string]bool)
 	if schemaAdeptMap != nil {
 		for apiName := range schemaAdeptMap {
@@ -324,17 +311,14 @@ func formatAchievementName(apiName string) string {
 	return name
 }
 
-// generateFallbackName creates a readable name from API name
 func generateFallbackName(apiName string) string {
 	name := strings.ToLower(apiName)
 	
-	// Remove common prefixes
 	prefixes := []string{"ach_", "new_achievement_", "dlc", "chapter"}
 	for _, prefix := range prefixes {
 		name = strings.TrimPrefix(name, prefix)
 	}
 	
-	// Clean up common patterns
 	name = strings.ReplaceAll(name, "_", " ")
 	name = strings.TrimSpace(name)
 	
@@ -345,11 +329,9 @@ func generateFallbackName(apiName string) string {
 	return name
 }
 
-// inferAchievementType tries to determine if an unknown achievement is survivor/killer/general
 func inferAchievementType(apiName string) string {
 	apiLower := strings.ToLower(apiName)
 	
-	// Check for survivor patterns
 	survivorPatterns := []string{"survivor", "_survivor_", "escape", "gen", "heal", "unhook", "repair"}
 	for _, pattern := range survivorPatterns {
 		if strings.Contains(apiLower, pattern) {

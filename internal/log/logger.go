@@ -8,7 +8,6 @@ import (
 
 var Logger *slog.Logger
 
-// Initialize sets up the global structured logger with JSON output format
 func Initialize() {
 	logLevel := getLogLevel()
 

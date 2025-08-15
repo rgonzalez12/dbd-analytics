@@ -27,7 +27,6 @@ type CircuitBreakerConfig struct {
 	SlidingWindowSize      time.Duration `json:"sliding_window_size"`      // Time window for metrics
 }
 
-// DefaultCircuitBreakerConfig returns production-safe circuit breaker settings
 func DefaultCircuitBreakerConfig() CircuitBreakerConfig {
 	return CircuitBreakerConfig{
 		MaxFailures:            5,
@@ -70,7 +69,6 @@ type CircuitBreaker struct {
 	mu              sync.RWMutex
 }
 
-// NewCircuitBreaker creates a new circuit breaker with fallback cache
 func NewCircuitBreaker(config CircuitBreakerConfig, fallbackCache Cache) *CircuitBreaker {
 	return &CircuitBreaker{
 		config:         config,
@@ -80,16 +78,13 @@ func NewCircuitBreaker(config CircuitBreakerConfig, fallbackCache Cache) *Circui
 	}
 }
 
-// Execute runs a function with circuit breaker protection
 func (cb *CircuitBreaker) Execute(fn func() (interface{}, error)) (interface{}, error) {
-	return cb.executeWithOptions(fn, true) // Use generic fallback
+	return cb.executeWithOptions(fn, true)
 }
 
-// ExecuteWithStaleCache executes with cache-first fallback strategy
 func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface{}, error)) (interface{}, error) {
-	result, err := cb.executeWithOptions(fn, false) // Don't use generic fallback
+	result, err := cb.executeWithOptions(fn, false)
 	if err != nil {
-		// Enhanced observability: log circuit breaker activity
 		log.Warn("Circuit breaker triggered for key",
 			"key", key,
 			"error", err,
@@ -97,7 +92,6 @@ func (cb *CircuitBreaker) ExecuteWithStaleCache(key string, fn func() (interface
 			"failure_count", cb.failures,
 			"last_failure", cb.lastFailureTime)
 
-		// Try to get stale data from fallback cache
 		if staleData, exists := cb.getStaleData(key); exists {
 			log.Info("Serving stale data from fallback cache",
 				"key", key,
@@ -117,18 +111,15 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
-	// Clean old requests from sliding window
 	cb.cleanOldRequests()
 
-	// Only check if circuit should be opened if we're in closed state
 	if cb.state == CircuitClosed && cb.shouldOpenCircuit() {
 		cb.openCircuit()
 	}
 
 	switch state := cb.state; state {
 	case CircuitOpen:
-		// Circuit is open, check if we should try half-open with jitter to prevent thundering herd
-		timeoutWithJitter := addJitter(cb.config.ResetTimeout, 0.2) // 20% jitter
+		timeoutWithJitter := addJitter(cb.config.ResetTimeout, 0.2)
 		if time.Since(cb.lastFailureTime) > timeoutWithJitter {
 			cb.state = CircuitHalfOpen
 			cb.successes = 0

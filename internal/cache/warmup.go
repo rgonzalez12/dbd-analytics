@@ -17,7 +17,6 @@ type WarmUpConfig struct {
 	PopularPlayerIDs []string      `json:"popular_player_ids"`
 }
 
-// DefaultWarmUpConfig returns sensible defaults for cache warm-up
 func DefaultWarmUpConfig() WarmUpConfig {
 	return WarmUpConfig{
 		Enabled:          false, // Disabled by default - enable via env var
@@ -47,7 +46,6 @@ type CacheWarmer struct {
 	config  WarmUpConfig
 }
 
-// NewCacheWarmer creates a cache warm-up service
 func NewCacheWarmer(manager *Manager, config WarmUpConfig) *CacheWarmer {
 	return &CacheWarmer{
 		manager: manager,
@@ -184,7 +182,6 @@ func (cw *CacheWarmer) warmUpWorker(ctx context.Context, jobs <-chan WarmUpJob, 
 	}
 }
 
-// CreatePlayerStatsWarmUpJobs creates warm-up jobs for player statistics
 func CreatePlayerStatsWarmUpJobs(playerIDs []string, fetcher func(playerID string) (interface{}, error)) []WarmUpJob {
 	jobs := make([]WarmUpJob, len(playerIDs))
 

@@ -9,12 +9,10 @@ import (
 )
 
 func main() {
-	// Test with empty achievements (simulating a fresh account)
 	emptyAchievements := &steam.PlayerAchievements{
-		Achievements: []steam.SteamAchievement{}, // No achievements unlocked
+		Achievements: []steam.SteamAchievement{},
 	}
 
-	// Get mapped achievements using our enhanced method
 	mappedData := steam.GetMappedAchievementsWithCache(emptyAchievements, nil)
 	mapped := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
