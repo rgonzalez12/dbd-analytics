@@ -2,26 +2,23 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// StandardError represents the consistent JSON error response format
+// StandardError represents the consistent JSON error response format that matches frontend ApiError type
 type StandardError struct {
-	Error ErrorDetail `json:"error"`
-}
-
-type ErrorDetail struct {
-	Code      string                 `json:"code"`
+	Status    int                    `json:"status"`
 	Message   string                 `json:"message"`
 	Details   map[string]interface{} `json:"details,omitempty"`
-	RequestID string                 `json:"request_id,omitempty"`
+	RetryAfter *int                  `json:"retryAfter,omitempty"`
 }
 
 // writeStandardErrorResponse writes standardized JSON error responses
-func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}) {
+func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
 	// Get request ID from context if available
 	requestID := ""
 	if id := r.Context().Value("request_id"); id != nil {
@@ -35,13 +32,18 @@ func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code str
 		requestID = generateRequestID()
 	}
 
+	// Add request_id to details for debugging
+	if details == nil {
+		details = make(map[string]interface{})
+	}
+	details["request_id"] = requestID
+	details["code"] = code
+
 	errorResponse := StandardError{
-		Error: ErrorDetail{
-			Code:      code,
-			Message:   message,
-			Details:   details,
-			RequestID: requestID,
-		},
+		Status:     statusCode,
+		Message:    message,
+		Details:    details,
+		RetryAfter: retryAfter,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -71,13 +73,14 @@ func writeValidationError(w http.ResponseWriter, r *http.Request, message string
 	details := map[string]interface{}{
 		"field": field,
 	}
-	writeStandardErrorResponse(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details)
+	writeStandardErrorResponse(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details, nil)
 }
 
 // writeSteamAPIError converts Steam API errors to standardized format
 func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.APIError) {
 	var code string
 	var statusCode int
+	var retryAfter *int
 	details := make(map[string]interface{})
 
 	// Map Steam API errors to standard error codes
@@ -95,7 +98,9 @@ func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.AP
 		statusCode = http.StatusTooManyRequests
 		if apiErr.RetryAfter > 0 {
 			details["retry_after_seconds"] = apiErr.RetryAfter
-			w.Header().Set("Retry-After", string(rune(apiErr.RetryAfter)))
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", apiErr.RetryAfter))
+			retryAfterInt := int(apiErr.RetryAfter)
+			retryAfter = &retryAfterInt
 		}
 	case steam.ErrorTypeAPIError:
 		if apiErr.StatusCode >= 500 {
@@ -123,7 +128,7 @@ func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.AP
 		details["retryable"] = true
 	}
 
-	writeStandardErrorResponse(w, r, code, apiErr.Message, statusCode, details)
+	writeStandardErrorResponse(w, r, code, apiErr.Message, statusCode, details, retryAfter)
 }
 
 // writeTimeoutError creates a standardized timeout error response
@@ -134,10 +139,10 @@ func writeTimeoutError(w http.ResponseWriter, r *http.Request, operation string)
 	}
 	writeStandardErrorResponse(w, r, "REQUEST_TIMEOUT", 
 		"Request timeout during "+operation+" operation", 
-		http.StatusRequestTimeout, details)
+		http.StatusRequestTimeout, details, nil)
 }
 
 // writeInternalError writes standardized internal error responses
 func writeInternalError(w http.ResponseWriter, r *http.Request, message string) {
-	writeStandardErrorResponse(w, r, "INTERNAL_ERROR", message, http.StatusInternalServerError, nil)
+	writeStandardErrorResponse(w, r, "INTERNAL_ERROR", message, http.StatusInternalServerError, nil, nil)
 }

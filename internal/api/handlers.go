@@ -1219,14 +1219,20 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		return nil, fmt.Errorf("steam achievements failed: %w", apiErr), "api"
 	}
 
-	// Get adept map from schema
+	// Get the complete adept catalog from schema or fallback
 	ctx := context.Background()
 	adeptMap, err := h.steamClient.GetAdeptMapCached(ctx, h.cacheManager.GetCache())
 	if err != nil {
 		log.Warn("Failed to get adept map from schema, falling back to hardcoded mapping",
 			"error", err)
-		// Continue without schema-based adepts - use fallback
+		// Convert hardcoded mapping to AdeptEntry format for consistency
 		adeptMap = make(map[string]steam.AdeptEntry)
+		for apiName, character := range steam.AdeptAchievementMapping {
+			adeptMap[apiName] = steam.AdeptEntry{
+				Character: character.Name,
+				Kind:      character.Type,
+			}
+		}
 	}
 
 	// Map achievements using the new schema-based approach
@@ -1234,11 +1240,20 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 	mappedAchievements := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
 
-	// Process adepts using schema-based mapping
+	// Build complete adept catalogs - ALWAYS include all characters regardless of unlock status
 	adeptSurv := make(map[string]bool)
 	adeptKill := make(map[string]bool)
 
-	// Process raw achievements to build adept maps using schema
+	// Initialize all adepts as false from complete catalog
+	for _, entry := range adeptMap {
+		if entry.Kind == "killer" {
+			adeptKill[entry.Character] = false
+		} else {
+			adeptSurv[entry.Character] = false
+		}
+	}
+
+	// Then mark the unlocked ones as true from raw achievements
 	for _, rawAch := range rawAchievements.Achievements {
 		if entry, ok := adeptMap[rawAch.APIName]; ok {
 			if entry.Kind == "killer" {
@@ -1248,6 +1263,30 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 			}
 		}
 	}
+
+	// Count unlocked adepts for logging
+	survivorUnlocked := 0
+	killerUnlocked := 0
+	for _, unlocked := range adeptSurv {
+		if unlocked {
+			survivorUnlocked++
+		}
+	}
+	for _, unlocked := range adeptKill {
+		if unlocked {
+			killerUnlocked++
+		}
+	}
+
+	// Log complete catalog information
+	log.Info("Achievement catalog processing completed",
+		"steam_id", steamID,
+		"total_survivor_adepts", len(adeptSurv),
+		"unlocked_survivor_adepts", survivorUnlocked,
+		"total_killer_adepts", len(adeptKill),
+		"unlocked_killer_adepts", killerUnlocked,
+		"mapped_achievements_count", len(mappedAchievements),
+		"data_source", "schema_with_hardcoded_fallback")
 
 	// Convert to models format
 	processedAchievements := &models.AchievementData{

@@ -92,17 +92,17 @@ func TestSteamIDValidation(t *testing.T) {
 					t.Fatalf("Failed to unmarshal response: %v. Body: %s", err, w.Body.String())
 				}
 
-				if response.Error.Message != tt.expectedError {
-					t.Errorf("Expected error '%s', got '%s'", tt.expectedError, response.Error.Message)
+				if response.Message != tt.expectedError {
+					t.Errorf("Expected error '%s', got '%s'", tt.expectedError, response.Message)
 				}
 
-				if response.Error.Code != "VALIDATION_ERROR" {
-					t.Errorf("Expected error code 'VALIDATION_ERROR', got '%s'", response.Error.Code)
+				if code, ok := response.Details["code"].(string); !ok || code != "VALIDATION_ERROR" {
+					t.Errorf("Expected error code 'VALIDATION_ERROR', got '%v'", code)
 				}
 
 				// Verify request ID is present
-				if response.Error.RequestID == "" {
-					t.Errorf("Expected request ID to be present in error response")
+				if requestID, ok := response.Details["request_id"].(string); !ok || requestID == "" {
+					t.Errorf("Expected request ID to be present in error response details")
 				}
 			}
 		})

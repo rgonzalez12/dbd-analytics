@@ -65,11 +65,11 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 					t.Fatalf("Failed to parse error response: %v", err)
 				}
 
-				if response.Error.Code == "" {
-					t.Error("Expected error code field in response")
+				if code, ok := response.Details["code"].(string); !ok || code == "" {
+					t.Error("Expected error code field in response details")
 				}
 
-				if response.Error.Message == "" {
+				if response.Message == "" {
 					t.Error("Expected error message field in response")
 				}
 			}
@@ -142,8 +142,8 @@ func TestCacheResiliency(t *testing.T) {
 	// Verify error structure
 	var response StandardError
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err == nil {
-		if response.Error.Code != "VALIDATION_ERROR" {
-			t.Errorf("Expected VALIDATION_ERROR code, got %v", response.Error.Code)
+		if code, ok := response.Details["code"].(string); !ok || code != "VALIDATION_ERROR" {
+			t.Errorf("Expected VALIDATION_ERROR code, got %v", code)
 		}
 	}
 }

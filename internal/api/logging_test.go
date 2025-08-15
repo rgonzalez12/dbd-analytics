@@ -76,9 +76,9 @@ func TestStructuredLoggingValidation(t *testing.T) {
 				t.Errorf("Response is not valid JSON: %s", w.Body.String())
 			}
 
-			// Should have error field
-			if response["error"] == nil {
-				t.Error("Expected 'error' field in response")
+			// Should have message field (flat error format)
+			if response["message"] == nil {
+				t.Error("Expected 'message' field in response")
 			}
 
 			t.Logf("Test case '%s' completed successfully", tt.name)

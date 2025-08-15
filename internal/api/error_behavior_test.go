@@ -218,22 +218,22 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			}
 
 			// Should have all required fields in the new format
-			if response.Error.Code == "" {
-				t.Error("Expected 'code' field in error response")
+			if code, ok := response.Details["code"].(string); !ok || code == "" {
+				t.Error("Expected 'code' field in error response details")
 			}
-			if response.Error.Message == "" {
+			if response.Message == "" {
 				t.Error("Expected 'message' field in error response")
 			}
-			if response.Error.RequestID == "" {
-				t.Error("Expected 'request_id' field in error response")
+			if requestID, ok := response.Details["request_id"].(string); !ok || requestID == "" {
+				t.Error("Expected 'request_id' field in error response details")
 			}
-			if len(response.Error.Details) == 0 {
+			if len(response.Details) == 0 {
 				t.Error("Expected 'details' field in error response")
 			}
 
 			// Should have validation error code
-			if response.Error.Code != "VALIDATION_ERROR" {
-				t.Errorf("Expected code to be 'VALIDATION_ERROR', got '%s'", response.Error.Code)
+			if code, ok := response.Details["code"].(string); !ok || code != "VALIDATION_ERROR" {
+				t.Errorf("Expected code to be 'VALIDATION_ERROR', got '%v'", code)
 			}
 		})
 	}
