@@ -16,7 +16,7 @@ type StandardError struct {
 	RetryAfter *int                  `json:"retryAfter,omitempty"`
 }
 
-func writeStandardErrorResponse(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
+func writeError(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
 	requestID := ""
 	if id := r.Context().Value(requestIDKey); id != nil {
 		if idStr, ok := id.(string); ok {
@@ -65,7 +65,7 @@ func writeValidationError(w http.ResponseWriter, r *http.Request, message string
 	details := map[string]interface{}{
 		"field": field,
 	}
-	writeStandardErrorResponse(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details, nil)
+	writeError(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details, nil)
 }
 
 func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.APIError) {
@@ -117,7 +117,7 @@ func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.AP
 		details["retryable"] = true
 	}
 
-	writeStandardErrorResponse(w, r, code, apiErr.Message, statusCode, details, retryAfter)
+	writeError(w, r, code, apiErr.Message, statusCode, details, retryAfter)
 }
 
 // writeTimeoutError creates a standardized timeout error response
@@ -126,11 +126,7 @@ func writeTimeoutError(w http.ResponseWriter, r *http.Request, operation string)
 		"operation": operation,
 		"timeout":   true,
 	}
-	writeStandardErrorResponse(w, r, "REQUEST_TIMEOUT", 
+	writeError(w, r, "REQUEST_TIMEOUT",
 		"Request timeout during "+operation+" operation", 
 		http.StatusRequestTimeout, details, nil)
-}
-
-func writeInternalError(w http.ResponseWriter, r *http.Request, message string) {
-	writeStandardErrorResponse(w, r, "INTERNAL_ERROR", message, http.StatusInternalServerError, nil, nil)
 }

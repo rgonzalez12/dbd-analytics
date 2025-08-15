@@ -202,7 +202,7 @@ func (r *EnhancedRetrier) calculateAdvancedBackoff(retryCtx *RetryContext) time.
 }
 
 // shouldRetry determines if we should retry based on error type and limits
-func (r *EnhancedRetrier) shouldRetry(retryCtx *RetryContext, err error) bool {
+func (r *EnhancedRetrier) shouldRetry(retryCtx *RetryContext, _ error) bool {
 	// Check overall attempt limit
 	if retryCtx.Attempt >= r.policy.MaxRetries {
 		return false

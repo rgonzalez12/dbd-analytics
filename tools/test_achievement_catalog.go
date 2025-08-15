@@ -13,7 +13,7 @@ func main() {
 		Achievements: []steam.SteamAchievement{},
 	}
 
-	mappedData := steam.GetMappedAchievementsWithCache(emptyAchievements, nil)
+	mappedData := steam.GetAchievements(emptyAchievements, nil)
 	mapped := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
 
@@ -80,7 +80,7 @@ func main() {
 		},
 	}
 
-	mappedData2 := steam.GetMappedAchievementsWithCache(oneUnlockedAchievements, nil)
+	mappedData2 := steam.GetAchievements(oneUnlockedAchievements, nil)
 	mapped2 := mappedData2["achievements"].([]steam.AchievementMapping)
 	summary2 := mappedData2["summary"].(map[string]interface{})
 

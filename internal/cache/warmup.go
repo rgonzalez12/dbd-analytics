@@ -184,7 +184,7 @@ func (cw *CacheWarmer) warmUpWorker(ctx context.Context, jobs <-chan WarmUpJob, 
 	}
 }
 
-func CreatePlayerStatsWarmUpJobs(playerIDs []string, fetcher func(playerID string) (interface{}, error)) []WarmUpJob {
+func CreateWarmupJobs(playerIDs []string, fetcher func(playerID string) (interface{}, error)) []WarmUpJob {
 	jobs := make([]WarmUpJob, len(playerIDs))
 
 	for i, playerID := range playerIDs {

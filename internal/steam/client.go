@@ -18,7 +18,7 @@ const (
 	DBDAppID = "381210"
 )
 
-func getAchievementsTimeout() time.Duration {
+func achievementTimeout() time.Duration {
 	if timeoutStr := os.Getenv("ACHIEVEMENTS_TIMEOUT_SECS"); timeoutStr != "" {
 		if timeoutSecs, err := strconv.Atoi(timeoutStr); err == nil && timeoutSecs > 0 {
 			return time.Duration(timeoutSecs) * time.Second
@@ -81,7 +81,7 @@ func NewClient() *Client {
 	return &Client{
 		apiKey: os.Getenv("STEAM_API_KEY"),
 		client: &http.Client{
-			Timeout: getAchievementsTimeout(),
+			Timeout: achievementTimeout(),
 		},
 		retryConfig: DefaultRetryConfig(),
 	}

@@ -371,11 +371,11 @@ func MapAchievements(achievements *PlayerAchievements) []AchievementMapping {
 
 // GetMappedAchievements returns mapped achievements with summary and monitoring
 func GetMappedAchievements(achievements *PlayerAchievements) map[string]interface{} {
-	return GetMappedAchievementsWithCache(achievements, nil)
+	return GetAchievements(achievements, nil)
 }
 
-// GetMappedAchievementsWithCache returns mapped achievements with schema-based mapping when cache is available
-func GetMappedAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) map[string]interface{} {
+// GetAchievements returns mapped achievements with schema-based mapping when cache is available
+func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache) map[string]interface{} {
 	mapped := globalAchievementMapper.MapPlayerAchievementsWithCache(achievements, cacheManager)
 	summary := globalAchievementMapper.GetAchievementSummary(mapped)
 	unknowns := globalAchievementMapper.GetUnknownAchievements()

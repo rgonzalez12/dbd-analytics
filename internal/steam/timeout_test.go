@@ -55,10 +55,10 @@ func TestAchievementsTimeoutConfiguration(t *testing.T) {
 			}
 
 			// Test the function
-			actual := getAchievementsTimeout()
+						actual := achievementTimeout()
 
 			if actual != tt.expected {
-				t.Errorf("getAchievementsTimeout() = %v, expected %v. %s",
+				t.Errorf("achievementTimeout() = %v, expected %v. %s",
 					actual, tt.expected, tt.description)
 			}
 

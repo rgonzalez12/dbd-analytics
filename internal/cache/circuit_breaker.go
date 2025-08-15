@@ -257,7 +257,8 @@ func (cb *CircuitBreaker) handleFailure(err error) {
 func (cb *CircuitBreaker) handleSuccess() {
 	cb.lastSuccessTime = time.Now()
 
-	if cb.state == CircuitHalfOpen {
+	switch cb.state {
+	case CircuitHalfOpen:
 		cb.successes++
 		if cb.successes >= cb.config.SuccessReset {
 			// Enough successes, close the circuit
@@ -270,7 +271,7 @@ func (cb *CircuitBreaker) handleSuccess() {
 				"downtime_duration", time.Since(cb.lastFailureTime),
 				"recovery_time", time.Now())
 		}
-	} else if cb.state == CircuitClosed {
+	case CircuitClosed:
 		// Reset failure count on success
 		cb.failures = 0
 	}

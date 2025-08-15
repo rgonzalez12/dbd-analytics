@@ -1122,7 +1122,7 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		}
 	}
 
-	mappedData := steam.GetMappedAchievementsWithCache(rawAchievements, h.cacheManager.GetCache())
+	mappedData := steam.GetAchievements(rawAchievements, h.cacheManager.GetCache())
 	mappedAchievements := mappedData["achievements"].([]steam.AchievementMapping)
 	summary := mappedData["summary"].(map[string]interface{})
 

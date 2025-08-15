@@ -114,9 +114,10 @@ func ProcessAchievements(steamAchievements []SteamAchievement) *models.Achieveme
 
 	// Initialize all characters as not unlocked
 	for _, character := range AdeptAchievementMapping {
-		if character.Type == "survivor" {
+		switch character.Type {
+		case "survivor":
 			adeptSurvivors[character.Name] = false
-		} else if character.Type == "killer" {
+		case "killer":
 			adeptKillers[character.Name] = false
 		}
 	}
@@ -137,9 +138,10 @@ func ProcessAchievements(steamAchievements []SteamAchievement) *models.Achieveme
 			// Check if this is a known Adept achievement
 			if character, exists := AdeptAchievementMapping[achievement.APIName]; exists {
 				adeptCount++
-				if character.Type == "survivor" {
+				switch character.Type {
+				case "survivor":
 					adeptSurvivors[character.Name] = true
-				} else if character.Type == "killer" {
+				case "killer":
 					adeptKillers[character.Name] = true
 				}
 
