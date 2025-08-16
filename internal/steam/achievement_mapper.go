@@ -84,7 +84,25 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		unlockedMap[achievement.APIName] = achievement
 	}
 
-	// 2) Fetch schema (only direct call available)
+	// 2) Fetch global percentages early (needed for both schema and fallback paths)
+	var globalPercentages map[string]float64
+	if cacheManager != nil && am.client != nil {
+		if percentages, err := am.client.GetGlobalAchievementPercentagesCached(ctx, cacheManager); err == nil {
+			globalPercentages = percentages
+			log.Debug("Using cached global achievement percentages", "count", len(globalPercentages))
+		}
+	}
+	
+	if globalPercentages == nil && am.client != nil {
+		if percentages, err := am.client.FetchGlobalAchievementPercentages(ctx); err == nil {
+			globalPercentages = percentages
+			log.Debug("Using direct global achievement percentages", "count", len(globalPercentages))
+		} else {
+			log.Warn("Failed to get global achievement percentages", "error", err)
+		}
+	}
+
+	// 3) Fetch schema (only direct call available)
 	var fullSchema *SchemaGame
 	if am.client != nil {
 		log.Debug("Attempting to fetch achievement schema from Steam API", "app_id", DBDAppID, "client_exists", true)
@@ -103,28 +121,10 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		log.Error("Steam client is nil, cannot fetch schema")
 	}
 
-	// If schema missing/empty, fall back to processing all player achievements
+	// If schema missing/empty, fall back to processing all player achievements (with global percentages)
 	if fullSchema == nil || len(fullSchema.AvailableGameStats.Achievements) == 0 {
 		log.Warn("Schema unavailable or empty, processing all player achievements with fallback classification")
-		return am.buildAllAchievementMappings(unlockedMap, nil, cacheManager, ctx)
-	}
-
-	// 3) Fetch global percentages (try cached first; else direct)
-	var globalPercentages map[string]float64
-	if cacheManager != nil && am.client != nil {
-		if percentages, err := am.client.GetGlobalAchievementPercentagesCached(ctx, cacheManager); err == nil {
-			globalPercentages = percentages
-			log.Debug("Using cached global achievement percentages", "count", len(globalPercentages))
-		}
-	}
-	
-	if globalPercentages == nil && am.client != nil {
-		if percentages, err := am.client.FetchGlobalAchievementPercentages(ctx); err == nil {
-			globalPercentages = percentages
-			log.Debug("Using direct global achievement percentages", "count", len(globalPercentages))
-		} else {
-			log.Warn("Failed to get global achievement percentages", "error", err)
-		}
+		return am.buildAllAchievementMappings(unlockedMap, globalPercentages, cacheManager, ctx)
 	}
 
 	// 4) For each schema achievement, build mapping (preallocated)
@@ -167,8 +167,9 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				typ = "adept_survivor"
 			default:
 				typ = "adept_survivor" // safe default
-				// Track unknown adept
+				// Track unknown adept with title for triage
 				am.trackUnknown(id)
+				log.Debug("Unknown adept achievement detected", "api_name", id, "title", title, "suggestion", "Consider adding to AdeptAchievementMapping")
 			}
 			
 			// Extract character with regex (keep original case)
