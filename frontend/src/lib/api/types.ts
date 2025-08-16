@@ -1,3 +1,5 @@
+import type { UIStat } from './player-adapter';
+
 export type ApiError = { status: number; message: string; details?: unknown; retryAfter?: number };
 
 // Raw API types - match backend exactly with optional/nullable fields
@@ -63,6 +65,23 @@ export type Player = {
   matches: number;                  // default to 0
   lastUpdated: string | null;       // normalize null/missing
   stats: {
+    // New structured stats
+    all: UIStat[];
+    killer: UIStat[];
+    survivor: UIStat[];
+    general: UIStat[];
+    header: {
+      killerGrade: string;
+      survivorGrade: string;
+      highestPrestige: string;
+    };
+    summary: {
+      total_stats: number;
+      killer_count: number;
+      survivor_count: number;
+      general_count: number;
+    };
+    // Legacy individual fields for backward compatibility
     killerPips: number;
     survivorPips: number;
     killedCampers: number;

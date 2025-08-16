@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { displayStatValue } from '$lib/api/player-adapter';
 	
 	export let data: PageData;
 	
@@ -8,6 +9,7 @@
 	// Tab state
 	let activeTab: 'stats' | 'adepts' | 'achievements' = 'stats';
 	let achievementTab: 'all' | 'survivor' | 'killer' = 'all';
+	let statsTab: 'killer' | 'survivor' | 'general' = 'killer';
 	
 	// Tab navigation
 	function setActiveTab(tab: 'stats' | 'adepts' | 'achievements') {
@@ -19,11 +21,24 @@
 		achievementTab = tab;
 	}
 
+	// Stats tab navigation
+	function setStatsTab(tab: 'killer' | 'survivor' | 'general') {
+		statsTab = tab;
+	}
+
 	// Keyboard navigation for achievement tabs
 	function handleAchievementTabKeydown(event: KeyboardEvent, tab: 'all' | 'survivor' | 'killer') {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
 			setAchievementTab(tab);
+		}
+	}
+	
+	// Keyboard navigation for stats tabs
+	function handleStatsTabKeydown(event: KeyboardEvent, tab: 'killer' | 'survivor' | 'general') {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			setStatsTab(tab);
 		}
 	}
 	
@@ -47,31 +62,6 @@
 		const days = Math.floor(hours / 24);
 		const remainingHours = Math.round(hours % 24);
 		return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days} days`;
-	}
-
-	// Convert pips to rank/grade (Dead by Daylight uses grades now)
-	function convertPipsToGrade(pips: number): { grade: string; roman: string; color: string } {
-		if (pips >= 85) return { grade: 'Iridescent I', roman: 'Iri I', color: 'text-purple-400' };
-		if (pips >= 80) return { grade: 'Iridescent II', roman: 'Iri II', color: 'text-purple-400' };
-		if (pips >= 75) return { grade: 'Iridescent III', roman: 'Iri III', color: 'text-purple-400' };
-		if (pips >= 70) return { grade: 'Iridescent IV', roman: 'Iri IV', color: 'text-purple-400' };
-		if (pips >= 65) return { grade: 'Gold I', roman: 'Gold I', color: 'text-yellow-400' };
-		if (pips >= 60) return { grade: 'Gold II', roman: 'Gold II', color: 'text-yellow-400' };
-		if (pips >= 55) return { grade: 'Gold III', roman: 'Gold III', color: 'text-yellow-400' };
-		if (pips >= 50) return { grade: 'Gold IV', roman: 'Gold IV', color: 'text-yellow-400' };
-		if (pips >= 45) return { grade: 'Silver I', roman: 'Silver I', color: 'text-gray-300' };
-		if (pips >= 40) return { grade: 'Silver II', roman: 'Silver II', color: 'text-gray-300' };
-		if (pips >= 35) return { grade: 'Silver III', roman: 'Silver III', color: 'text-gray-300' };
-		if (pips >= 30) return { grade: 'Silver IV', roman: 'Silver IV', color: 'text-gray-300' };
-		if (pips >= 25) return { grade: 'Bronze I', roman: 'Bronze I', color: 'text-orange-600' };
-		if (pips >= 20) return { grade: 'Bronze II', roman: 'Bronze II', color: 'text-orange-600' };
-		if (pips >= 15) return { grade: 'Bronze III', roman: 'Bronze III', color: 'text-orange-600' };
-		if (pips >= 10) return { grade: 'Bronze IV', roman: 'Bronze IV', color: 'text-orange-600' };
-		if (pips >= 5) return { grade: 'Ash I', roman: 'Ash I', color: 'text-neutral-500' };
-		if (pips >= 4) return { grade: 'Ash II', roman: 'Ash II', color: 'text-neutral-500' };
-		if (pips >= 3) return { grade: 'Ash III', roman: 'Ash III', color: 'text-neutral-500' };
-		if (pips >= 2) return { grade: 'Ash IV', roman: 'Ash IV', color: 'text-neutral-500' };
-		return { grade: 'Unranked', roman: 'Unranked', color: 'text-neutral-600' };
 	}
 
 	// Format rarity percentage
@@ -171,22 +161,46 @@
 		</div>
 		
 		<!-- Quick Stats Overview -->
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Total Matches</div>
-				<div class="text-2xl font-semibold">{formatNumber(player.matches)}</div>
+				<div class="text-sm text-neutral-400">Killer Grade</div>
+				<div class="text-lg font-semibold text-red-400">{player.stats.header.killerGrade}</div>
 			</div>
 			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Time Played</div>
-				<div class="text-2xl font-semibold">{formatTimePlayedHours(player.stats.timePlayedHours)}</div>
+				<div class="text-sm text-neutral-400">Survivor Grade</div>
+				<div class="text-lg font-semibold text-blue-400">{player.stats.header.survivorGrade}</div>
+			</div>
+			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+				<div class="text-sm text-neutral-400">Highest Prestige</div>
+				<div class="text-lg font-semibold text-purple-400">{player.stats.header.highestPrestige}</div>
+			</div>
+			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+				<div class="text-sm text-neutral-400">Total Matches</div>
+				<div class="text-lg font-semibold">{formatNumber(player.matches)}</div>
 			</div>
 			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
 				<div class="text-sm text-neutral-400">Achievements</div>
-				<div class="text-2xl font-semibold">{player.achievements.unlocked}/{player.achievements.total}</div>
+				<div class="text-lg font-semibold">{player.achievements.unlocked}/{player.achievements.total}</div>
+			</div>
+		</div>
+		
+		<!-- Stats Summary -->
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+				<div class="text-sm text-neutral-400">Killer Stats</div>
+				<div class="text-2xl font-semibold text-red-400">{player.stats.summary.killer_count}</div>
 			</div>
 			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Adepts Complete</div>
-				<div class="text-2xl font-semibold">{adeptStats.survivor.unlocked + adeptStats.killer.unlocked}/{adeptStats.survivor.total + adeptStats.killer.total}</div>
+				<div class="text-sm text-neutral-400">Survivor Stats</div>
+				<div class="text-2xl font-semibold text-blue-400">{player.stats.summary.survivor_count}</div>
+			</div>
+			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+				<div class="text-sm text-neutral-400">General Stats</div>
+				<div class="text-2xl font-semibold text-neutral-300">{player.stats.summary.general_count}</div>
+			</div>
+			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
+				<div class="text-sm text-neutral-400">Total Stats</div>
+				<div class="text-2xl font-semibold">{player.stats.summary.total_stats}</div>
 			</div>
 		</div>
 	</header>
@@ -224,83 +238,60 @@
 				id="stats-panel"
 				role="tabpanel"
 				aria-labelledby="stats-tab"
-				class="space-y-8"
+				class="space-y-6"
 			>
-				<div class="grid gap-6 lg:grid-cols-2">
-					<!-- Killer Stats -->
-					<div class="space-y-4">
-						<h3 class="text-lg font-semibold text-red-400">Killer Statistics</h3>
-						<div class="space-y-3">
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Grade</span>
-								<span class="font-mono {convertPipsToGrade(player.stats.killerPips).color}">
-									{convertPipsToGrade(player.stats.killerPips).roman}
-								</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Pips Earned</span>
-								<span class="font-mono">{formatNumber(player.stats.killerPips)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Campers Killed</span>
-								<span class="font-mono">{formatNumber(player.stats.killedCampers)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Campers Sacrificed</span>
-								<span class="font-mono">{formatNumber(player.stats.sacrificedCampers)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Mori Kills</span>
-								<span class="font-mono">{formatNumber(player.stats.moriKills)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Hooks Performed</span>
-								<span class="font-mono">{formatNumber(player.stats.hooksPerformed)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Perfect Games</span>
-								<span class="font-mono">{formatNumber(player.stats.killerPerfectGames)}</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Survivor Stats -->
-					<div class="space-y-4">
-						<h3 class="text-lg font-semibold text-blue-400">Survivor Statistics</h3>
-						<div class="space-y-3">
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Grade</span>
-								<span class="font-mono {convertPipsToGrade(player.stats.survivorPips).color}">
-									{convertPipsToGrade(player.stats.survivorPips).roman}
-								</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Pips Earned</span>
-								<span class="font-mono">{formatNumber(player.stats.survivorPips)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Escapes</span>
-								<span class="font-mono">{formatNumber(player.stats.escapes)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Generator Progress</span>
-								<span class="font-mono">{player.stats.generatorPct.toFixed(1)}%</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Healing Progress</span>
-								<span class="font-mono">{player.stats.healPct.toFixed(1)}%</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Skill Check Success</span>
-								<span class="font-mono">{formatNumber(player.stats.skillCheckSuccess)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-neutral-300">Perfect Games</span>
-								<span class="font-mono">{formatNumber(player.stats.camperPerfectGames)}</span>
-							</div>
-						</div>
+				<!-- Stats Sub-Navigation -->
+				<div class="border-b border-neutral-700">
+					<div class="flex space-x-6">
+						{#each [
+							{ id: 'killer' as const, label: 'Killer Stats', color: 'text-red-400' },
+							{ id: 'survivor' as const, label: 'Survivor Stats', color: 'text-blue-400' },
+							{ id: 'general' as const, label: 'General Stats', color: 'text-neutral-300' }
+						] as tab}
+							<button
+								id="{tab.id}-stats-tab"
+								class="border-b-2 px-1 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900
+									{statsTab === tab.id
+										? `border-current ${tab.color}`
+										: 'border-transparent text-neutral-400 hover:text-neutral-300'}"
+								aria-selected={statsTab === tab.id}
+								role="tab"
+								tabindex={statsTab === tab.id ? 0 : -1}
+								on:click={() => setStatsTab(tab.id)}
+								on:keydown={(e) => handleStatsTabKeydown(e, tab.id)}
+							>
+								{tab.label} ({statsTab === 'killer' ? player.stats.killer.length : statsTab === 'survivor' ? player.stats.survivor.length : player.stats.general.length})
+							</button>
+						{/each}
 					</div>
 				</div>
+
+				<!-- Stats Grid -->
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					{#each (statsTab === 'killer' ? player.stats.killer : statsTab === 'survivor' ? player.stats.survivor : player.stats.general) as stat (stat.id)}
+						<div class="rounded-lg border border-neutral-700 bg-neutral-900/30 p-4">
+							<div class="flex items-center justify-between">
+								<div class="min-w-0 flex-1">
+									<div class="text-sm text-neutral-400 mb-1">{stat.name}</div>
+									<div class="text-lg font-semibold text-neutral-200">{displayStatValue(stat)}</div>
+									{#if stat.alias}
+										<div class="text-xs text-neutral-500 mt-1">Featured</div>
+									{/if}
+								</div>
+								{#if stat.icon}
+									<img src={stat.icon} alt="" class="h-8 w-8 opacity-70" />
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+
+				{#if (statsTab === 'killer' ? player.stats.killer : statsTab === 'survivor' ? player.stats.survivor : player.stats.general).length === 0}
+					<div class="flex flex-col items-center justify-center py-12 text-center">
+						<div class="text-neutral-400 mb-2">No {statsTab} stats available</div>
+						<div class="text-sm text-neutral-500">Stats may still be loading or unavailable from Steam.</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
 

@@ -1,6 +1,7 @@
 import type { Player } from '$lib/api/types';
 import type { PlayerBundle, DbdAdept, DbdAchievement, DbdStats } from '$lib/types';
 import type { ApiPlayerStats } from '$lib/api/types';
+import { normalizePlayerPayload, toUIStats, sortStats, selectHeader, groupStats, type WirePlayerResponse } from '$lib/api/player-adapter';
 
 function toNum(v: unknown, d = 0): number {
 	if (typeof v === 'number') return isNaN(v) ? d : v;
@@ -12,7 +13,20 @@ function toNum(v: unknown, d = 0): number {
 }
 
 export function toDomainPlayer(raw: ApiPlayerStats): Player {
-	const mapped = raw.achievements?.mapped_achievements?.map(achievement => ({
+	// Use our new player adapter to normalize the stats and achievements
+	const { stats, statsSummary, achievements, achievementSummary } = normalizePlayerPayload(raw as WirePlayerResponse);
+	
+	// Convert to UI-friendly stats format
+	const uiStats = sortStats(toUIStats(stats));
+	
+	// Extract header data using stable aliases
+	const header = selectHeader(uiStats);
+	
+	// Group stats by category
+	const groupedStats = groupStats(uiStats);
+
+	// Process achievements (keep existing logic for now)
+	const mapped = achievements?.map(achievement => ({
 		id: achievement.id,
 		name: achievement.display_name || achievement.name || achievement.id,
 		display_name: achievement.display_name || achievement.name || achievement.id,
@@ -27,8 +41,8 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		...(achievement.rarity !== undefined && { rarity: achievement.rarity })
 	})) ?? [];
 
-	const totalFromSummary = toNum(raw.achievements?.summary?.total);
-	const unlockedFromSummary = toNum(raw.achievements?.summary?.unlocked);
+	const totalFromSummary = toNum(achievementSummary?.total);
+	const unlockedFromSummary = toNum(achievementSummary?.unlocked);
 
 	const total = totalFromSummary || mapped.length;
 	const unlocked = unlockedFromSummary || mapped.filter(a => a.unlocked).length;
@@ -39,6 +53,23 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		matches: toNum(raw.total_matches),
 		lastUpdated: raw.last_updated ?? null,
 		stats: {
+			// Use the new stats structure
+			all: uiStats,
+			killer: groupedStats.killer,
+			survivor: groupedStats.survivor,
+			general: groupedStats.general,
+			header: {
+				killerGrade: header.killerGrade,
+				survivorGrade: header.survivorGrade,
+				highestPrestige: header.highestPrestige
+			},
+			summary: statsSummary || {
+				total_stats: uiStats.length,
+				killer_count: groupedStats.killer.length,
+				survivor_count: groupedStats.survivor.length,
+				general_count: groupedStats.general.length
+			},
+			// Keep legacy fields for backward compatibility
 			killerPips: toNum(raw.killer_pips),
 			survivorPips: toNum(raw.survivor_pips),
 			killedCampers: toNum(raw.killed_campers),
