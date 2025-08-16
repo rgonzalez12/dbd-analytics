@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -12,14 +13,18 @@ import (
 )
 
 type AchievementMapping struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	Character   string `json:"character"`
-	Type        string `json:"type"` // "survivor" or "killer"
-	Unlocked    bool   `json:"unlocked"`
-	UnlockTime  int64  `json:"unlock_time,omitempty"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`         // displayName from schema
+	DisplayName string  `json:"display_name"` // kept for backwards compatibility  
+	Description string  `json:"description"`
+	Icon        string  `json:"icon,omitempty"`
+	IconGray    string  `json:"icon_gray,omitempty"`
+	Hidden      bool    `json:"hidden,omitempty"`
+	Character   string  `json:"character"`
+	Type        string  `json:"type"`    // "survivor", "killer", "general", "adept"
+	Unlocked    bool    `json:"unlocked"`
+	UnlockTime  int64   `json:"unlock_time,omitempty"`
+	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
 }
 
 type UnknownAchievement struct {
@@ -70,117 +75,231 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 	am.mutex.RLock()
 	defer am.mutex.RUnlock()
 
+	ctx := context.Background()
 	var mapped []AchievementMapping
 	
+	// Create lookup map for unlocked achievements
 	unlockedMap := make(map[string]SteamAchievement)
 	for _, achievement := range achievements.Achievements {
 		unlockedMap[achievement.APIName] = achievement
 	}
 
-	var schemaAdeptMap map[string]AdeptEntry
+	// Get global achievement percentages if cache is available
+	var globalPercentages map[string]float64
 	if cacheManager != nil && am.client != nil {
-		ctx := context.Background()
-		if adeptMap, err := am.client.GetAdeptMapCached(ctx, cacheManager); err == nil {
-			schemaAdeptMap = adeptMap
-			log.Info("Using schema-based adept mapping", "adept_count", len(schemaAdeptMap))
+		if percentages, err := am.client.GetGlobalAchievementPercentagesCached(ctx, cacheManager); err == nil {
+			globalPercentages = percentages
+			log.Debug("Using global achievement percentages", "count", len(globalPercentages))
 		} else {
-			log.Warn("Failed to get schema-based adepts, using hardcoded fallback", "error", err)
+			log.Warn("Failed to get global achievement percentages", "error", err)
 		}
 	}
 
-	if schemaAdeptMap != nil {
-		for apiName, entry := range schemaAdeptMap {
-			mapping := AchievementMapping{
-				ID:          apiName,
-				Name:        entry.Character,
-				DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
-				Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(entry.Character)),
-				Character:   entry.Character,
-				Type:        entry.Kind,
-				Unlocked:    false,
+	// Get full schema if cache is available
+	var fullSchema *SchemaGame
+	if cacheManager != nil && am.client != nil {
+		if schema, err := am.client.GetSchemaForGame(DBDAppID); err == nil {
+			fullSchema = schema
+			log.Debug("Using full achievement schema", "count", len(fullSchema.AvailableGameStats.Achievements))
+		} else {
+			log.Warn("Failed to get achievement schema, using fallback", "error", err)
+		}
+	}
+
+	// Create schema lookup map
+	schemaMap := make(map[string]SchemaAchievement)
+	if fullSchema != nil {
+		for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
+			schemaMap[schemaAch.Name] = schemaAch
+		}
+	}
+
+	// Helper function to classify achievement type
+	classifyAchievement := func(apiName, displayName string) string {
+		// Check if it's an adept achievement
+		if strings.Contains(displayName, "Adept ") {
+			if strings.Contains(apiName, "KILLER") || strings.Contains(apiName, "NEMESIS") || 
+			   strings.Contains(apiName, "PINHEAD") || strings.Contains(apiName, "ARTIST") {
+				return "killer"
 			}
-			
-			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
-				mapping.Unlocked = unlockedAchievement.Achieved == 1
-				if unlockedAchievement.UnlockTime > 0 {
-					mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+			return "survivor"
+		}
+		return "general"
+	}
+
+	// Build complete catalog from schema first
+	if fullSchema != nil {
+		for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
+			// Get unlock status
+			unlocked := false
+			var unlockTime int64
+			if unlockedAch, exists := unlockedMap[schemaAch.Name]; exists {
+				unlocked = unlockedAch.Achieved == 1
+				if unlockedAch.UnlockTime > 0 {
+					unlockTime = int64(unlockedAch.UnlockTime)
 				}
 			}
-			
+
+			// Get global rarity
+			rarity := float64(0)
+			if globalPercentages != nil {
+				if percentage, exists := globalPercentages[schemaAch.Name]; exists {
+					rarity = percentage
+				}
+			}
+
+			// Determine type and character info
+			achType := classifyAchievement(schemaAch.Name, schemaAch.DisplayName)
+			character := ""
+			if achType != "general" && strings.Contains(schemaAch.DisplayName, "Adept ") {
+				// Extract character name from "Adept CharacterName"
+				character = strings.TrimPrefix(schemaAch.DisplayName, "Adept ")
+				character = strings.ToLower(character)
+			}
+
+			// Handle hidden achievements
+			description := schemaAch.Description
+			if schemaAch.Hidden == 1 && !unlocked {
+				description = ""
+			}
+
+			mapping := AchievementMapping{
+				ID:          schemaAch.Name,
+				Name:        schemaAch.DisplayName,
+				DisplayName: schemaAch.DisplayName, // for backwards compatibility
+				Description: description,
+				Icon:        schemaAch.Icon,
+				IconGray:    schemaAch.IconGray,
+				Hidden:      schemaAch.Hidden == 1,
+				Character:   character,
+				Type:        achType,
+				Unlocked:    unlocked,
+				UnlockTime:  unlockTime,
+				Rarity:      rarity,
+			}
+
 			mapped = append(mapped, mapping)
 		}
 	} else {
-		// Fall back to hardcoded adept mapping
-		for apiName, adept := range AdeptAchievementMapping {
-			mapping := AchievementMapping{
-				ID:          apiName,
-				Name:        adept.Name,
-				DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
-				Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
-				Character:   adept.Name,
-				Type:        adept.Type,
-				Unlocked:    false, // Default to false
+		// Fallback to hardcoded mapping when schema unavailable
+		log.Warn("Using fallback achievement mapping - schema unavailable")
+
+		// Add adept achievements using existing logic
+		var schemaAdeptMap map[string]AdeptEntry
+		if cacheManager != nil && am.client != nil {
+			if adeptMap, err := am.client.GetAdeptMapCached(ctx, cacheManager); err == nil {
+				schemaAdeptMap = adeptMap
 			}
+		}
+
+		if schemaAdeptMap != nil {
+			for apiName, entry := range schemaAdeptMap {
+				unlocked := false
+				var unlockTime int64
+				rarity := float64(0)
+				
+				if unlockedAch, exists := unlockedMap[apiName]; exists {
+					unlocked = unlockedAch.Achieved == 1
+					if unlockedAch.UnlockTime > 0 {
+						unlockTime = int64(unlockedAch.UnlockTime)
+					}
+				}
+				
+				if globalPercentages != nil {
+					if percentage, exists := globalPercentages[apiName]; exists {
+						rarity = percentage
+					}
+				}
+
+				mapping := AchievementMapping{
+					ID:          apiName,
+					Name:        fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
+					DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
+					Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(entry.Character)),
+					Character:   entry.Character,
+					Type:        entry.Kind,
+					Unlocked:    unlocked,
+					UnlockTime:  unlockTime,
+					Rarity:      rarity,
+				}
+				mapped = append(mapped, mapping)
+			}
+		} else {
+			// Fallback to hardcoded adept mapping
+			for apiName, adept := range AdeptAchievementMapping {
+				unlocked := false
+				var unlockTime int64
+				rarity := float64(0)
+				
+				if unlockedAch, exists := unlockedMap[apiName]; exists {
+					unlocked = unlockedAch.Achieved == 1
+					if unlockedAch.UnlockTime > 0 {
+						unlockTime = int64(unlockedAch.UnlockTime)
+					}
+				}
+				
+				if globalPercentages != nil {
+					if percentage, exists := globalPercentages[apiName]; exists {
+						rarity = percentage
+					}
+				}
+
+				mapping := AchievementMapping{
+					ID:          apiName,
+					Name:        fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
+					DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
+					Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
+					Character:   adept.Name,
+					Type:        adept.Type,
+					Unlocked:    unlocked,
+					UnlockTime:  unlockTime,
+					Rarity:      rarity,
+				}
+				mapped = append(mapped, mapping)
+			}
+		}
+
+		// Add general achievements
+		generalAchievements := am.getAllGeneralAchievements()
+		for _, general := range generalAchievements {
+			unlocked := false
+			var unlockTime int64
+			rarity := float64(0)
 			
-			if unlockedAchievement, exists := unlockedMap[apiName]; exists {
-				mapping.Unlocked = unlockedAchievement.Achieved == 1
-				if unlockedAchievement.UnlockTime > 0 {
-					mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
+			if unlockedAch, exists := unlockedMap[general.APIName]; exists {
+				unlocked = unlockedAch.Achieved == 1
+				if unlockedAch.UnlockTime > 0 {
+					unlockTime = int64(unlockedAch.UnlockTime)
 				}
 			}
 			
+			if globalPercentages != nil {
+				if percentage, exists := globalPercentages[general.APIName]; exists {
+					rarity = percentage
+				}
+			}
+
+			mapping := AchievementMapping{
+				ID:          general.APIName,
+				Name:        general.DisplayName,
+				DisplayName: general.DisplayName,
+				Description: general.Description,
+				Type:        general.Type,
+				Unlocked:    unlocked,
+				UnlockTime:  unlockTime,
+				Rarity:      rarity,
+			}
 			mapped = append(mapped, mapping)
 		}
 	}
 
-	generalAchievements := am.getAllGeneralAchievements()
-	for _, general := range generalAchievements {
-		mapping := AchievementMapping{
-			ID:          general.APIName,
-			Name:        general.Name,
-			DisplayName: general.DisplayName,
-			Description: general.Description,
-			Type:        general.Type,
-			Unlocked:    false, // Default to false
+	// Sort achievements by name, then by ID for consistent ordering
+	sort.Slice(mapped, func(i, j int) bool {
+		if mapped[i].Name == mapped[j].Name {
+			return mapped[i].ID < mapped[j].ID
 		}
-		
-		if unlockedAchievement, exists := unlockedMap[general.APIName]; exists {
-			mapping.Unlocked = unlockedAchievement.Achieved == 1
-			if unlockedAchievement.UnlockTime > 0 {
-				mapping.UnlockTime = int64(unlockedAchievement.UnlockTime)
-			}
-		}
-		
-		mapped = append(mapped, mapping)
-	}
-
-	knownAPINames := make(map[string]bool)
-	if schemaAdeptMap != nil {
-		for apiName := range schemaAdeptMap {
-			knownAPINames[apiName] = true
-		}
-	} else {
-		for apiName := range AdeptAchievementMapping {
-			knownAPINames[apiName] = true
-		}
-	}
-	for _, general := range generalAchievements {
-		knownAPINames[general.APIName] = true
-	}
-
-	for _, achievement := range achievements.Achievements {
-		// Skip if this is a known achievement (already processed above)
-		if knownAPINames[achievement.APIName] {
-			continue
-		}
-		
-		mapping := am.getAchievementMapping(achievement.APIName)
-		mapping.Unlocked = achievement.Achieved == 1
-		if achievement.UnlockTime > 0 {
-			mapping.UnlockTime = int64(achievement.UnlockTime)
-		}
-		mapped = append(mapped, mapping)
-	}
+		return mapped[i].Name < mapped[j].Name
+	})
 
 	return mapped
 }

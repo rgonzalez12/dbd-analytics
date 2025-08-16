@@ -1,6 +1,7 @@
 package steam
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -508,7 +509,7 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
-	url := fmt.Sprintf("%s/ISteamUserStats/GetSchemaForGame/v2/?key=%s&appid=%s",
+	url := fmt.Sprintf("%s/ISteamUserStats/GetSchemaForGame/v2/?key=%s&appid=%s&l=en",
 		BaseURL, c.apiKey, appID)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -538,4 +539,86 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 	}
 
 	return &response.Game, nil
+}
+
+// FetchGlobalAchievementPercentages retrieves global achievement percentages for the specified app
+func (c *Client) FetchGlobalAchievementPercentages(ctx context.Context) (map[string]float64, error) {
+	if c.apiKey == "" {
+		return nil, fmt.Errorf("STEAM_API_KEY environment variable not set")
+	}
+
+	url := fmt.Sprintf("%s/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=%s",
+		BaseURL, DBDAppID)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from Steam API", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	var response globalAchievementPercentagesResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	percentages := make(map[string]float64)
+	for _, ach := range response.AchievementPercentages.Achievements {
+		percentages[ach.Name] = ach.Percent
+	}
+
+	return percentages, nil
+}
+
+// GetGlobalAchievementPercentagesCached retrieves global achievement percentages with caching
+func (c *Client) GetGlobalAchievementPercentagesCached(ctx context.Context, cacheManager interface{}) (map[string]float64, error) {
+	// Type assertion to get the cache interface
+	cache, ok := cacheManager.(interface{ Get(string) (interface{}, bool); Set(string, interface{}, time.Duration) error })
+	if !ok || cache == nil {
+		// No cache available, fetch directly
+		return c.FetchGlobalAchievementPercentages(ctx)
+	}
+
+	cacheKey := "global_percentages:dbd"
+	
+	// Try to get from cache first
+	if cached, found := cache.Get(cacheKey); found {
+		if percentages, ok := cached.(map[string]float64); ok {
+			log.Debug("Global achievement percentages cache hit", "cache_key", cacheKey)
+			return percentages, nil
+		} else {
+			log.Warn("Invalid global percentages cache entry type, removing", 
+				"cache_key", cacheKey, "expected", "map[string]float64", "actual", fmt.Sprintf("%T", cached))
+			// Continue to fetch fresh data
+		}
+	}
+
+	// Fetch fresh data
+	percentages, err := c.FetchGlobalAchievementPercentages(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Cache the result for 24 hours
+	if err := cache.Set(cacheKey, percentages, 24*time.Hour); err != nil {
+		log.Error("Failed to cache global achievement percentages", "error", err, "cache_key", cacheKey)
+		// Don't fail the request if caching fails
+	} else {
+		log.Debug("Global achievement percentages cached successfully", "cache_key", cacheKey, "count", len(percentages))
+	}
+
+	return percentages, nil
 }

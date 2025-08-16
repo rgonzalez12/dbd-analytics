@@ -15,14 +15,18 @@ type AchievementData struct {
 }
 
 type MappedAchievement struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	Character   string `json:"character,omitempty"`
-	Type        string `json:"type"` // "survivor", "killer", or "general"
-	Unlocked    bool   `json:"unlocked"`
-	UnlockTime  int64  `json:"unlock_time,omitempty"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`         // displayName from schema
+	DisplayName string  `json:"display_name"` // kept for backwards compatibility
+	Description string  `json:"description"`
+	Icon        string  `json:"icon,omitempty"`
+	IconGray    string  `json:"icon_gray,omitempty"`
+	Hidden      bool    `json:"hidden,omitempty"`
+	Character   string  `json:"character,omitempty"`
+	Type        string  `json:"type"`    // "survivor", "killer", "general", "adept"
+	Unlocked    bool    `json:"unlocked"`
+	UnlockTime  int64   `json:"unlock_time,omitempty"`
+	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
 }
 
 // AchievementSummary provides statistical overview of achievements

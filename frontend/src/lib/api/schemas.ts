@@ -9,9 +9,17 @@ export const DataSourceInfoSchema = z.object({
 
 const MappedAchievementSchema = z.object({
   id: z.string(),
-  type: z.enum(['survivor','killer']),
-  character: z.string(),
-  unlocked: z.boolean()
+  name: z.string(),
+  display_name: z.string(),
+  description: z.string(),
+  icon: z.string().optional(),
+  icon_gray: z.string().optional(),
+  hidden: z.boolean().optional(),
+  character: z.string().optional(),
+  type: z.string(),
+  unlocked: z.boolean(),
+  unlock_time: z.number().optional(),
+  rarity: z.number().optional()
 }).passthrough();
 
 const AchievementDataSchema = z.object({
@@ -26,7 +34,7 @@ const AchievementDataSchema = z.object({
     adept_killers: z.array(z.unknown()).optional(),
     last_updated: z.string().optional()
   }).partial().optional(),
-  mapped_achievements: z.array(z.unknown()).optional(), // Make this more permissive
+  mapped_achievements: z.array(MappedAchievementSchema).optional(),
   adept_survivors: z.record(z.string(), z.boolean()).optional(),
   adept_killers: z.record(z.string(), z.boolean()).optional(),
   last_updated: z.string().optional()

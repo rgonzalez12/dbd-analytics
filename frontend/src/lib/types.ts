@@ -16,6 +16,11 @@ export interface DbdAchievement {
 	unlocked: boolean;
 	unlockTime?: string | null;
 	iconUrl?: string;
+	iconGrayUrl?: string;
+	hidden?: boolean;
+	character?: string;
+	type?: string;
+	rarity?: number; // 0-100 global completion percentage
 }
 
 export interface DbdStats {

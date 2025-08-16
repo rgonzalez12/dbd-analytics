@@ -14,9 +14,17 @@ function toNum(v: unknown, d = 0): number {
 export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const mapped = raw.achievements?.mapped_achievements?.map(achievement => ({
 		id: achievement.id,
+		name: achievement.name,
+		display_name: achievement.display_name,
+		description: achievement.description,
+		...(achievement.icon !== undefined && { icon: achievement.icon }),
+		...(achievement.icon_gray !== undefined && { icon_gray: achievement.icon_gray }),
+		...(achievement.hidden !== undefined && { hidden: achievement.hidden }),
+		...(achievement.character !== undefined && { character: achievement.character }),
 		type: achievement.type,
-		character: achievement.character,
-		unlocked: achievement.unlocked
+		unlocked: achievement.unlocked,
+		...(achievement.unlock_time !== undefined && { unlock_time: achievement.unlock_time }),
+		...(achievement.rarity !== undefined && { rarity: achievement.rarity })
 	})) ?? [];
 
 	const totalFromSummary = toNum(raw.achievements?.summary?.total);
@@ -125,10 +133,16 @@ export function toPlayerBundle(raw: ApiPlayerStats): PlayerBundle {
 
 	const achievements: DbdAchievement[] = raw.achievements?.mapped_achievements?.map(achievement => ({
 		id: achievement.id,
-		name: achievement.character || achievement.id,
-		description: `${achievement.type} achievement for ${achievement.character}`,
+		name: achievement.name || achievement.display_name || achievement.id,
+		description: achievement.description || `${achievement.type} achievement${achievement.character ? ` for ${achievement.character}` : ''}`,
 		unlocked: achievement.unlocked,
-		unlockTime: null
+		unlockTime: achievement.unlock_time ? new Date(achievement.unlock_time * 1000).toISOString() : null,
+		...(achievement.icon && { iconUrl: achievement.icon }),
+		...(achievement.icon_gray && { iconGrayUrl: achievement.icon_gray }),
+		...(achievement.hidden !== undefined && { hidden: achievement.hidden }),
+		...(achievement.character && { character: achievement.character }),
+		...(achievement.type && { type: achievement.type }),
+		...(achievement.rarity !== undefined && { rarity: achievement.rarity })
 	})) ?? [];
 
 	return {

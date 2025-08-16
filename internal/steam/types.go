@@ -147,3 +147,18 @@ type SchemaStat struct {
 	DefaultValue int    `json:"defaultvalue"`
 	DisplayName  string `json:"displayName"`
 }
+
+// Global Achievement Percentages API Response Types
+
+type globalAchievementPercentagesResponse struct {
+	AchievementPercentages GlobalAchievementPercentages `json:"achievementpercentages"`
+}
+
+type GlobalAchievementPercentages struct {
+	Achievements []GlobalAchievementPercentage `json:"achievements"`
+}
+
+type GlobalAchievementPercentage struct {
+	Name    string  `json:"name"`    // API name
+	Percent float64 `json:"percent"` // 0-100 percentage
+}

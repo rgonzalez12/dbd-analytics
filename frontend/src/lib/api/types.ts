@@ -33,7 +33,20 @@ export type ApiPlayerStats = {
   time_played_hours?: number | string | null;
   achievements?: {
     summary?: { total?: number | string | null; unlocked?: number | string | null; last_updated?: string | null };
-    mapped_achievements?: Array<{ id: string; type: 'survivor'|'killer'; character: string; unlocked: boolean }>;
+    mapped_achievements?: Array<{
+      id: string;
+      name: string;
+      display_name: string;
+      description: string;
+      icon?: string;
+      icon_gray?: string;
+      hidden?: boolean;
+      character?: string;
+      type: string;
+      unlocked: boolean;
+      unlock_time?: number;
+      rarity?: number;
+    }>;
     adept_survivors?: Record<string, boolean>;
     adept_killers?: Record<string, boolean>;
   };
@@ -79,7 +92,20 @@ export type Player = {
   achievements: {
     total: number;                  // default to 0
     unlocked: number;               // default to 0
-    mapped: Array<{ id: string; type: 'survivor'|'killer'; character: string; unlocked: boolean }>;
+    mapped: Array<{
+      id: string;
+      name: string;
+      display_name: string;
+      description: string;
+      icon?: string;
+      icon_gray?: string;
+      hidden?: boolean;
+      character?: string;
+      type: string;
+      unlocked: boolean;
+      unlock_time?: number;
+      rarity?: number;
+    }>;
     adepts: { survivors: Record<string, boolean>; killers: Record<string, boolean> };
   };
   sources: {

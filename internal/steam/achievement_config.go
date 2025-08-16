@@ -143,6 +143,37 @@ func buildHardcodedConfig() *AchievementConfig {
 		}
 	}
 
+	// Add hardcoded general achievements
+	generalAchievements := map[string]struct {
+		Name        string
+		DisplayName string
+		Description string
+		Type        string
+	}{
+		"ACH_SAVE_YOURSELF":         {Name: "self_preservation", DisplayName: "Taking One For The Team", Description: "Protect a Survivor from being hit 25 times", Type: "general"},
+		"ACH_PERFECT_KILLER":        {Name: "perfect_killer", DisplayName: "Perfect Killer", Description: "Get a perfect score as a Killer", Type: "general"},
+		"ACH_PERFECT_SURVIVOR":      {Name: "perfect_survivor", DisplayName: "Perfect Escape", Description: "Get a perfect score as a Survivor", Type: "general"},
+		"ACH_ESCAPE_OBSESSION":      {Name: "obsession_escape", DisplayName: "Escaped!", Description: "Escape as the Obsession", Type: "general"},
+		"ACH_GENERATOR_SOLO":        {Name: "generator_solo", DisplayName: "Technician", Description: "Repair a generator in the Killer's Terror Radius", Type: "general"},
+		"ACH_HEAL_SURVIVOR":         {Name: "healer", DisplayName: "Medic", Description: "Heal 25 Survivors", Type: "general"},
+		"ACH_RESCUE_UNHOOK":         {Name: "rescuer", DisplayName: "Savior", Description: "Rescue 25 Survivors from hooks", Type: "general"},
+		"ACH_KILL_BY_HAND":          {Name: "mori_master", DisplayName: "By Your Hand", Description: "Kill 25 Survivors by your hand", Type: "general"},
+		"ACH_BASEMENT_HOOK":         {Name: "basement_master", DisplayName: "Basement Party", Description: "Hook a Survivor in the basement", Type: "general"},
+		"ACH_HIT_SURVIVORS_EXPOSED": {Name: "exposed_master", DisplayName: "Exposed", Description: "Hit 25 Survivors suffering from the Exposed Status Effect", Type: "general"},
+	}
+
+	for apiName, general := range generalAchievements {
+		entry := AchievementEntry{
+			APIName:     apiName,
+			Name:        general.Name,
+			Type:        general.Type,
+			DisplayName: general.DisplayName,
+			Description: general.Description,
+			Category:    "general",
+		}
+		config.General = append(config.General, entry)
+	}
+
 	config.Metadata.TotalCount = len(config.Survivors) + len(config.Killers) + len(config.General)
 	return config
 }
