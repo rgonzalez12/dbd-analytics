@@ -93,11 +93,11 @@
 	// Filter achievements by type
 	let achievementSort: 'name' | 'rarity' | 'unlocked' | 'type' = 'name';
 	
-	// Separate achievements by category (excluding adepts from general achievements)
+	// Separate achievements by category using new type system
 	$: achievementsByType = (() => {
-		const all = player.achievements.mapped.filter(a => a.type !== 'adept');
-		const survivor = all.filter(a => a.type === 'survivor');
-		const killer = all.filter(a => a.type === 'killer');
+		const all = player.achievements.mapped.filter(a => a.type === 'general');
+		const survivor = player.achievements.mapped.filter(a => a.type === 'adept_survivor');
+		const killer = player.achievements.mapped.filter(a => a.type === 'adept_killer');
 		
 		return { all, survivor, killer };
 	})();
@@ -122,8 +122,8 @@
 					if (a.type !== b.type) return (a.type || '').localeCompare(b.type || '');
 					break;
 			}
-			// Default to name sort
-			return (a.name || a.character || a.id).localeCompare(b.name || b.character || b.id);
+			// Default to name sort - use display_name for proper Steam titles
+			return (a.display_name || a.name || a.id).localeCompare(b.display_name || b.name || b.id);
 		});
 	})();
 
@@ -459,7 +459,7 @@
 										{:else}
 											<div class="flex h-16 w-16 items-center justify-center rounded-lg border border-neutral-600 bg-neutral-700/50">
 												<span class="text-2xl {achievement.unlocked ? '' : 'grayscale'}">
-													{achievement.type === 'killer' ? '🔪' : achievement.type === 'survivor' ? '🏃' : achievement.type === 'adept' ? '🏆' : '⭐'}
+													{achievement.type === 'adept_killer' ? '🔪' : achievement.type === 'adept_survivor' ? '🏃' : achievement.type === 'general' ? '⭐' : '🏆'}
 												</span>
 											</div>
 										{/if}
@@ -471,10 +471,7 @@
 										<div class="flex items-start justify-between gap-2">
 											<div class="min-w-0 flex-1">
 												<h4 class="text-base font-medium {achievement.unlocked ? 'text-neutral-200' : 'text-neutral-400'}">
-													{achievement.name || achievement.character || achievement.id}
-													{#if !achievement.name && achievement.character}
-														<span class="text-xs text-neutral-500">(fallback)</span>
-													{/if}
+													{achievement.display_name || achievement.name || achievement.id}
 												</h4>
 												{#if achievement.description}
 													<p class="text-sm text-neutral-400 {achievement.hidden && !achievement.unlocked ? 'italic' : ''}">
@@ -490,14 +487,17 @@
 												<!-- Unlock status -->
 												<div class="h-3 w-3 rounded-full {achievement.unlocked ? 'bg-green-500' : 'bg-neutral-600'}"></div>
 												<!-- Type badge -->
-												<span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium {achievement.type === 'killer' 
+												<span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium {achievement.type === 'adept_killer' 
 													? 'bg-red-900/50 text-red-300' 
-													: achievement.type === 'survivor'
+													: achievement.type === 'adept_survivor'
 													? 'bg-blue-900/50 text-blue-300'
-													: achievement.type === 'adept'
-													? 'bg-purple-900/50 text-purple-300'
-													: 'bg-neutral-700/50 text-neutral-300'}">
-													{achievement.type || 'unknown'}
+													: achievement.type === 'general'
+													? 'bg-neutral-700/50 text-neutral-300'
+													: 'bg-purple-900/50 text-purple-300'}">
+													{achievement.type === 'adept_killer' ? 'Adept Killer' 
+													: achievement.type === 'adept_survivor' ? 'Adept Survivor'
+													: achievement.type === 'general' ? 'General'
+													: achievement.type || 'unknown'}
 												</span>
 											</div>
 										</div>

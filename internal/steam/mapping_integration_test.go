@@ -34,10 +34,9 @@ func TestAchievementMappingStructure(t *testing.T) {
 		
 		// Verify types are valid
 		validTypes := map[string]bool{
-			"survivor": true,
-			"killer":   true,
-			"general":  true,
-			"adept":    true,
+			"adept_survivor": true,
+			"adept_killer":   true,
+			"general":        true,
 		}
 		assert.True(t, validTypes[achievement.Type], "Achievement type should be valid: %s", achievement.Type)
 		
@@ -89,6 +88,6 @@ func TestAchievementMappingFallback(t *testing.T) {
 		typeCounts[achievement.Type]++
 	}
 	
-	assert.Greater(t, typeCounts["survivor"], 0, "Should have survivor achievements")
-	assert.Greater(t, typeCounts["killer"], 0, "Should have killer achievements")
+	assert.Greater(t, typeCounts["adept_survivor"], 0, "Should have survivor achievements")
+	assert.Greater(t, typeCounts["adept_killer"], 0, "Should have killer achievements")
 }

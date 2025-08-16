@@ -32,8 +32,8 @@ PORT=8080
 ### 3. Start the Backend
 ```bash
 # Build and run the Go server
-go build -o bin/dbd-analytics.exe ./cmd/app
-./bin/dbd-analytics.exe
+go build -o dbd-analytics.exe ./cmd/app
+./dbd-analytics.exe
 ```
 
 The backend will start on `http://localhost:8080`
@@ -145,7 +145,7 @@ npm run lint
 
 ### Backend Build
 ```bash
-go build -ldflags="-s -w" -o bin/dbd-analytics ./cmd/app
+go build -ldflags="-s -w" -o dbd-analytics.exe ./cmd/app
 ```
 
 ### Frontend Build
@@ -185,10 +185,8 @@ dbd-analytics/
 │   │   │   ├── +page.svelte    # Home page
 │   │   │   └── player/         # Player pages
 │   │   └── app.html            # HTML template
-│   ├── static/                 # Static assets
 │   └── package.json            # Frontend dependencies
-├── bin/                        # Compiled Go binaries
-├── scripts/                    # Utility scripts
+├── tools/                      # Development and testing utilities
 ├── .env                        # Environment configuration
 └── go.mod                      # Go module definition
 ```

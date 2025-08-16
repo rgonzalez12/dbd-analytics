@@ -79,8 +79,11 @@ type playerStatsResponse struct {
 }
 
 func NewClient() *Client {
+	apiKey := os.Getenv("STEAM_API_KEY")
+	log.Info("Creating Steam client", "api_key_exists", apiKey != "", "api_key_length", len(apiKey))
+	
 	return &Client{
-		apiKey: os.Getenv("STEAM_API_KEY"),
+		apiKey: apiKey,
 		client: &http.Client{
 			Timeout: achievementTimeout(),
 		},
@@ -505,12 +508,17 @@ func min(a, b int) int {
 
 // GetSchemaForGame retrieves the game schema including achievements and stats
 func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
+	log.Info("GetSchemaForGame called", "app_id", appID, "api_key_exists", c.apiKey != "", "api_key_length", len(c.apiKey))
+	
 	if c.apiKey == "" {
+		log.Error("STEAM_API_KEY is empty in GetSchemaForGame")
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
 	}
 
 	url := fmt.Sprintf("%s/ISteamUserStats/GetSchemaForGame/v2/?key=%s&appid=%s&l=en",
 		BaseURL, c.apiKey, appID)
+	
+	log.Info("Making schema request", "url", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -519,23 +527,41 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 
 	resp, err := c.client.Do(req)
 	if err != nil {
+		log.Error("Network error in schema request", "error", err)
 		return nil, NewNetworkError(err)
 	}
 	defer resp.Body.Close()
 
+	log.Info("Schema request completed", "status_code", resp.StatusCode)
+	
 	if resp.StatusCode != http.StatusOK {
+		log.Error("Non-200 response from schema request", "status_code", resp.StatusCode, "url", url)
 		return nil, NewAPIError(resp.StatusCode,
 			fmt.Sprintf("HTTP %d from %s", resp.StatusCode, url))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Error("Error reading schema response body", "error", err)
 		return nil, NewInternalError(err)
 	}
 
+	log.Info("Schema response read", "body_length", len(body))
+
 	var response schemaForGameResponse
 	if err := json.Unmarshal(body, &response); err != nil {
+		bodyPreview := string(body)
+		if len(bodyPreview) > 200 {
+			bodyPreview = bodyPreview[:200] + "..."
+		}
+		log.Error("Error unmarshaling schema response", "error", err, "body_preview", bodyPreview)
 		return nil, NewInternalError(err)
+	}
+
+	if response.Game.AvailableGameStats.Achievements == nil {
+		log.Error("Schema response has nil achievements")
+	} else {
+		log.Info("Schema response parsed successfully", "achievement_count", len(response.Game.AvailableGameStats.Achievements))
 	}
 
 	return &response.Game, nil

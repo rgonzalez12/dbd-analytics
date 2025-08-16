@@ -14,8 +14,8 @@ function toNum(v: unknown, d = 0): number {
 export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const mapped = raw.achievements?.mapped_achievements?.map(achievement => ({
 		id: achievement.id,
-		name: achievement.name,
-		display_name: achievement.display_name,
+		name: achievement.display_name || achievement.name || achievement.id,
+		display_name: achievement.display_name || achievement.name || achievement.id,
 		description: achievement.description,
 		...(achievement.icon !== undefined && { icon: achievement.icon }),
 		...(achievement.icon_gray !== undefined && { icon_gray: achievement.icon_gray }),
@@ -133,7 +133,7 @@ export function toPlayerBundle(raw: ApiPlayerStats): PlayerBundle {
 
 	const achievements: DbdAchievement[] = raw.achievements?.mapped_achievements?.map(achievement => ({
 		id: achievement.id,
-		name: achievement.name || achievement.display_name || achievement.id,
+		name: achievement.display_name || achievement.name || achievement.id,
 		description: achievement.description || `${achievement.type} achievement${achievement.character ? ` for ${achievement.character}` : ''}`,
 		unlocked: achievement.unlocked,
 		unlockTime: achievement.unlock_time ? new Date(achievement.unlock_time * 1000).toISOString() : null,

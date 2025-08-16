@@ -1169,6 +1169,16 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		"mapped_achievements_count", len(mappedAchievements),
 		"data_source", "schema_with_hardcoded_fallback")
 
+	// Helper function for safe map access
+	getIntFromMap := func(m map[string]interface{}, key string, defaultValue int) int {
+		if value, exists := m[key]; exists {
+			if intValue, ok := value.(int); ok {
+				return intValue
+			}
+		}
+		return defaultValue
+	}
+
 	processedAchievements := &models.AchievementData{
 		AdeptSurvivors:     adeptSurv,
 		AdeptKillers:       adeptKill,
@@ -1176,8 +1186,8 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		Summary: models.AchievementSummary{
 			TotalAchievements: summary["total_achievements"].(int),
 			UnlockedCount:     summary["unlocked_count"].(int),
-			SurvivorCount:     summary["survivor_count"].(int),
-			KillerCount:       summary["killer_count"].(int),
+			SurvivorCount:     getIntFromMap(summary, "adept_survivor_count", 0),
+			KillerCount:       getIntFromMap(summary, "adept_killer_count", 0),
 			GeneralCount:      summary["general_count"].(int),
 			AdeptSurvivors:    summary["adept_survivors"].([]string),
 			AdeptKillers:      summary["adept_killers"].([]string),

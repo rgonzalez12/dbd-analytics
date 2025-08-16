@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -21,7 +22,7 @@ type AchievementMapping struct {
 	IconGray    string  `json:"icon_gray,omitempty"`
 	Hidden      bool    `json:"hidden,omitempty"`
 	Character   string  `json:"character"`
-	Type        string  `json:"type"`    // "survivor", "killer", "general", "adept"
+	Type        string  `json:"type"`    // "adept_survivor", "adept_killer", "general"
 	Unlocked    bool    `json:"unlocked"`
 	UnlockTime  int64   `json:"unlock_time,omitempty"`
 	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
@@ -34,36 +35,28 @@ type UnknownAchievement struct {
 }
 
 type AchievementMapper struct {
-	config          *AchievementConfig
-	mapping         map[string]AchievementMapping
-	unknownAchievs  map[string]*UnknownAchievement
-	cacheDuration   time.Duration
-	mutex           sync.RWMutex
-	unknownsMutex   sync.RWMutex
-	client          *Client
+	unknownAchievs    map[string]*UnknownAchievement
+	unknownsMutex     sync.RWMutex
+	client            *Client
+	adeptRegex        *regexp.Regexp
+	adeptsByAPI       map[string]string // apiName -> "killer"|"survivor"
 }
 
 func NewAchievementMapper() *AchievementMapper {
-	config, err := LoadAchievementConfig()
-	if err != nil {
-		log.Error("Failed to load achievement config, using hardcoded fallback",
-			"error", err)
-		config = buildHardcodedConfig()
+	// Build adepts lookup from existing mapping
+	adeptsByAPI := make(map[string]string)
+	for apiName, adept := range AdeptAchievementMapping {
+		adeptsByAPI[apiName] = adept.Type
 	}
 
-	log.Info("Achievement mapper initialized",
-		"survivors_mapped", len(config.Survivors),
-		"killers_mapped", len(config.Killers),
-		"general_mapped", len(config.General),
-		"total_mapped", config.Metadata.TotalCount,
-		"config_source", config.Metadata.Source)
+	client := NewClient()
+	log.Info("Created achievement mapper", "steam_client_exists", client != nil)
 
 	return &AchievementMapper{
-		config:         config,
-		mapping:        make(map[string]AchievementMapping),
 		unknownAchievs: make(map[string]*UnknownAchievement),
-		cacheDuration:  24 * time.Hour, // Cache for 24 hours
-		client:         NewClient(),    // Create Steam client for schema access
+		client:         client,
+		adeptRegex:     regexp.MustCompile(`^Adept\s+(?:The\s+)?(.+)$`),
+		adeptsByAPI:    adeptsByAPI,
 	}
 }
 
@@ -72,316 +65,203 @@ func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchieveme
 }
 
 func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) []AchievementMapping {
-	am.mutex.RLock()
-	defer am.mutex.RUnlock()
-
 	ctx := context.Background()
-	var mapped []AchievementMapping
 	
-	// Create lookup map for unlocked achievements
+	// 1) Build map from player data
 	unlockedMap := make(map[string]SteamAchievement)
 	for _, achievement := range achievements.Achievements {
 		unlockedMap[achievement.APIName] = achievement
 	}
 
-	// Get global achievement percentages if cache is available
+	// 2) Fetch schema (only direct call available)
+	var fullSchema *SchemaGame
+	if am.client != nil {
+		log.Info("Attempting to fetch achievement schema from Steam API", "app_id", DBDAppID, "client_exists", true)
+		schema, err := am.client.GetSchemaForGame(DBDAppID)
+		if err != nil {
+			log.Error("Failed to get achievement schema, falling back to hardcoded", "error", err, "error_type", fmt.Sprintf("%T", err))
+		} else if schema == nil {
+			log.Error("Schema is nil from Steam API")
+		} else if schema.AvailableGameStats.Achievements == nil {
+			log.Error("Schema achievements field is nil")
+		} else {
+			fullSchema = schema
+			log.Info("Successfully fetched achievement schema", "count", len(fullSchema.AvailableGameStats.Achievements))
+		}
+	} else {
+		log.Error("Steam client is nil, cannot fetch schema")
+	}
+
+	// If schema missing/empty, fall back to processing all player achievements
+	if fullSchema == nil || len(fullSchema.AvailableGameStats.Achievements) == 0 {
+		log.Warn("Schema unavailable or empty, processing all player achievements with fallback classification")
+		return am.buildAllAchievementMappings(unlockedMap, nil, cacheManager, ctx)
+	}
+
+	// 3) Fetch global percentages (try cached first; else direct)
 	var globalPercentages map[string]float64
 	if cacheManager != nil && am.client != nil {
 		if percentages, err := am.client.GetGlobalAchievementPercentagesCached(ctx, cacheManager); err == nil {
 			globalPercentages = percentages
-			log.Debug("Using global achievement percentages", "count", len(globalPercentages))
+			log.Debug("Using cached global achievement percentages", "count", len(globalPercentages))
+		}
+	}
+	
+	if globalPercentages == nil && am.client != nil {
+		if percentages, err := am.client.FetchGlobalAchievementPercentages(ctx); err == nil {
+			globalPercentages = percentages
+			log.Debug("Using direct global achievement percentages", "count", len(globalPercentages))
 		} else {
 			log.Warn("Failed to get global achievement percentages", "error", err)
 		}
 	}
 
-	// Get full schema if cache is available
-	var fullSchema *SchemaGame
-	if cacheManager != nil && am.client != nil {
-		if schema, err := am.client.GetSchemaForGame(DBDAppID); err == nil {
-			fullSchema = schema
-			log.Debug("Using full achievement schema", "count", len(fullSchema.AvailableGameStats.Achievements))
-		} else {
-			log.Warn("Failed to get achievement schema, using fallback", "error", err)
-		}
-	}
-
-	// Create schema lookup map
-	schemaMap := make(map[string]SchemaAchievement)
-	if fullSchema != nil {
-		for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
-			schemaMap[schemaAch.Name] = schemaAch
-		}
-	}
-
-	// Helper function to classify achievement type
-	classifyAchievement := func(apiName, displayName string) string {
-		// Check if it's an adept achievement
-		if strings.Contains(displayName, "Adept ") {
-			if strings.Contains(apiName, "KILLER") || strings.Contains(apiName, "NEMESIS") || 
-			   strings.Contains(apiName, "PINHEAD") || strings.Contains(apiName, "ARTIST") {
-				return "killer"
-			}
-			return "survivor"
-		}
-		return "general"
-	}
-
-	// Build complete catalog from schema first
-	if fullSchema != nil {
-		for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
-			// Get unlock status
-			unlocked := false
-			var unlockTime int64
-			if unlockedAch, exists := unlockedMap[schemaAch.Name]; exists {
-				unlocked = unlockedAch.Achieved == 1
-				if unlockedAch.UnlockTime > 0 {
-					unlockTime = int64(unlockedAch.UnlockTime)
-				}
-			}
-
-			// Get global rarity
-			rarity := float64(0)
-			if globalPercentages != nil {
-				if percentage, exists := globalPercentages[schemaAch.Name]; exists {
-					rarity = percentage
-				}
-			}
-
-			// Determine type and character info
-			achType := classifyAchievement(schemaAch.Name, schemaAch.DisplayName)
-			character := ""
-			if achType != "general" && strings.Contains(schemaAch.DisplayName, "Adept ") {
-				// Extract character name from "Adept CharacterName"
-				character = strings.TrimPrefix(schemaAch.DisplayName, "Adept ")
-				character = strings.ToLower(character)
-			}
-
-			// Handle hidden achievements
-			description := schemaAch.Description
-			if schemaAch.Hidden == 1 && !unlocked {
-				description = ""
-			}
-
-			mapping := AchievementMapping{
-				ID:          schemaAch.Name,
-				Name:        schemaAch.DisplayName,
-				DisplayName: schemaAch.DisplayName, // for backwards compatibility
-				Description: description,
-				Icon:        schemaAch.Icon,
-				IconGray:    schemaAch.IconGray,
-				Hidden:      schemaAch.Hidden == 1,
-				Character:   character,
-				Type:        achType,
-				Unlocked:    unlocked,
-				UnlockTime:  unlockTime,
-				Rarity:      rarity,
-			}
-
-			mapped = append(mapped, mapping)
-		}
-	} else {
-		// Fallback to hardcoded mapping when schema unavailable
-		log.Warn("Using fallback achievement mapping - schema unavailable")
-
-		// Add adept achievements using existing logic
-		var schemaAdeptMap map[string]AdeptEntry
-		if cacheManager != nil && am.client != nil {
-			if adeptMap, err := am.client.GetAdeptMapCached(ctx, cacheManager); err == nil {
-				schemaAdeptMap = adeptMap
+	// 4) For each schema achievement, build mapping
+	var mapped []AchievementMapping
+	for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
+		// id := schema.Name
+		id := schemaAch.Name
+		
+		// title := schema.DisplayName (render this, no synthesis)
+		title := schemaAch.DisplayName
+		
+		// desc := schema.Description; if schema.Hidden==1 && !unlocked -> desc=""
+		description := schemaAch.Description
+		unlocked := false
+		var unlockTime int64
+		if unlockedAch, exists := unlockedMap[id]; exists {
+			unlocked = unlockedAch.Achieved == 1
+			if unlockedAch.UnlockTime > 0 {
+				unlockTime = int64(unlockedAch.UnlockTime)
 			}
 		}
-
-		if schemaAdeptMap != nil {
-			for apiName, entry := range schemaAdeptMap {
-				unlocked := false
-				var unlockTime int64
-				rarity := float64(0)
-				
-				if unlockedAch, exists := unlockedMap[apiName]; exists {
-					unlocked = unlockedAch.Achieved == 1
-					if unlockedAch.UnlockTime > 0 {
-						unlockTime = int64(unlockedAch.UnlockTime)
-					}
-				}
-				
-				if globalPercentages != nil {
-					if percentage, exists := globalPercentages[apiName]; exists {
-						rarity = percentage
-					}
-				}
-
-				mapping := AchievementMapping{
-					ID:          apiName,
-					Name:        fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
-					DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(entry.Character)),
-					Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(entry.Character)),
-					Character:   entry.Character,
-					Type:        entry.Kind,
-					Unlocked:    unlocked,
-					UnlockTime:  unlockTime,
-					Rarity:      rarity,
-				}
-				mapped = append(mapped, mapping)
-			}
-		} else {
-			// Fallback to hardcoded adept mapping
-			for apiName, adept := range AdeptAchievementMapping {
-				unlocked := false
-				var unlockTime int64
-				rarity := float64(0)
-				
-				if unlockedAch, exists := unlockedMap[apiName]; exists {
-					unlocked = unlockedAch.Achieved == 1
-					if unlockedAch.UnlockTime > 0 {
-						unlockTime = int64(unlockedAch.UnlockTime)
-					}
-				}
-				
-				if globalPercentages != nil {
-					if percentage, exists := globalPercentages[apiName]; exists {
-						rarity = percentage
-					}
-				}
-
-				mapping := AchievementMapping{
-					ID:          apiName,
-					Name:        fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
-					DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
-					Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
-					Character:   adept.Name,
-					Type:        adept.Type,
-					Unlocked:    unlocked,
-					UnlockTime:  unlockTime,
-					Rarity:      rarity,
-				}
-				mapped = append(mapped, mapping)
+		if schemaAch.Hidden == 1 && !unlocked {
+			description = ""
+		}
+		
+		// rarity := globals[id] if present
+		rarity := float64(0)
+		if globalPercentages != nil {
+			if percentage, exists := globalPercentages[id]; exists {
+				rarity = percentage
 			}
 		}
-
-		// Add general achievements
-		generalAchievements := am.getAllGeneralAchievements()
-		for _, general := range generalAchievements {
-			unlocked := false
-			var unlockTime int64
-			rarity := float64(0)
-			
-			if unlockedAch, exists := unlockedMap[general.APIName]; exists {
-				unlocked = unlockedAch.Achieved == 1
-				if unlockedAch.UnlockTime > 0 {
-					unlockTime = int64(unlockedAch.UnlockTime)
+		
+		// type/character classification
+		achType := "general"
+		character := ""
+		
+		if strings.HasPrefix(title, "Adept ") {
+			// Use adeptsByAPI to decide killer|survivor
+			if roleType, exists := am.adeptsByAPI[id]; exists {
+				if roleType == "killer" {
+					achType = "adept_killer"
+				} else {
+					achType = "adept_survivor"
 				}
 			}
 			
-			if globalPercentages != nil {
-				if percentage, exists := globalPercentages[general.APIName]; exists {
-					rarity = percentage
-				}
+			// Extract character with regex (do not add/remove "The" in title)
+			if matches := am.adeptRegex.FindStringSubmatch(title); len(matches) == 2 {
+				character = strings.ToLower(strings.TrimSpace(matches[1]))
 			}
-
-			mapping := AchievementMapping{
-				ID:          general.APIName,
-				Name:        general.DisplayName,
-				DisplayName: general.DisplayName,
-				Description: general.Description,
-				Type:        general.Type,
-				Unlocked:    unlocked,
-				UnlockTime:  unlockTime,
-				Rarity:      rarity,
-			}
-			mapped = append(mapped, mapping)
 		}
+		
+		mapping := AchievementMapping{
+			ID:          id,
+			Name:        title,        // Both reflect schema DisplayName
+			DisplayName: title,        // for legacy consumers
+			Description: description,
+			Icon:        schemaAch.Icon,
+			IconGray:    schemaAch.IconGray,
+			Hidden:      schemaAch.Hidden == 1,
+			Character:   character,
+			Type:        achType,
+			Unlocked:    unlocked,
+			UnlockTime:  unlockTime,
+			Rarity:      rarity,
+		}
+		
+		mapped = append(mapped, mapping)
 	}
 
-	// Sort achievements by name, then by ID for consistent ordering
+	// 5) Sort by DisplayName, then ID for stability
 	sort.Slice(mapped, func(i, j int) bool {
-		if mapped[i].Name == mapped[j].Name {
+		if mapped[i].DisplayName == mapped[j].DisplayName {
 			return mapped[i].ID < mapped[j].ID
 		}
-		return mapped[i].Name < mapped[j].Name
+		return mapped[i].DisplayName < mapped[j].DisplayName
 	})
+
+	// 6) If len(mapped) < 200, log a WARN
+	if len(mapped) < 200 {
+		log.Warn("Achievement count unexpectedly low - schema likely incomplete",
+			"mapped_count", len(mapped),
+			"expected_minimum", 200,
+			"suggestion", "Check Steam API availability or schema completeness")
+	}
+
+	log.Info("Schema-based achievement mapping completed",
+		"total_achievements", len(mapped),
+		"schema_source", "steam_api")
 
 	return mapped
 }
 
-// getAchievementMapping returns mapping for a specific achievement ID with fallback monitoring
-func (am *AchievementMapper) getAchievementMapping(apiName string) AchievementMapping {
-	// Check if we have this achievement in our adept mapping
-	if adept, exists := AdeptAchievementMapping[apiName]; exists {
-		return AchievementMapping{
-			ID:          apiName,
-			Name:        adept.Name,
-			DisplayName: fmt.Sprintf("Adept %s", capitalizeFirst(adept.Name)),
-			Description: fmt.Sprintf("Reach Player Level 10 with %s using only their unique perks", capitalizeFirst(adept.Name)),
-			Character:   adept.Name,
-			Type:        adept.Type,
-		}
-	}
-
-	// Enhanced mapping for common achievements
-	enhancedMappings := map[string]AchievementMapping{
-		// General achievements
-		"ACH_SAVE_YOURSELF":         {ID: apiName, Name: "self_preservation", DisplayName: "Taking One For The Team", Description: "Protect a Survivor from being hit 25 times", Type: "general"},
-		"ACH_PERFECT_KILLER":        {ID: apiName, Name: "perfect_killer", DisplayName: "Perfect Killer", Description: "Get a perfect score as a Killer", Type: "killer"},
-		"ACH_PERFECT_SURVIVOR":      {ID: apiName, Name: "perfect_survivor", DisplayName: "Perfect Escape", Description: "Get a perfect score as a Survivor", Type: "survivor"},
-		"ACH_ESCAPE_OBSESSION":      {ID: apiName, Name: "obsession_escape", DisplayName: "Escaped!", Description: "Escape as the Obsession", Type: "survivor"},
-		"ACH_GENERATOR_SOLO":        {ID: apiName, Name: "generator_solo", DisplayName: "Technician", Description: "Repair a generator in the Killer's Terror Radius", Type: "survivor"},
-		"ACH_HEAL_SURVIVOR":         {ID: apiName, Name: "healer", DisplayName: "Medic", Description: "Heal 25 Survivors", Type: "survivor"},
-		"ACH_RESCUE_UNHOOK":         {ID: apiName, Name: "rescuer", DisplayName: "Savior", Description: "Rescue 25 Survivors from hooks", Type: "survivor"},
-		"ACH_KILL_BY_HAND":          {ID: apiName, Name: "mori_master", DisplayName: "By Your Hand", Description: "Kill 25 Survivors by your hand", Type: "killer"},
-		"ACH_BASEMENT_HOOK":         {ID: apiName, Name: "basement_master", DisplayName: "Basement Party", Description: "Hook a Survivor in the basement", Type: "killer"},
-		"ACH_HIT_SURVIVORS_EXPOSED": {ID: apiName, Name: "exposed_master", DisplayName: "Exposed", Description: "Hit 25 Survivors suffering from the Exposed Status Effect", Type: "killer"},
-	}
-
-	if enhanced, exists := enhancedMappings[apiName]; exists {
-		return enhanced
-	}
-
-	// Track unknown achievements for monitoring and future updates
-	am.trackUnknownAchievement(apiName)
-
-	// Improved fallback for unknown achievements
-	return AchievementMapping{
-		ID:          apiName,
-		Name:        generateFallbackName(apiName),
-		DisplayName: formatAchievementName(apiName),
-		Description: "Achievement details not yet mapped - may be from new content",
-		Type:        inferAchievementType(apiName),
-	}
-}
-
-// trackUnknownAchievement logs and tracks unknown achievements for monitoring
-func (am *AchievementMapper) trackUnknownAchievement(apiName string) {
-	am.unknownsMutex.Lock()
-	defer am.unknownsMutex.Unlock()
-
-	if unknown, exists := am.unknownAchievs[apiName]; exists {
-		unknown.Occurrences++
-	} else {
-		am.unknownAchievs[apiName] = &UnknownAchievement{
-			APIName:     apiName,
-			FirstSeen:   time.Now(),
-			Occurrences: 1,
+// buildAllAchievementMappings processes all player achievements when schema is unavailable
+func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]SteamAchievement, globalPercentages map[string]float64, _ cache.Cache, _ context.Context) []AchievementMapping {
+	var mapped []AchievementMapping
+	
+	// Process each achievement from player data
+	for apiName, steamAch := range unlockedMap {
+		unlocked := steamAch.Achieved == 1
+		var unlockTime int64
+		if steamAch.UnlockTime > 0 {
+			unlockTime = int64(steamAch.UnlockTime)
 		}
 		
-		// Log new unknown achievement for monitoring
-		log.Warn("Unknown achievement encountered - may need mapping update",
-			"api_name", apiName,
-			"inferred_type", inferAchievementType(apiName),
-			"suggested_action", "Check Steam GetSchemaForGame for new content")
+		rarity := float64(0)
+		if globalPercentages != nil {
+			if percentage, exists := globalPercentages[apiName]; exists {
+				rarity = percentage
+			}
+		}
+		
+		// Use existing mapping logic or fallback
+		mapping := am.getAchievementMapping(apiName)
+		mapping.Unlocked = unlocked
+		mapping.UnlockTime = unlockTime
+		mapping.Rarity = rarity
+		
+		mapped = append(mapped, mapping)
 	}
+	
+	// Sort by DisplayName, then ID for stability
+	sort.Slice(mapped, func(i, j int) bool {
+		if mapped[i].DisplayName == mapped[j].DisplayName {
+			return mapped[i].ID < mapped[j].ID
+		}
+		return mapped[i].DisplayName < mapped[j].DisplayName
+	})
+	
+	log.Info("All-achievement mapping completed",
+		"total_achievements", len(mapped),
+		"source", "player_data_with_fallback_classification")
+	
+	return mapped
 }
 
-// GetAchievementSummary returns a summary of achievements by type
+// GetAchievementSummary returns a summary of achievements by type with enhanced adept tracking
 func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) map[string]interface{} {
 	summary := map[string]interface{}{
-		"total_achievements": len(mapped),
-		"unlocked_count":     0,
-		"survivor_count":     0,
-		"killer_count":       0,
-		"general_count":      0,
-		"adept_survivors":    []string{},
-		"adept_killers":      []string{},
+		"total_achievements":     len(mapped),
+		"unlocked_count":         0,
+		"general_count":          0,
+		"adept_survivor_count":   0,
+		"adept_killer_count":     0,
+		"adept_survivors":        []string{},
+		"adept_killers":          []string{},
+		"completion_rate":        0.0,
 	}
 
 	var adeptSurvivors, adeptKillers []string
@@ -392,100 +272,143 @@ func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) 
 		}
 
 		switch achievement.Type {
+		case "adept_survivor":
+			summary["adept_survivor_count"] = summary["adept_survivor_count"].(int) + 1
+			if achievement.Character != "" {
+				adeptSurvivors = append(adeptSurvivors, achievement.Character)
+			}
+		case "adept_killer":
+			summary["adept_killer_count"] = summary["adept_killer_count"].(int) + 1
+			if achievement.Character != "" {
+				adeptKillers = append(adeptKillers, achievement.Character)
+			}
 		case "survivor":
-			summary["survivor_count"] = summary["survivor_count"].(int) + 1
-			adeptSurvivors = append(adeptSurvivors, achievement.Character)
+			// Legacy compatibility for old tests
+			summary["adept_survivor_count"] = summary["adept_survivor_count"].(int) + 1
+			if achievement.Character != "" {
+				adeptSurvivors = append(adeptSurvivors, achievement.Character)
+			}
 		case "killer":
-			summary["killer_count"] = summary["killer_count"].(int) + 1
-			adeptKillers = append(adeptKillers, achievement.Character)
+			// Legacy compatibility for old tests  
+			summary["adept_killer_count"] = summary["adept_killer_count"].(int) + 1
+			if achievement.Character != "" {
+				adeptKillers = append(adeptKillers, achievement.Character)
+			}
+		case "general":
+			summary["general_count"] = summary["general_count"].(int) + 1
 		default:
+			// Treat unknown types as general
 			summary["general_count"] = summary["general_count"].(int) + 1
 		}
 	}
 
 	summary["adept_survivors"] = adeptSurvivors
 	summary["adept_killers"] = adeptKillers
-	summary["completion_rate"] = float64(summary["unlocked_count"].(int)) / float64(len(mapped)) * 100
+	
+	if len(mapped) > 0 {
+		summary["completion_rate"] = float64(summary["unlocked_count"].(int)) / float64(len(mapped)) * 100
+	}
 
 	return summary
 }
 
-// Helper functions
-func capitalizeFirst(s string) string {
-	if len(s) == 0 {
-		return s
+// GetUnknownAchievements returns list of unmapped achievements for monitoring
+func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
+	am.unknownsMutex.RLock()
+	defer am.unknownsMutex.RUnlock()
+
+	unknowns := make([]*UnknownAchievement, 0, len(am.unknownAchievs))
+	for _, unknown := range am.unknownAchievs {
+		unknowns = append(unknowns, unknown)
 	}
-	return string(s[0]-32) + s[1:]
+	
+	return unknowns
 }
 
-func formatAchievementName(apiName string) string {
-	// Basic formatting for unknown achievement names
-	name := apiName
-	if len(name) > 4 && name[:4] == "ACH_" {
-		name = name[4:]
+// ValidateMappingCoverage returns a summary of achievement mapping coverage
+func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
+	survivorCount := 0
+	killerCount := 0
+	
+	for _, adept := range AdeptAchievementMapping {
+		if adept.Type == "survivor" {
+			survivorCount++
+		} else if adept.Type == "killer" {
+			killerCount++
+		}
 	}
-	if len(name) > 15 && name[:15] == "NEW_ACHIEVEMENT" {
-		name = name[15:]
+	
+	return map[string]interface{}{
+		"survivor_adepts_mapped": survivorCount,
+		"killer_adepts_mapped":   killerCount,
+		"total_characters":       survivorCount + killerCount,
 	}
-	return name
 }
 
-func generateFallbackName(apiName string) string {
-	name := strings.ToLower(apiName)
-	
-	prefixes := []string{"ach_", "new_achievement_", "dlc", "chapter"}
-	for _, prefix := range prefixes {
-		name = strings.TrimPrefix(name, prefix)
+// getAchievementMapping provides fallback achievement mapping for unknown achievements
+func (am *AchievementMapper) getAchievementMapping(apiName string) AchievementMapping {
+	// Check if it's in our known mapping first
+	if adept, exists := AdeptAchievementMapping[apiName]; exists {
+		achType := "adept_survivor"
+		if adept.Type == "killer" {
+			achType = "adept_killer"
+		}
+		
+		return AchievementMapping{
+			ID:          apiName,
+			Name:        adept.Name,
+			DisplayName: adept.Name,
+			Description: "Character adept achievement",
+			Character:   adept.Name,
+			Type:        achType,
+			Unlocked:    false,
+		}
 	}
 	
-	name = strings.ReplaceAll(name, "_", " ")
-	name = strings.TrimSpace(name)
+	// Fallback detection for unknown achievements
+	achType := "general"
+	character := ""
+	displayName := apiName
 	
-	if name == "" {
-		return "unknown_achievement"
-	}
-	
-	return name
-}
-
-func inferAchievementType(apiName string) string {
+	// Simple pattern matching for type detection
 	apiLower := strings.ToLower(apiName)
-	
-	survivorPatterns := []string{"survivor", "_survivor_", "escape", "gen", "heal", "unhook", "repair"}
-	for _, pattern := range survivorPatterns {
-		if strings.Contains(apiLower, pattern) {
-			return "survivor"
-		}
+	if strings.Contains(apiLower, "survivor") {
+		achType = "survivor"
+	} else if strings.Contains(apiLower, "killer") {
+		achType = "killer"
 	}
 	
-	// Check for killer patterns  
-	killerPatterns := []string{"killer", "_killer_", "hook", "sacrifice", "mori", "basement", "hit"}
-	for _, pattern := range killerPatterns {
-		if strings.Contains(apiLower, pattern) {
-			return "killer"
-		}
-	}
+	// Generate a more readable display name
+	displayName = strings.ReplaceAll(apiName, "_", " ")
+	displayName = strings.Title(strings.ToLower(displayName))
 	
-	// Check for chapter/DLC patterns that might be character-specific
-	if strings.Contains(apiLower, "chapter") || strings.Contains(apiLower, "dlc") {
-		// Look for position indicators (survivor achievements often end with _3)
-		if strings.HasSuffix(apiLower, "_3") || strings.Contains(apiLower, "survivor") {
-			return "survivor"
-		}
-		if strings.Contains(apiLower, "killer") {
-			return "killer"
-		}
+	return AchievementMapping{
+		ID:          apiName,
+		Name:        displayName,
+		DisplayName: displayName,
+		Description: "Achievement detected but not in catalog",
+		Character:   character,
+		Type:        achType,
+		Unlocked:    false,
 	}
-	
-	return "general"
 }
 
-// Global mapper instance for caching
-var globalAchievementMapper = NewAchievementMapper()
+// Global mapper instance for caching (lazy initialization)
+var (
+	globalAchievementMapper *AchievementMapper
+	globalMapperOnce        sync.Once
+)
+
+func getGlobalMapper() *AchievementMapper {
+	globalMapperOnce.Do(func() {
+		globalAchievementMapper = NewAchievementMapper()
+	})
+	return globalAchievementMapper
+}
 
 // MapAchievements is a convenience function using the global mapper
 func MapAchievements(achievements *PlayerAchievements) []AchievementMapping {
-	return globalAchievementMapper.MapPlayerAchievements(achievements)
+	return getGlobalMapper().MapPlayerAchievements(achievements)
 }
 
 // GetMappedAchievements returns mapped achievements with summary and monitoring
@@ -495,14 +418,14 @@ func GetMappedAchievements(achievements *PlayerAchievements) map[string]interfac
 
 // GetAchievements returns mapped achievements with schema-based mapping when cache is available
 func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache) map[string]interface{} {
-	mapped := globalAchievementMapper.MapPlayerAchievementsWithCache(achievements, cacheManager)
-	summary := globalAchievementMapper.GetAchievementSummary(mapped)
-	unknowns := globalAchievementMapper.GetUnknownAchievements()
+	mapper := getGlobalMapper()
+	mapped := mapper.MapPlayerAchievementsWithCache(achievements, cacheManager)
+	summary := mapper.GetAchievementSummary(mapped)
+	unknowns := mapper.GetUnknownAchievements()
 
 	log.Info("Achievement mapping completed",
 		"total_achievements", len(mapped),
 		"unlocked_count", summary["unlocked_count"],
-		"completion_rate", fmt.Sprintf("%.1f%%", summary["completion_rate"]),
 		"survivor_adepts", len(summary["adept_survivors"].([]string)),
 		"killer_adepts", len(summary["adept_killers"].([]string)),
 		"unknown_achievements", len(unknowns))
@@ -534,141 +457,4 @@ func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache)
 	}
 
 	return result
-}
-
-// getAllGeneralAchievements returns all general achievements from schema/config with complete catalog guarantee
-func (am *AchievementMapper) getAllGeneralAchievements() []struct {
-	APIName     string
-	Name        string
-	DisplayName string
-	Description string
-	Type        string
-} {
-	var generalAchievements []struct {
-		APIName     string
-		Name        string
-		DisplayName string
-		Description string
-		Type        string
-	}
-
-	// First try schema-based general achievements if available
-	if am.config != nil {
-		for _, general := range am.config.General {
-			generalAchievements = append(generalAchievements, struct {
-				APIName     string
-				Name        string
-				DisplayName string
-				Description string
-				Type        string
-			}{
-				APIName:     general.APIName,
-				Name:        general.Name,
-				DisplayName: general.DisplayName,
-				Description: general.Description,
-				Type:        "general",
-			})
-		}
-	}
-
-	// Add hardcoded general achievements as fallback/supplement
-	hardcodedGeneral := map[string]struct {
-		Name        string
-		DisplayName string
-		Description string
-	}{
-		"ACH_SAVE_YOURSELF":         {Name: "self_preservation", DisplayName: "Taking One For The Team", Description: "Protect a Survivor from being hit 25 times"},
-		"ACH_PERFECT_KILLER":        {Name: "perfect_killer", DisplayName: "Perfect Killer", Description: "Get a perfect score as a Killer"},
-		"ACH_PERFECT_SURVIVOR":      {Name: "perfect_survivor", DisplayName: "Perfect Escape", Description: "Get a perfect score as a Survivor"},
-		"ACH_ESCAPE_OBSESSION":      {Name: "obsession_escape", DisplayName: "Escaped!", Description: "Escape as the Obsession"},
-		"ACH_GENERATOR_SOLO":        {Name: "generator_solo", DisplayName: "Technician", Description: "Repair a generator in the Killer's Terror Radius"},
-		"ACH_HEAL_SURVIVOR":         {Name: "healer", DisplayName: "Medic", Description: "Heal 25 Survivors"},
-		"ACH_RESCUE_UNHOOK":         {Name: "rescuer", DisplayName: "Savior", Description: "Rescue 25 Survivors from hooks"},
-		"ACH_KILL_BY_HAND":          {Name: "mori_master", DisplayName: "By Your Hand", Description: "Kill 25 Survivors by your hand"},
-		"ACH_BASEMENT_HOOK":         {Name: "basement_master", DisplayName: "Basement Party", Description: "Hook a Survivor in the basement"},
-		"ACH_HIT_SURVIVORS_EXPOSED": {Name: "exposed_master", DisplayName: "Exposed", Description: "Hit 25 Survivors suffering from the Exposed Status Effect"},
-	}
-
-	// Track which achievements we already have from schema to avoid duplicates
-	existingAPINames := make(map[string]bool)
-	for _, general := range generalAchievements {
-		existingAPINames[general.APIName] = true
-	}
-
-	// Add hardcoded achievements that aren't already in schema
-	for apiName, hardcoded := range hardcodedGeneral {
-		if !existingAPINames[apiName] {
-			generalAchievements = append(generalAchievements, struct {
-				APIName     string
-				Name        string
-				DisplayName string
-				Description string
-				Type        string
-			}{
-				APIName:     apiName,
-				Name:        hardcoded.Name,
-				DisplayName: hardcoded.DisplayName,
-				Description: hardcoded.Description,
-				Type:        "general",
-			})
-		}
-	}
-
-	return generalAchievements
-}
-
-// GetUnknownAchievements returns list of unmapped achievements for monitoring
-func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
-	am.unknownsMutex.RLock()
-	defer am.unknownsMutex.RUnlock()
-
-	unknowns := make([]*UnknownAchievement, 0, len(am.unknownAchievs))
-	for _, unknown := range am.unknownAchievs {
-		unknowns = append(unknowns, unknown)
-	}
-	
-	return unknowns
-}
-
-func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
-	survivorCount := 0
-	killerCount := 0
-	
-	for _, character := range AdeptAchievementMapping {
-		switch character.Type {
-		case "survivor":
-			survivorCount++
-		case "killer":
-			killerCount++
-		}
-	}
-	
-	validation := map[string]interface{}{
-		"survivor_adepts_mapped": survivorCount,
-		"killer_adepts_mapped":   killerCount,
-		"total_characters":       survivorCount + killerCount,
-		"coverage_status":        "complete",
-	}
-
-	// DBD has approximately 45+ survivors and 30+ killers as of 2024
-	expectedSurvivors := 45
-	expectedKillers := 30
-	
-	if survivorCount < expectedSurvivors {
-		validation["coverage_status"] = "partial"
-		validation["missing_survivors"] = expectedSurvivors - survivorCount
-	}
-	
-	if killerCount < expectedKillers {
-		validation["coverage_status"] = "partial"
-		validation["missing_killers"] = expectedKillers - killerCount
-	}
-
-	log.Info("Achievement mapping coverage validation",
-		"survivors_mapped", survivorCount,
-		"killers_mapped", killerCount,
-		"total_mapped", survivorCount+killerCount,
-		"coverage_status", validation["coverage_status"])
-
-	return validation
 }
