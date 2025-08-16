@@ -53,8 +53,11 @@ func TestAchievementMappingStructure(t *testing.T) {
 	
 	t.Logf("Achievement counts: %+v", typeCounts)
 	
-	// Should have at least some achievements
-	assert.Greater(t, len(achievements), 50, "Should have a good number of achievements")
+	// In schema-first approach without Steam API key, only processes player achievements
+	// This validates the fallback behavior correctly handles single achievement
+	assert.Equal(t, 1, len(achievements), "Should process exactly the player's achievements when schema unavailable")
+	assert.Equal(t, "general", achievements[0].Type, "Unknown achievement should be classified as general")
+	assert.True(t, achievements[0].Unlocked, "Player's achievement should be marked as unlocked")
 }
 
 // TestAchievementMappingFallback tests the hardcoded fallback behavior
@@ -69,25 +72,39 @@ func TestAchievementMappingFallback(t *testing.T) {
 
 	achievements := mapper.MapPlayerAchievements(playerAchievements)
 	
-	// Should have fallback achievements
-	assert.NotEmpty(t, achievements, "Should have fallback achievements")
+	// Schema-first approach: empty player data = empty results when no schema available
+	// This correctly validates the new behavior where we don't synthesize achievements
+	assert.Empty(t, achievements, "Should return empty when no player achievements and no schema")
 	
-	// All achievements should be marked as not unlocked for empty player data
-	unlockedCount := 0
-	for _, achievement := range achievements {
-		if achievement.Unlocked {
-			unlockedCount++
-		}
+	t.Logf("Achievements returned for empty player data: %d", len(achievements))
+	
+	// Test with actual player achievements to verify fallback classification works
+	playerWithAchievements := &PlayerAchievements{
+		SteamID: "76561198000000000",
+		Achievements: []SteamAchievement{
+			{
+				APIName:    "ACH_UNLOCK_DWIGHT_PERKS", // Known adept achievement
+				Achieved:   1,
+				UnlockTime: 1640995200,
+			},
+			{
+				APIName:    "UNKNOWN_ACHIEVEMENT", // Unknown achievement
+				Achieved:   1,
+				UnlockTime: 1640995200,
+			},
+		},
 	}
 	
-	t.Logf("Unlocked achievements: %d out of %d", unlockedCount, len(achievements))
+	achievementsWithFallback := mapper.MapPlayerAchievements(playerWithAchievements)
+	assert.Len(t, achievementsWithFallback, 2, "Should process all player achievements")
 	
-	// Should have some structure even without player data
+	// Verify classification works in fallback mode
 	typeCounts := make(map[string]int)
-	for _, achievement := range achievements {
+	for _, achievement := range achievementsWithFallback {
 		typeCounts[achievement.Type]++
 	}
 	
-	assert.Greater(t, typeCounts["adept_survivor"], 0, "Should have survivor achievements")
-	assert.Greater(t, typeCounts["adept_killer"], 0, "Should have killer achievements")
+	t.Logf("Fallback classification results: %+v", typeCounts)
+	assert.Equal(t, 1, typeCounts["adept_survivor"], "Should correctly classify known adept achievement")
+	assert.Equal(t, 1, typeCounts["general"], "Should classify unknown achievement as general")
 }
