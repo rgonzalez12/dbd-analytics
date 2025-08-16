@@ -359,10 +359,12 @@ func buildStatsSummary(stats []Stat) map[string]interface{} {
 		"general_count":  0,
 		"grade_stats":    []Stat{},
 		"prestige_level": 0,
+		"unruled_count":  0,
 	}
 
 	var gradeStats []Stat
 	var maxPrestige float64
+	unruled := 0
 
 	for _, stat := range stats {
 		switch stat.Category {
@@ -378,13 +380,28 @@ func buildStatsSummary(stats []Stat) map[string]interface{} {
 			gradeStats = append(gradeStats, stat)
 		}
 
+		// Use alias-based detection for prestige
 		if stat.Alias == "highest_prestige" && stat.Value > maxPrestige {
 			maxPrestige = stat.Value
+		}
+
+		// Surface current grades in summary for header tiles
+		if stat.Alias == "killer_grade" {
+			summary["killer_grade"] = stat.Formatted
+		}
+		if stat.Alias == "survivor_grade" {
+			summary["survivor_grade"] = stat.Formatted
+		}
+
+		// Count unruled stats for troubleshooting
+		if stat.MatchedBy == "" {
+			unruled++
 		}
 	}
 
 	summary["grade_stats"] = gradeStats
 	summary["prestige_level"] = int(maxPrestige)
+	summary["unruled_count"] = unruled
 
 	return summary
 }
