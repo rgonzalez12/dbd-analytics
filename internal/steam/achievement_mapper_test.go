@@ -44,12 +44,12 @@ func TestAchievementMapper(t *testing.T) {
 			},
 		}
 		
-		// When schema is unavailable (test environment), we fall back to processing player achievements only
+		// When schema is unavailable (test environment), we fall back to processing only adept achievements
 		mapped := mapper.MapPlayerAchievements(unknownAchievements)
 		
-		// Should map the known achievements from player data
-		if len(mapped) != 3 {
-			t.Errorf("Expected 3 mapped achievements, got %d", len(mapped))
+		// Should map only the known adept achievements (unknown achievement filtered out)
+		if len(mapped) != 2 {
+			t.Errorf("Expected 2 mapped achievements (only adepts), got %d", len(mapped))
 		}
 		
 		// Verify achievements have proper unlock status
@@ -60,9 +60,9 @@ func TestAchievementMapper(t *testing.T) {
 			}
 		}
 		
-		// Should have 2 unlocked achievements (Dwight and Unknown)
-		if unlockedCount != 2 {
-			t.Errorf("Expected 2 unlocked achievements, got %d", unlockedCount)
+		// Should have 1 unlocked achievement (only Dwight, unknown filtered out)
+		if unlockedCount != 1 {
+			t.Errorf("Expected 1 unlocked achievement (Dwight only), got %d", unlockedCount)
 		}
 		
 		// Verify all achievements have required fields and proper types

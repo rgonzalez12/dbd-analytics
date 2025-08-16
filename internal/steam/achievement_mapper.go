@@ -172,9 +172,9 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				log.Debug("Unknown adept achievement detected", "api_name", id, "title", title, "suggestion", "Consider adding to AdeptAchievementMapping")
 			}
 			
-			// Extract character with regex (keep original case)
+			// Extract character with regex (keep exact schema casing)
 			if m := am.adeptRegex.FindStringSubmatch(title); len(m) == 2 {
-				character = m[1] // keep original case, including "The "
+				character = m[1] // exact schema casing, including "The "
 			}
 		}
 		
@@ -221,10 +221,19 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 
 // buildAllAchievementMappings processes all player achievements when schema is unavailable
 func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]SteamAchievement, globalPercentages map[string]float64, _ cache.Cache, _ context.Context) []AchievementMapping {
-	mapped := make([]AchievementMapping, 0, len(unlockedMap))
+	// SURGICAL EDIT: In fallback mode, only process known adept achievements
+	// Since schema is unavailable, we can't validate general achievements reliably
+	mapped := make([]AchievementMapping, 0, len(AdeptAchievementMapping))
 	
 	// Process each achievement from player data
 	for apiName, steamAch := range unlockedMap {
+		// SURGICAL EDIT: Only process adept achievements in fallback mode
+		entry, isAdept := AdeptAchievementMapping[apiName]
+		if !isAdept {
+			am.trackUnknown(apiName)
+			continue
+		}
+		
 		unlocked := steamAch.Achieved == 1
 		var unlockTime int64
 		if steamAch.UnlockTime > 0 {
@@ -238,32 +247,23 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 			}
 		}
 		
-		// Determine type and character (no fake titles)
-		typ := "general"
-		character := ""
-		
-		if adept, exists := AdeptAchievementMapping[apiName]; exists {
-			if adept.Type == "killer" {
-				typ = "adept_killer"
-			} else {
-				typ = "adept_survivor"
-			}
-			character = adept.Name // keep case from mapping
-		} else {
-			// Track unknown achievement
-			am.trackUnknown(apiName)
-		}
-		
+		// Base mapping for adept achievements only
 		mapping := AchievementMapping{
 			ID:          apiName,
-			Name:        apiName, // raw API name, no synthesis
-			DisplayName: apiName, // raw API name, no synthesis
-			Description: "",      // safe, boring fallback
-			Character:   character,
-			Type:        typ,
+			Name:        apiName,        // raw; no title-casing
+			DisplayName: apiName,        // raw; no title-casing
+			Description: "Achievement not present in schema",
 			Unlocked:    unlocked,
 			UnlockTime:  unlockTime,
 			Rarity:      rarity,
+			Character:   entry.Name,     // keep mapping's casing
+		}
+		
+		// Set adept type
+		if entry.Type == "killer" {
+			mapping.Type = "adept_killer"
+		} else {
+			mapping.Type = "adept_survivor"
 		}
 		
 		mapped = append(mapped, mapping)

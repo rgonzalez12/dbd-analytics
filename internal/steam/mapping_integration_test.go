@@ -10,12 +10,12 @@ import (
 func TestAchievementMappingStructure(t *testing.T) {
 	mapper := NewAchievementMapper()
 	
-	// Create a test PlayerAchievements with one achievement
+	// Create a test PlayerAchievements with one adept achievement
 	playerAchievements := &PlayerAchievements{
 		SteamID: "76561198000000000",
 		Achievements: []SteamAchievement{
 			{
-				APIName:    "Adept_Dwight",
+				APIName:    "ACH_UNLOCK_DWIGHT_PERKS", // Correct adept API name
 				Achieved:   1,
 				UnlockTime: 1640995200, // Jan 1, 2022
 			},
@@ -32,11 +32,10 @@ func TestAchievementMappingStructure(t *testing.T) {
 		assert.NotEmpty(t, achievement.ID, "Achievement should have an ID")
 		assert.NotEmpty(t, achievement.Type, "Achievement should have a type")
 		
-		// Verify types are valid
+		// Verify types are valid (in fallback mode, only adept types)
 		validTypes := map[string]bool{
 			"adept_survivor": true,
 			"adept_killer":   true,
-			"general":        true,
 		}
 		assert.True(t, validTypes[achievement.Type], "Achievement type should be valid: %s", achievement.Type)
 		
@@ -53,10 +52,9 @@ func TestAchievementMappingStructure(t *testing.T) {
 	
 	t.Logf("Achievement counts: %+v", typeCounts)
 	
-	// In schema-first approach without Steam API key, only processes player achievements
-	// This validates the fallback behavior correctly handles single achievement
-	assert.Equal(t, 1, len(achievements), "Should process exactly the player's achievements when schema unavailable")
-	assert.Equal(t, "general", achievements[0].Type, "Unknown achievement should be classified as general")
+	// In fallback mode without Steam API key, only processes adept achievements
+	assert.Equal(t, 1, len(achievements), "Should process exactly the adept achievements when schema unavailable")
+	assert.Equal(t, "adept_survivor", achievements[0].Type, "Dwight adept should be classified as adept_survivor")
 	assert.True(t, achievements[0].Unlocked, "Player's achievement should be marked as unlocked")
 }
 
@@ -88,7 +86,7 @@ func TestAchievementMappingFallback(t *testing.T) {
 				UnlockTime: 1640995200,
 			},
 			{
-				APIName:    "UNKNOWN_ACHIEVEMENT", // Unknown achievement
+				APIName:    "UNKNOWN_ACHIEVEMENT", // Unknown achievement - will be filtered out
 				Achieved:   1,
 				UnlockTime: 1640995200,
 			},
@@ -96,7 +94,7 @@ func TestAchievementMappingFallback(t *testing.T) {
 	}
 	
 	achievementsWithFallback := mapper.MapPlayerAchievements(playerWithAchievements)
-	assert.Len(t, achievementsWithFallback, 2, "Should process all player achievements")
+	assert.Len(t, achievementsWithFallback, 1, "Should process only adept achievements in fallback mode")
 	
 	// Verify classification works in fallback mode
 	typeCounts := make(map[string]int)
@@ -106,5 +104,5 @@ func TestAchievementMappingFallback(t *testing.T) {
 	
 	t.Logf("Fallback classification results: %+v", typeCounts)
 	assert.Equal(t, 1, typeCounts["adept_survivor"], "Should correctly classify known adept achievement")
-	assert.Equal(t, 1, typeCounts["general"], "Should classify unknown achievement as general")
+	assert.Equal(t, 0, typeCounts["general"], "Should filter out unknown achievement in fallback mode")
 }
