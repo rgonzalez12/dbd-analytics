@@ -48,14 +48,24 @@ type PlayerStatsWithAchievements struct {
 	// Achievement data (optional - may be nil if achievements failed to load)
 	Achievements *AchievementData `json:"achievements,omitempty"`
 
+	// Structured stats data using schema as source of truth
+	Stats *StatsData `json:"stats,omitempty"`
+
 	// Data source information for debugging and monitoring
 	DataSources DataSourceStatus `json:"data_sources"`
+}
+
+// StatsData represents structured player statistics
+type StatsData struct {
+	Stats   []interface{} `json:"stats"`   // Will be populated with steam.Stat objects
+	Summary interface{}   `json:"summary"` // Will be populated with summary data
 }
 
 // DataSourceStatus tracks the success/failure status of different data sources
 type DataSourceStatus struct {
 	Stats        DataSourceInfo `json:"stats"`
 	Achievements DataSourceInfo `json:"achievements"`
+	StructuredStats DataSourceInfo `json:"structured_stats"` // New field for our schema-based stats
 }
 
 // DataSourceInfo provides detailed information about data source fetch results

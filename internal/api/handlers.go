@@ -871,10 +871,13 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	type fetchResult struct {
 		stats        models.PlayerStats
 		achievements *models.AchievementData
+		structuredStats *models.StatsData
 		statsError   error
 		achError     error
+		structuredStatsError error
 		statsSource  string
 		achSource    string
+		structuredStatsSource string
 	}
 
 	select {
@@ -885,7 +888,7 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 	}
 
 	result := fetchResult{}
-	resultChan := make(chan struct{}, 2)
+	resultChan := make(chan struct{}, 3) // Changed from 2 to 3
 
 	go func() {
 		defer func() { resultChan <- struct{}{} }()
@@ -897,9 +900,14 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		result.achievements, result.achSource, result.achError = h.fetchPlayerAchievementsWithSource(resolvedSteamID)
 	}()
 
+	go func() {
+		defer func() { resultChan <- struct{}{} }()
+		result.structuredStats, result.structuredStatsSource, result.structuredStatsError = h.fetchPlayerStructuredStatsWithSource(resolvedSteamID)
+	}()
+
 	timeout := time.After(SteamAPITimeout)
 	completedCount := 0
-	for completedCount < 2 {
+	for completedCount < 3 { // Changed from 2 to 3
 		select {
 		case <-resultChan:
 			completedCount++
@@ -925,7 +933,24 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 				Source:    result.achSource,
 				FetchedAt: time.Now(),
 			},
+			StructuredStats: models.DataSourceInfo{
+				Success:   result.structuredStatsError == nil,
+				Source:    result.structuredStatsSource,
+				FetchedAt: time.Now(),
+			},
 		},
+	}
+
+	// Include structured stats if successful
+	if result.structuredStatsError == nil {
+		response.Stats = result.structuredStats
+	} else {
+		response.DataSources.StructuredStats.Error = result.structuredStatsError.Error()
+		requestLogger.Warn("Failed to fetch structured stats - non-critical",
+			"error", result.structuredStatsError,
+			"error_type", classifyError(result.structuredStatsError),
+			"steam_id", steamID,
+			"impact", "structured_stats_unavailable")
 	}
 
 	if result.statsError != nil {
@@ -1298,4 +1323,63 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Expires", "0")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(status)
+}
+
+// fetchPlayerStructuredStatsWithSource fetches structured stats using schema as source of truth
+func (h *Handler) fetchPlayerStructuredStatsWithSource(steamID string) (*models.StatsData, string, error) {
+	if h.cacheManager != nil {
+		// Try to fetch from cache first
+		cacheKey := cache.GenerateKey("structured_stats", steamID)
+		if cached, found := h.cacheManager.GetCache().Get(cacheKey); found {
+			if statsData, ok := cached.(*models.StatsData); ok {
+				return statsData, "cache", nil
+			}
+		}
+		
+		// Cache miss - fetch from API with cache
+		ctx := context.Background()
+		statsResponse, err := steam.MapPlayerStats(ctx, steamID, h.cacheManager.GetCache(), h.steamClient)
+		if err != nil {
+			return nil, "api", err
+		}
+		
+		// Convert to model format
+		statsData := &models.StatsData{
+			Stats:   make([]interface{}, len(statsResponse.Stats)),
+			Summary: statsResponse.Summary,
+		}
+		
+		// Copy stats (convert to interface{} slice for JSON flexibility)
+		for i, stat := range statsResponse.Stats {
+			statsData.Stats[i] = stat
+		}
+		
+		// Cache the result
+		config := h.cacheManager.GetConfig()
+		if cacheErr := h.cacheManager.GetCache().Set(cacheKey, statsData, config.TTL.PlayerStats); cacheErr != nil {
+			log.Warn("Failed to cache structured stats", "cache_key", cacheKey, "error", cacheErr)
+		}
+		
+		return statsData, "api", nil
+	}
+	
+	// No cache - direct API call
+	ctx := context.Background()
+	statsResponse, err := steam.MapPlayerStats(ctx, steamID, nil, h.steamClient)
+	if err != nil {
+		return nil, "api", err
+	}
+	
+	// Convert to model format
+	statsData := &models.StatsData{
+		Stats:   make([]interface{}, len(statsResponse.Stats)),
+		Summary: statsResponse.Summary,
+	}
+	
+	// Copy stats
+	for i, stat := range statsResponse.Stats {
+		statsData.Stats[i] = stat
+	}
+	
+	return statsData, "api", nil
 }

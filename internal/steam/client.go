@@ -209,6 +209,55 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 	return &resp.Playerstats, nil
 }
 
+// GetUserStatsForGame gets user stats for a specific game - alias for GetPlayerStats with context
+func (c *Client) GetUserStatsForGame(ctx context.Context, steamID string, appID int) (*SteamPlayerstats, *APIError) {
+	// Use existing GetPlayerStats method (it already uses DBDAppID)
+	return c.GetPlayerStats(steamID)
+}
+
+// GetUserStatsForGameCached retrieves user stats with caching support
+func (c *Client) GetUserStatsForGameCached(ctx context.Context, steamID string, appID int, cacheManager interface{}) (*SteamPlayerstats, *APIError) {
+	// Use cache if available
+	if cacheManager != nil {
+		cache, ok := cacheManager.(interface {
+			Get(key string) (interface{}, bool)
+			Set(key string, value interface{}, ttl time.Duration) error
+		})
+		if ok {
+			cacheKey := fmt.Sprintf("user_stats_%s_%d", steamID, appID)
+			
+			if cached, found := cache.Get(cacheKey); found {
+				if stats, ok := cached.(*SteamPlayerstats); ok {
+					log.Debug("Using cached user stats", "steam_id", steamID, "app_id", appID, 
+						"cache_key", cacheKey, "stats_count", len(stats.Stats))
+					return stats, nil
+				} else {
+					log.Warn("Invalid cached user stats type", 
+						"cache_key", cacheKey, "expected", "*SteamPlayerstats", "actual", fmt.Sprintf("%T", cached))
+				}
+			}
+			
+			// Cache miss - fetch from API
+			stats, err := c.GetUserStatsForGame(ctx, steamID, appID)
+			if err != nil {
+				return nil, err
+			}
+			
+			// Cache the result
+			if cacheErr := cache.Set(cacheKey, stats, 2*time.Minute); cacheErr != nil {
+				log.Warn("Failed to cache user stats", "cache_key", cacheKey, "error", cacheErr)
+			} else {
+				log.Debug("User stats cached successfully", "cache_key", cacheKey, "stats_count", len(stats.Stats))
+			}
+			
+			return stats, nil
+		}
+	}
+	
+	// No cache available - direct API call
+	return c.GetUserStatsForGame(ctx, steamID, appID)
+}
+
 func (c *Client) GetPlayerAchievements(steamID string, appID int) (*PlayerAchievements, *APIError) {
 	start := time.Now()
 	if c.apiKey == "" {
