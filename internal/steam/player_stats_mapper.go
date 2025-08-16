@@ -22,6 +22,8 @@ type Stat struct {
 	ValueType   string  `json:"value_type"`    // "count" | "percent" | "grade" | "level" | "duration"
 	SortWeight  int     `json:"sort_weight"`   // for stable ordering in UI
 	Icon        string  `json:"icon,omitempty"`
+	Alias       string  `json:"alias,omitempty"`       // e.g., killer_grade
+	MatchedBy   string  `json:"matched_by,omitempty"`  // rule id (for debugging)
 }
 
 // PlayerStatsResponse represents the complete stats response
@@ -38,26 +40,78 @@ type Grade struct {
 
 // StatRule defines classification and formatting rules for stats
 type StatRule struct {
-	Category   string
-	ValueType  string
-	Weight     int
+	ID        string
+	Category  string
+	ValueType string
+	Weight    int
+	Alias     string
+	Match     func(id, dn string) bool
 }
 
-// statRules defines explicit transformation rules for known stats
-var statRules = map[string]StatRule{
-	// Grades - these need to be updated with actual schema names when discovered
-	"grade_killer":    {Category: "killer", ValueType: "grade", Weight: 0},
-	"grade_survivor":  {Category: "survivor", ValueType: "grade", Weight: 0},
-	
-	// Prestige
-	"prestige_level":  {Category: "general", ValueType: "level", Weight: 5},
-	"highest_prestige": {Category: "general", ValueType: "level", Weight: 5},
-	
-	// Known percentages (add as discovered)
-	"generator_progress": {Category: "survivor", ValueType: "percent", Weight: 20},
-	"healing_progress":   {Category: "survivor", ValueType: "percent", Weight: 21},
-	
-	// Everything else defaults to count with weight 100
+var ruleSet = []StatRule{
+	{ // killer grade
+		ID: "killer_grade", Category: "killer", ValueType: "grade", Weight: 0, Alias: "killer_grade",
+		Match: func(id, dn string) bool {
+			s := strings.ToLower(id + "|" + dn)
+			return (strings.Contains(s, "killer") && strings.Contains(s, "grade")) ||
+				strings.Contains(s, "rank_killer") || strings.Contains(s, "killer_rank")
+		},
+	},
+	{ // survivor grade
+		ID: "survivor_grade", Category: "survivor", ValueType: "grade", Weight: 0, Alias: "survivor_grade",
+		Match: func(id, dn string) bool {
+			s := strings.ToLower(id + "|" + dn)
+			return (strings.Contains(s, "survivor") && strings.Contains(s, "grade")) ||
+				strings.Contains(s, "rank_camper") || strings.Contains(s, "survivor_rank")
+		},
+	},
+	{ // highest prestige level
+		ID: "highest_prestige", Category: "general", ValueType: "level", Weight: 5, Alias: "highest_prestige",
+		Match: func(id, dn string) bool {
+			s := strings.ToLower(id + "|" + dn)
+			return strings.Contains(s, "prestige") && (strings.Contains(s, "highest") || strings.Contains(s, "max"))
+		},
+	},
+	// Conservative percent rules (add more only when verified)
+	{
+		ID: "healing_progress", Category: "survivor", ValueType: "percent", Weight: 20,
+		Match: func(id, dn string) bool {
+			s := strings.ToLower(id + "|" + dn)
+			return strings.Contains(s, "heal") && strings.Contains(s, "progress")
+		},
+	},
+	{
+		ID: "generator_progress", Category: "survivor", ValueType: "percent", Weight: 21,
+		Match: func(id, dn string) bool {
+			s := strings.ToLower(id + "|" + dn)
+			return strings.Contains(s, "generator") && strings.Contains(s, "progress")
+		},
+	},
+}
+
+func findRule(id, dn string) (StatRule, bool) {
+	for _, r := range ruleSet {
+		if r.Match(id, dn) {
+			return r, true
+		}
+	}
+	return StatRule{}, false
+}
+
+// inferStatRule applies heuristics to categorize unknown stats (fallback heuristic)
+func inferStatRule(id, dn string) StatRule {
+	s := strings.ToLower(id + "|" + dn)
+	switch {
+	case strings.Contains(s, "killer") || strings.Contains(s, "slasher") ||
+		strings.Contains(s, "hook") || strings.Contains(s, "sacrifice") || strings.Contains(s, "mori"):
+		return StatRule{Category: "killer", ValueType: "count", Weight: 100}
+	case strings.Contains(s, "camper") || strings.Contains(s, "survivor") ||
+		strings.Contains(s, "escape") || strings.Contains(s, "heal") ||
+		strings.Contains(s, "repair") || strings.Contains(s, "generator"):
+		return StatRule{Category: "survivor", ValueType: "count", Weight: 100}
+	default:
+		return StatRule{Category: "general", ValueType: "count", Weight: 100}
+	}
 }
 
 // gradeMapping maps raw grade values to human readable grades
@@ -132,35 +186,39 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 	}
 
 	// 4) Map each schema stat to our Stat struct
-	var mappedStats []Stat
+	mappedStats := make([]Stat, 0, len(schema.AvailableGameStats.Stats))
 	
 	for _, schemaStat := range schema.AvailableGameStats.Stats {
 		id := schemaStat.Name
-		displayName := schemaStat.DisplayName
-		rawValue := userStatsMap[id] // 0 if missing
+		dn := schemaStat.DisplayName
+		raw := userStatsMap[id] // 0 if missing
 
-		// Get rules for this stat
-		rule, hasRule := statRules[id]
-		if !hasRule {
-			// Apply category heuristic as fallback
-			rule = inferStatRule(id, displayName)
+		rule, ok := findRule(id, dn)
+		if !ok {
+			rule = inferStatRule(id, dn)
 		}
 
 		// Format the value
-		formatted := formatValue(rawValue, rule.ValueType)
+		formatted := formatValue(raw, rule.ValueType)
 
-		stat := Stat{
+		st := Stat{
 			ID:          id,
-			DisplayName: displayName,
-			Value:       rawValue,
+			DisplayName: dn,
+			Value:       raw,
 			Formatted:   formatted,
 			Category:    rule.Category,
 			ValueType:   rule.ValueType,
 			SortWeight:  rule.Weight,
-			Icon:        "", // Schema doesn't provide icons for stats
+			Alias:       rule.Alias,
+			MatchedBy:   rule.ID,
 		}
 
-		mappedStats = append(mappedStats, stat)
+		// telemetry: looks like grade but didn't get typed as grade
+		if strings.Contains(strings.ToLower(id+"|"+dn), "grade") && st.ValueType != "grade" {
+			log.Debug("Stat looks like grade but rule did not match", "id", id, "name", dn, "value", raw)
+		}
+
+		mappedStats = append(mappedStats, st)
 	}
 
 	// 5) Sort stats: killer -> survivor -> general, then by weight, then by display name
@@ -203,32 +261,6 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		Stats:   mappedStats,
 		Summary: summary,
 	}, nil
-}
-
-// inferStatRule applies heuristics to categorize unknown stats
-func inferStatRule(name, displayName string) StatRule {
-	name = strings.ToLower(name)
-	displayName = strings.ToLower(displayName)
-	
-	// Killer heuristics
-	if strings.Contains(name, "killer") || strings.Contains(name, "slasher") ||
-		strings.Contains(name, "hook") || strings.Contains(name, "sacrifice") ||
-		strings.Contains(name, "mori") || strings.Contains(displayName, "killer") ||
-		strings.Contains(displayName, "hook") || strings.Contains(displayName, "sacrifice") {
-		return StatRule{Category: "killer", ValueType: "count", Weight: 100}
-	}
-	
-	// Survivor heuristics
-	if strings.Contains(name, "camper") || strings.Contains(name, "survivor") ||
-		strings.Contains(name, "escape") || strings.Contains(name, "heal") ||
-		strings.Contains(name, "repair") || strings.Contains(name, "generator") ||
-		strings.Contains(displayName, "survivor") || strings.Contains(displayName, "escape") ||
-		strings.Contains(displayName, "heal") || strings.Contains(displayName, "generator") {
-		return StatRule{Category: "survivor", ValueType: "count", Weight: 100}
-	}
-	
-	// Default to general
-	return StatRule{Category: "general", ValueType: "count", Weight: 100}
 }
 
 // decodeGrade converts raw grade value to human readable format
@@ -346,10 +378,8 @@ func buildStatsSummary(stats []Stat) map[string]interface{} {
 			gradeStats = append(gradeStats, stat)
 		}
 
-		if stat.ValueType == "level" && strings.Contains(strings.ToLower(stat.ID), "prestige") {
-			if stat.Value > maxPrestige {
-				maxPrestige = stat.Value
-			}
+		if stat.Alias == "highest_prestige" && stat.Value > maxPrestige {
+			maxPrestige = stat.Value
 		}
 	}
 
