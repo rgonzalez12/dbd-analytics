@@ -1,44 +1,53 @@
 # Structured Logging
 
-The Dead by Daylight Analytics API uses structured JSON logging for enhanced observability and debugging.
+JSON-based structured logging for enhanced observability and debugging.
 
-## Log Configuration
-
-The application uses Go's `log/slog` package with JSON output for structured logging:
+## Configuration
 
 ```bash
 # Set log level (default: info)
 export LOG_LEVEL=debug
+```
 
-# Example log output
-{"time":"2025-08-03T01:41:47.6116719-04:00","level":"INFO","source":{"function":"main.main.func1.1","file":"C:/Users/Ray/dbd-analytics/cmd/app/main.go","line":92},"msg":"incoming_request","method":"GET","path":"/api/player/76561198000000000/summary","steam_id":"76561198000000000","user_agent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.4652","remote_addr":"[::1]:63035","request_id":""}
+Example log output:
+```json
+{
+  "time": "2025-08-03T01:41:47.6116719-04:00",
+  "level": "INFO",
+  "source": {"function": "main.main", "file": "main.go", "line": 92},
+  "msg": "incoming_request",
+  "method": "GET",
+  "path": "/api/player/76561198000000000",
+  "steam_id": "76561198000000000",
+  "remote_addr": "[::1]:63035"
+}
 ```
 
 ## Logged Events
 
-### HTTP Request Lifecycle
-- **incoming_request**: Every incoming HTTP request with method, path, Steam ID, user agent, and client IP
-- **request_completed**: Request completion with response status code and duration
+### HTTP Requests
+- `incoming_request`: Every HTTP request with method, path, Steam ID, client IP
+- `request_completed`: Request completion with status code and duration
 
-### Steam API Calls
-- **steam_api_request_start**: Outgoing Steam API requests with endpoint and method
-- **steam_api_request_completed**: Steam API response with status code and timing
-- **steam_api_request_success**: Successful Steam API calls with response size
-- **steam_api_request_failed**: Failed Steam API calls with error details
+### Steam API
+- `steam_api_request_start`: Outgoing Steam API requests
+- `steam_api_request_completed`: Steam API responses with timing
+- `steam_api_request_success`: Successful calls with response size
+- `steam_api_request_failed`: Failed calls with error details
 
-### Error Handling
-- **API error response generated**: Error responses sent to clients with request IDs for tracing
-- **Invalid Steam ID format**: Validation errors with client details
-- **Steam API rate limit exceeded**: Rate limiting events
-- **Network error during Steam API request**: Connection failures
+### Errors
+- `API error response generated`: Error responses with request IDs
+- `Invalid Steam ID format`: Validation errors
+- `Steam API rate limit exceeded`: Rate limiting events
+- `Network error during Steam API request`: Connection failures
 
 ### Success Events
-- **successful_response_sent**: Successful JSON responses with size information
-- **Successfully retrieved player summary**: Steam API data retrieval success
+- `successful_response_sent`: Successful JSON responses with size
+- `Successfully retrieved player summary`: Steam API data retrieval
 
 ## Log Fields
 
-All logs include standard fields:
+Standard fields in all logs:
 - `time`: RFC3339 timestamp
 - `level`: Log level (INFO, WARN, ERROR, DEBUG)
 - `msg`: Human-readable message
@@ -48,22 +57,21 @@ Request-specific fields:
 - `method`: HTTP method
 - `path`: Request path
 - `steam_id`: Steam ID from URL parameter
-- `player_id`: Steam ID or vanity URL for correlation across log lines
+- `player_id`: Steam ID or vanity URL
 - `user_agent`: Client user agent
 - `remote_addr`: Client IP address
 - `status_code`: HTTP response status
-- `duration`: Request duration in nanoseconds
 - `duration_ms`: Request duration in milliseconds
-- `request_id`: Unique request identifier for error tracing
+- `request_id`: Unique request identifier
 
 Steam API fields:
 - `endpoint`: Steam API endpoint URL
 - `response_size`: Response body size in bytes
-- `error_type`: Categorized error type (validation_error, network_error, etc.)
+- `error_type`: Categorized error type
 
 ## Error Tracing
 
-Each error response includes a unique `request_id` that appears in both:
+Each error response includes a unique `request_id` in:
 1. HTTP response header (`X-Request-ID`)
 2. JSON response body (`request_id` field)
 3. Server logs for correlation
@@ -71,7 +79,7 @@ Each error response includes a unique `request_id` that appears in both:
 Example error response:
 ```json
 {
-  "error": "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
+  "error": "Invalid vanity URL format",
   "type": "validation_error",
   "details": "Invalid request parameters",
   "request_id": "faaca1bb184b7116",
@@ -81,7 +89,7 @@ Example error response:
 
 ## Log Analysis
 
-Use tools like `jq` to parse and analyze logs:
+Use `jq` to parse and analyze logs:
 
 ```bash
 # Filter error logs
@@ -91,35 +99,16 @@ cat logs.json | jq 'select(.level == "ERROR")'
 cat logs.json | jq 'select(.msg == "request_completed") | {path, duration_ms, status_code}'
 
 # Find Steam API performance
-cat logs.json | jq 'select(.msg == "steam_api_request_success") | {endpoint, duration_ms, response_size}'
+cat logs.json | jq 'select(.msg == "steam_api_request_success") | {endpoint, duration_ms}'
 
-# Trace specific request by ID
+# Trace specific request
 cat logs.json | jq 'select(.request_id == "faaca1bb184b7116")'
-
-# Find all logs for a specific player
-cat logs.json | jq 'select(.player_id == "76561198000000000")'
 ```
 
 ## Environment Variables
 
-Configuration options for enhanced logging and timeouts:
-
 ```bash
-# Logging configuration
-LOG_LEVEL=debug                    # Set log level (default: info)
-
-# Steam API timeout configuration  
-ACHIEVEMENTS_TIMEOUT_SECS=5        # Achievements fetch timeout (default: 5s)
-
-# Cache TTL configuration (from ACHIEVEMENTS.md)
-CACHE_PLAYER_ACHIEVEMENTS_TTL=30m
-CACHE_PLAYER_COMBINED_TTL=10m
+LOG_LEVEL=debug                           # Log level
+ACHIEVEMENTS_TIMEOUT_SECS=5               # Steam API timeout
+CACHE_PLAYER_ACHIEVEMENTS_TTL=30m         # Cache TTL
 ```
-
-## Monitoring Integration
-
-The structured logs are designed for integration with monitoring tools:
-- **Prometheus**: Extract metrics from duration and status code fields
-- **Grafana**: Visualize request patterns and error rates
-- **ELK Stack**: Index and search log events
-- **Datadog/New Relic**: Application performance monitoring
