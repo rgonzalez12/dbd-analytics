@@ -1,6 +1,10 @@
 <script lang="ts">
-	import { navigating } from '$app/stores';
+	import { navigating, page } from '$app/stores';
 	import LoadingSkeleton from '$lib/LoadingSkeleton.svelte';
+	import PlayerLoadingSkeleton from '$lib/PlayerLoadingSkeleton.svelte';
+	
+	// Determine which loading skeleton to show based on route
+	$: isPlayerRoute = $page.route.id?.includes('/player/[steamId]');
 </script>
 
 <svelte:head>
@@ -15,7 +19,11 @@
 	</header>
 	
 	{#if $navigating}
-		<LoadingSkeleton />
+		{#if isPlayerRoute}
+			<PlayerLoadingSkeleton />
+		{:else}
+			<LoadingSkeleton />
+		{/if}
 	{:else}
 		<slot />
 	{/if}
