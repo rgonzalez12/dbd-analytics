@@ -1,5 +1,5 @@
 export type StatCategory = 'killer' | 'survivor' | 'general';
-export type ValueType = 'count' | 'percent' | 'grade' | 'level' | 'duration';
+export type ValueType = 'count' | 'float' | 'grade' | 'level' | 'duration';
 export type StatAlias = 
 	| 'killer_grade'
 	| 'survivor_grade'
@@ -19,14 +19,26 @@ export interface WireStat {
 }
 
 export interface WirePlayerResponse {
-  stats?: WireStat[] | { stats?: WireStat[]; summary?: unknown };
-  achievements?: unknown[] | { mapped_achievements?: unknown[]; summary?: unknown };
+  stats?: { 
+    stats?: WireStat[]; 
+    summary?: {
+      killer_grade?: string;
+      killer_pips?: number;
+      prestige_max?: number;
+      survivor_grade?: string;
+      survivor_pips?: number;
+    };
+  };
+  achievements?: { 
+    mapped_achievements?: unknown[]; 
+    summary?: unknown; 
+  };
 }
 
 function extractArray<T = unknown>(maybe: unknown, key: 'stats' | 'achievements'): T[] {
   if (Array.isArray(maybe)) return maybe as T[];
   if (maybe && typeof maybe === 'object') {
-    const arr = (maybe as any)[key];
+    const arr = key === 'stats' ? (maybe as any).stats : (maybe as any).mapped_achievements;
     if (Array.isArray(arr)) return arr as T[];
   }
   return [];
@@ -36,10 +48,8 @@ export function normalizePlayerPayload(raw: WirePlayerResponse) {
   const stats = extractArray<WireStat>(raw.stats, 'stats');
   const statsSummary = (raw.stats && typeof raw.stats === 'object' && (raw.stats as any).summary) || null;
   
-  // Fix: Extract mapped_achievements instead of achievements
-  const achievements = raw.achievements && typeof raw.achievements === 'object' 
-    ? (raw.achievements as any).mapped_achievements || []
-    : Array.isArray(raw.achievements) ? raw.achievements : [];
+  // Extract mapped_achievements
+  const achievements = extractArray(raw.achievements, 'achievements');
   
   const achievementSummary = (raw.achievements && typeof raw.achievements === 'object' && (raw.achievements as any).summary) || null;
   return { stats, statsSummary, achievements, achievementSummary };

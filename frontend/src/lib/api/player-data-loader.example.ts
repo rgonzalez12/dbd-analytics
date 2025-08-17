@@ -44,7 +44,7 @@ export function displayStatValue(stat: UIStat): string {
   
   // Apply rendering rules based on value type
   switch (stat.valueType) {
-    case 'percent':
+    case 'float':
       return `${stat.value}%`;
     case 'count':
     case 'level':

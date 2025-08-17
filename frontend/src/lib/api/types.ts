@@ -2,12 +2,35 @@ import type { UIStat } from './player-adapter';
 
 export type ApiError = { status: number; message: string; details?: unknown; retryAfter?: number };
 
+// New stats structure from the API
+export type ApiStat = {
+  id: string;
+  display_name: string;
+  value: number;
+  formatted?: string;
+  category: 'killer' | 'survivor' | 'general';
+  value_type: 'count' | 'float' | 'grade' | 'level' | 'duration';
+  sort_weight: number;
+  icon?: string;
+  alias?: string;
+  matched_by?: 'schema' | 'alias' | 'fallback';
+};
+
+export type ApiStatsSummary = {
+  killer_grade?: string;
+  killer_pips?: number;
+  prestige_max?: number;
+  survivor_grade?: string;
+  survivor_pips?: number;
+};
+
 // Raw API types - match backend exactly with optional/nullable fields
 export type ApiPlayerStats = {
   steam_id: string;
   display_name: string;
   total_matches?: number | string | null;
   last_updated?: string | null;
+  // Legacy fields for backward compatibility
   killer_pips?: number | string | null;
   survivor_pips?: number | string | null;
   killed_campers?: number | string | null;
@@ -33,8 +56,25 @@ export type ApiPlayerStats = {
   killer_full_loadout?: number | string | null;
   camper_new_item?: number | string | null;
   time_played_hours?: number | string | null;
+  // New structured stats
+  stats?: {
+    stats?: ApiStat[];
+    summary?: ApiStatsSummary;
+  };
   achievements?: {
-    summary?: { total?: number | string | null; unlocked?: number | string | null; last_updated?: string | null };
+    summary?: { 
+      total?: number | string | null; 
+      unlocked?: number | string | null; 
+      last_updated?: string | null;
+      total_achievements?: number;
+      unlocked_count?: number;
+      survivor_count?: number;
+      killer_count?: number;
+      general_count?: number;
+      adept_survivors?: string;
+      adept_killers?: string;
+      completion_rate?: number;
+    };
     mapped_achievements?: Array<{
       id: string;
       name: string;
