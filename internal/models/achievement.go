@@ -23,7 +23,7 @@ type MappedAchievement struct {
 	IconGray    string  `json:"icon_gray,omitempty"`
 	Hidden      bool    `json:"hidden,omitempty"`
 	Character   string  `json:"character,omitempty"`
-	Type        string  `json:"type"`    // "survivor", "killer", "general", "adept"
+	Type        string  `json:"type"` // "survivor", "killer", "general", "adept"
 	Unlocked    bool    `json:"unlocked"`
 	UnlockTime  int64   `json:"unlock_time,omitempty"`
 	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
@@ -63,8 +63,8 @@ type StatsData struct {
 
 // DataSourceStatus tracks the success/failure status of different data sources
 type DataSourceStatus struct {
-	Stats        DataSourceInfo `json:"stats"`
-	Achievements DataSourceInfo `json:"achievements"`
+	Stats           DataSourceInfo `json:"stats"`
+	Achievements    DataSourceInfo `json:"achievements"`
 	StructuredStats DataSourceInfo `json:"structured_stats"` // New field for our schema-based stats
 }
 

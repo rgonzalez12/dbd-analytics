@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
-	"strings" 
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -19,8 +19,8 @@ import (
 
 const (
 	DefaultRequestTimeout = 5 * time.Second
-	SteamAPITimeout      = 3 * time.Second
-	CacheTimeout         = 1 * time.Second
+	SteamAPITimeout       = 3 * time.Second
+	CacheTimeout          = 1 * time.Second
 )
 
 var (
@@ -158,7 +158,7 @@ func (rb *ResponseBuilder) AddPerformanceMetrics(stats cache.CacheStats) *Respon
 		recs = append(recs, "Cache performance is optimal")
 	}
 	rb.data["recommendations"] = recs
-	
+
 	return rb
 }
 
@@ -221,10 +221,10 @@ func validateSteamIDOrVanity(input string) *steam.APIError {
 
 func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	
+
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
-	
+
 	steamID := mux.Vars(r)["steamid"]
 
 	requestLogger := log.HTTPRequestContext(r.Method, r.URL.Path, steamID, r.RemoteAddr)
@@ -325,7 +325,7 @@ func (h *Handler) GetPlayerSummary(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
-	
+
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
 
@@ -792,15 +792,15 @@ func writeJSONResponseWithStatus(w http.ResponseWriter, data interface{}, status
 
 func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings []string) {
 	var responseData map[string]interface{}
-	
+
 	dataBytes, _ := json.Marshal(data)
 	json.Unmarshal(dataBytes, &responseData)
-	
+
 	if responseData == nil {
 		responseData = make(map[string]interface{})
 		responseData["data"] = data
 	}
-	
+
 	if len(warnings) > 0 {
 		responseData["warnings"] = warnings
 		responseData["status"] = "partial_success"
@@ -813,7 +813,7 @@ func writePartialDataResponse(w http.ResponseWriter, data interface{}, warnings 
 func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), DefaultRequestTimeout)
 	defer cancel()
-	
+
 	start := time.Now()
 	steamID := mux.Vars(r)["steamid"]
 
@@ -869,14 +869,14 @@ func (h *Handler) GetPlayerStatsWithAchievements(w http.ResponseWriter, r *http.
 		"was_vanity_url", steamID != resolvedSteamID)
 
 	type fetchResult struct {
-		stats        models.PlayerStats
-		achievements *models.AchievementData
-		structuredStats *models.StatsData
-		statsError   error
-		achError     error
-		structuredStatsError error
-		statsSource  string
-		achSource    string
+		stats                 models.PlayerStats
+		achievements          *models.AchievementData
+		structuredStats       *models.StatsData
+		statsError            error
+		achError              error
+		structuredStatsError  error
+		statsSource           string
+		achSource             string
 		structuredStatsSource string
 	}
 
@@ -1335,51 +1335,51 @@ func (h *Handler) fetchPlayerStructuredStatsWithSource(steamID string) (*models.
 				return statsData, "cache", nil
 			}
 		}
-		
+
 		// Cache miss - fetch from API with cache
 		ctx := context.Background()
 		statsResponse, err := steam.MapPlayerStats(ctx, steamID, h.cacheManager.GetCache(), h.steamClient)
 		if err != nil {
 			return nil, "api", err
 		}
-		
+
 		// Convert to model format
 		statsData := &models.StatsData{
 			Stats:   make([]interface{}, len(statsResponse.Stats)),
 			Summary: statsResponse.Summary,
 		}
-		
+
 		// Copy stats (convert to interface{} slice for JSON flexibility)
 		for i, stat := range statsResponse.Stats {
 			statsData.Stats[i] = stat
 		}
-		
+
 		// Cache the result
 		config := h.cacheManager.GetConfig()
 		if cacheErr := h.cacheManager.GetCache().Set(cacheKey, statsData, config.TTL.PlayerStats); cacheErr != nil {
 			log.Warn("Failed to cache structured stats", "cache_key", cacheKey, "error", cacheErr)
 		}
-		
+
 		return statsData, "api", nil
 	}
-	
+
 	// No cache - direct API call
 	ctx := context.Background()
 	statsResponse, err := steam.MapPlayerStats(ctx, steamID, nil, h.steamClient)
 	if err != nil {
 		return nil, "api", err
 	}
-	
+
 	// Convert to model format
 	statsData := &models.StatsData{
 		Stats:   make([]interface{}, len(statsResponse.Stats)),
 		Summary: statsResponse.Summary,
 	}
-	
+
 	// Copy stats
 	for i, stat := range statsResponse.Stats {
 		statsData.Stats[i] = stat
 	}
-	
+
 	return statsData, "api", nil
 }

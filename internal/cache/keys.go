@@ -12,6 +12,6 @@ const (
 	SteamAPIPrefix = "steam_api"
 
 	// Achievement system cache keys
-	AdeptMapPrefix             = "adept_map_v1"             // bump version if format changes
-	GlobalPercentagesPrefix    = "global_percentages"       // global achievement percentages
+	AdeptMapPrefix          = "adept_map_v1"       // bump version if format changes
+	GlobalPercentagesPrefix = "global_percentages" // global achievement percentages
 )

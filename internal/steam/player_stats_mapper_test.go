@@ -7,10 +7,10 @@ import (
 
 func TestDecodeGrade(t *testing.T) {
 	tests := []struct {
-		name         string
-		input        float64
-		expectedTier string
-		expectedSub  int
+		name          string
+		input         float64
+		expectedTier  string
+		expectedSub   int
 		expectedHuman string
 	}{
 		{"Ash 4", 0, "Ash", 4, "Ash IV"},
@@ -24,19 +24,19 @@ func TestDecodeGrade(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			grade, human, roman := decodeGrade(tt.input)
-			
+
 			if grade.Tier != tt.expectedTier {
 				t.Errorf("Expected tier %s, got %s", tt.expectedTier, grade.Tier)
 			}
-			
+
 			if grade.Sub != tt.expectedSub {
 				t.Errorf("Expected sub %d, got %d", tt.expectedSub, grade.Sub)
 			}
-			
+
 			if human != tt.expectedHuman {
 				t.Errorf("Expected human %s, got %s", tt.expectedHuman, human)
 			}
-			
+
 			if tt.expectedSub > 0 && roman != romanExpected(tt.expectedSub) {
 				t.Errorf("Expected roman %s, got %s", romanExpected(tt.expectedSub), roman)
 			}
@@ -46,11 +46,16 @@ func TestDecodeGrade(t *testing.T) {
 
 func romanExpected(n int) string {
 	switch n {
-	case 1: return "I"
-	case 2: return "II"
-	case 3: return "III"
-	case 4: return "IV"
-	default: return ""
+	case 1:
+		return "I"
+	case 2:
+		return "II"
+	case 3:
+		return "III"
+	case 4:
+		return "IV"
+	default:
+		return ""
 	}
 }
 
@@ -118,11 +123,11 @@ func TestStatsSorting(t *testing.T) {
 	sortStats(stats)
 
 	expected := []string{
-		"A Killer",    // killer, weight 5
-		"B Killer",    // killer, weight 50
-		"A Survivor",  // survivor, weight 10
-		"B Survivor",  // survivor, weight 20
-		"Z General",   // general, weight 100
+		"A Killer",   // killer, weight 5
+		"B Killer",   // killer, weight 50
+		"A Survivor", // survivor, weight 10
+		"B Survivor", // survivor, weight 20
+		"Z General",  // general, weight 100
 	}
 
 	for i, stat := range stats {
@@ -140,7 +145,7 @@ func sortStats(stats []Stat) {
 			// Category order: killer, survivor, general
 			categoryOrder := map[string]int{"killer": 0, "survivor": 1, "general": 2}
 			catI, catJ := categoryOrder[stats[i].Category], categoryOrder[stats[j].Category]
-			
+
 			shouldSwap := false
 			if catI != catJ {
 				shouldSwap = catI > catJ
@@ -149,7 +154,7 @@ func sortStats(stats []Stat) {
 			} else {
 				shouldSwap = stats[i].DisplayName > stats[j].DisplayName
 			}
-			
+
 			if shouldSwap {
 				stats[i], stats[j] = stats[j], stats[i]
 			}
@@ -185,10 +190,10 @@ func TestMapPlayerStatsIntegration(t *testing.T) {
 	// This would be a more comprehensive integration test
 	// For now, just test that the function signature works
 	ctx := context.Background()
-	
+
 	// Would need mock client and cache for full test
 	_, err := MapPlayerStats(ctx, "test_steam_id", nil, nil)
-	
+
 	// Should fail gracefully with nil client
 	if err == nil {
 		t.Error("Expected error with nil client")

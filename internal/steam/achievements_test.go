@@ -125,7 +125,7 @@ func TestAdeptAchievementMapping(t *testing.T) {
 	}{
 		{"dwight", "survivor"},
 		{"trapper", "killer"},
-		{"onryo", "killer"}, // Verify Onryo classification fix
+		{"onryo", "killer"},       // Verify Onryo classification fix
 		{"animatronic", "killer"}, // Verify Animatronic classification fix
 	}
 

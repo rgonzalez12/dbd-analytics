@@ -1,0 +1,64 @@
+{
+  "playerstats": {
+    "steamID": "76561198000000000",
+    "gameName": "Dead by Daylight",
+    "stats": [
+      {
+        "name": "DBD_UnlockRanking",
+        "value": 4228
+      },
+      {
+        "name": "DBD_SlasherTierIncrement",
+        "value": 16
+      },
+      {
+        "name": "DBD_Prestige",
+        "value": 50
+      },
+      {
+        "name": "DBD_CamperSkulls",
+        "value": 125000
+      },
+      {
+        "name": "DBD_SlasherSkulls", 
+        "value": 98000
+      },
+      {
+        "name": "DBD_GeneratorsCompleted_Total",
+        "value": 1250
+      },
+      {
+        "name": "DBD_EscapeKO",
+        "value": 45
+      },
+      {
+        "name": "DBD_SacrificedCampers",
+        "value": 890
+      },
+      {
+        "name": "DBD_CamperEscapeWithItemFrom",
+        "value": 23
+      },
+      {
+        "name": "DBD_HookedSlashers",
+        "value": 78
+      },
+      {
+        "name": "DBD_BloodwebPoints",
+        "value": 2500000
+      },
+      {
+        "name": "DBD_Camper_Cosmetic_Event_UltraRare",
+        "value": 5
+      },
+      {
+        "name": "DBD_UnknownStatExample",
+        "value": 42
+      },
+      {
+        "name": "DBD_AnotherUnknownStat", 
+        "value": 99
+      }
+    ]
+  }
+}

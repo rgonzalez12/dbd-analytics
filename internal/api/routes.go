@@ -1,8 +1,8 @@
 package api
 
 import (
-	"time"
 	"github.com/gorilla/mux"
+	"time"
 )
 
 func RegisterRoutes(router *mux.Router) {

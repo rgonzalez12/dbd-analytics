@@ -182,8 +182,8 @@ func buildHardcodedConfig() *AchievementConfig {
 func formatDisplayName(name string) string {
 	// Handle special cases
 	replacements := map[string]string{
-		"yun-jin":       "Yun-Jin Lee",
-		"dark-lord":     "The Dark Lord",
+		"yun-jin":        "Yun-Jin Lee",
+		"dark-lord":      "The Dark Lord",
 		"skull-merchant": "The Skull Merchant",
 	}
 

@@ -29,19 +29,19 @@ func TestDoRequestErrors(t *testing.T) {
 			// Set test API key
 			os.Setenv("STEAM_API_KEY", "test-key")
 			defer os.Unsetenv("STEAM_API_KEY")
-			
+
 			client := NewClient()
 			params := url.Values{
 				"key": {"test-key"},
 			}
-			
+
 			var result interface{}
 			err := client.makeRequest(tt.endpoint, params, &result)
-			
+
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error for %s, but got none", tt.name)
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Expected no error for %s, but got: %v", tt.name, err)
 			}

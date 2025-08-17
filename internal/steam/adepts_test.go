@@ -7,10 +7,10 @@ import (
 
 func TestAdeptRegexAndNormalization(t *testing.T) {
 	tests := []struct {
-		displayName     string
-		expectedChar    string
-		expectedKind    string
-		shouldMatch     bool
+		displayName  string
+		expectedChar string
+		expectedKind string
+		shouldMatch  bool
 	}{
 		{"Adept The Onryō", "Onryō", "killer", true}, // Test macron handling
 		{"Adept The Ghoul", "Ghoul", "killer", true},

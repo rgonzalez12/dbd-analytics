@@ -1,5 +1,11 @@
 .env
 
+# Grade discovery results may contain personal data
+grade_discovery_results.json
+
+# Tools are separate modules - exclude entirely
+tools/
+
 # Frontend dependencies and build
 node_modules/
 .vite/

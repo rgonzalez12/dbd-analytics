@@ -18,7 +18,7 @@ import (
 type contextKey string
 
 const (
-	requestIDKey        contextKey = "request_id"
+	requestIDKey         contextKey = "request_id"
 	clientFingerprintKey contextKey = "client_fingerprint"
 )
 
@@ -26,18 +26,18 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requestID := generateRequestID()
-			
+
 			w.Header().Set("X-Request-ID", requestID)
-			
+
 			ctx := context.WithValue(r.Context(), requestIDKey, requestID)
-			
+
 			log.Info("Request started",
 				"request_id", requestID,
 				"method", r.Method,
 				"path", r.URL.Path,
 				"remote_addr", r.RemoteAddr,
 				"user_agent", r.Header.Get("User-Agent"))
-			
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -240,10 +240,10 @@ func SecurityMiddleware() func(http.Handler) http.Handler {
 
 			// Rate limit per user agent + IP combination for better protection
 			clientFingerprint := getClientFingerprint(r)
-			
+
 			// Add client fingerprint to context for downstream middleware
 			ctx := context.WithValue(r.Context(), clientFingerprintKey, clientFingerprint)
-			
+
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -260,7 +260,7 @@ func getClientFingerprint(r *http.Request) string {
 	clientIP := getClientIP(r)
 	userAgent := r.Header.Get("User-Agent")
 	apiKey := r.Header.Get("X-API-Key")
-	
+
 	// Create a simple hash for privacy
 	fingerprint := clientIP
 	if len(userAgent) > 0 {
@@ -269,7 +269,7 @@ func getClientFingerprint(r *http.Request) string {
 	if len(apiKey) > 0 {
 		fingerprint += "_" + apiKey[:8] // Use first 8 chars of API key
 	}
-	
+
 	return fingerprint
 }
 

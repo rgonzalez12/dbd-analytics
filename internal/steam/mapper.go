@@ -49,7 +49,7 @@ func MapSteamStats(raw []SteamStat, steamID, displayName string) DBDPlayerStats 
 		General:     GeneralStats{},
 	}
 
-		rawStatsMap := make(map[string]interface{})
+	rawStatsMap := make(map[string]interface{})
 	for _, stat := range raw {
 		rawStatsMap[stat.Name] = int(stat.Value)
 	}

@@ -14,16 +14,16 @@ func TestSchemaFirstAcceptance(t *testing.T) {
 		GameName: "Dead by Daylight",
 		Success:  true,
 		Achievements: []SteamAchievement{
-			{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1},     // Adept survivor 
-			{APIName: "ACH_UNLOCK_CHUCKLES_PERKS", Achieved: 1},   // Adept killer
-			{APIName: "ACH_DAILY_PLAY", Achieved: 1},              // General
-			{APIName: "unknown_ach", Achieved: 1},                 // Unknown
+			{APIName: "ACH_UNLOCK_DWIGHT_PERKS", Achieved: 1},   // Adept survivor
+			{APIName: "ACH_UNLOCK_CHUCKLES_PERKS", Achieved: 1}, // Adept killer
+			{APIName: "ACH_DAILY_PLAY", Achieved: 1},            // General
+			{APIName: "unknown_ach", Achieved: 1},               // Unknown
 		},
 	}
 
 	results := mapper.MapPlayerAchievements(mockPlayerData)
 
-	// Test 1: Verify strict type distribution 
+	// Test 1: Verify strict type distribution
 	typeCounts := make(map[string]int)
 	for _, ach := range results {
 		typeCounts[ach.Type]++

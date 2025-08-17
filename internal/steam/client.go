@@ -81,7 +81,7 @@ type playerStatsResponse struct {
 func NewClient() *Client {
 	apiKey := os.Getenv("STEAM_API_KEY")
 	log.Info("Creating Steam client", "api_key_exists", apiKey != "", "api_key_length", len(apiKey))
-	
+
 	return &Client{
 		apiKey: apiKey,
 		client: &http.Client{
@@ -225,35 +225,35 @@ func (c *Client) GetUserStatsForGameCached(ctx context.Context, steamID string, 
 		})
 		if ok {
 			cacheKey := fmt.Sprintf("user_stats_%s_%d", steamID, appID)
-			
+
 			if cached, found := cache.Get(cacheKey); found {
 				if stats, ok := cached.(*SteamPlayerstats); ok {
-					log.Debug("Using cached user stats", "steam_id", steamID, "app_id", appID, 
+					log.Debug("Using cached user stats", "steam_id", steamID, "app_id", appID,
 						"cache_key", cacheKey, "stats_count", len(stats.Stats))
 					return stats, nil
 				} else {
-					log.Warn("Invalid cached user stats type", 
+					log.Warn("Invalid cached user stats type",
 						"cache_key", cacheKey, "expected", "*SteamPlayerstats", "actual", fmt.Sprintf("%T", cached))
 				}
 			}
-			
+
 			// Cache miss - fetch from API
 			stats, err := c.GetUserStatsForGame(ctx, steamID, appID)
 			if err != nil {
 				return nil, err
 			}
-			
+
 			// Cache the result
 			if cacheErr := cache.Set(cacheKey, stats, 2*time.Minute); cacheErr != nil {
 				log.Warn("Failed to cache user stats", "cache_key", cacheKey, "error", cacheErr)
 			} else {
 				log.Debug("User stats cached successfully", "cache_key", cacheKey, "stats_count", len(stats.Stats))
 			}
-			
+
 			return stats, nil
 		}
 	}
-	
+
 	// No cache available - direct API call
 	return c.GetUserStatsForGame(ctx, steamID, appID)
 }
@@ -558,7 +558,7 @@ func min(a, b int) int {
 // GetSchemaForGame retrieves the game schema including achievements and stats
 func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 	log.Info("GetSchemaForGame called", "app_id", appID, "api_key_exists", c.apiKey != "", "api_key_length", len(c.apiKey))
-	
+
 	if c.apiKey == "" {
 		log.Error("STEAM_API_KEY is empty in GetSchemaForGame")
 		return nil, NewValidationError("STEAM_API_KEY environment variable not set")
@@ -566,7 +566,7 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 
 	url := fmt.Sprintf("%s/ISteamUserStats/GetSchemaForGame/v2/?key=%s&appid=%s&l=en",
 		BaseURL, c.apiKey, appID)
-	
+
 	log.Info("Making schema request", "url", url)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -582,7 +582,7 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 	defer resp.Body.Close()
 
 	log.Info("Schema request completed", "status_code", resp.StatusCode)
-	
+
 	if resp.StatusCode != http.StatusOK {
 		log.Error("Non-200 response from schema request", "status_code", resp.StatusCode, "url", url)
 		return nil, NewAPIError(resp.StatusCode,
@@ -661,21 +661,24 @@ func (c *Client) FetchGlobalAchievementPercentages(ctx context.Context) (map[str
 // GetGlobalAchievementPercentagesCached retrieves global achievement percentages with caching
 func (c *Client) GetGlobalAchievementPercentagesCached(ctx context.Context, cacheManager interface{}) (map[string]float64, error) {
 	// Type assertion to get the cache interface
-	cache, ok := cacheManager.(interface{ Get(string) (interface{}, bool); Set(string, interface{}, time.Duration) error })
+	cache, ok := cacheManager.(interface {
+		Get(string) (interface{}, bool)
+		Set(string, interface{}, time.Duration) error
+	})
 	if !ok || cache == nil {
 		// No cache available, fetch directly
 		return c.FetchGlobalAchievementPercentages(ctx)
 	}
 
 	cacheKey := "global_percentages:dbd"
-	
+
 	// Try to get from cache first
 	if cached, found := cache.Get(cacheKey); found {
 		if percentages, ok := cached.(map[string]float64); ok {
 			log.Debug("Global achievement percentages cache hit", "cache_key", cacheKey)
 			return percentages, nil
 		} else {
-			log.Warn("Invalid global percentages cache entry type, removing", 
+			log.Warn("Invalid global percentages cache entry type, removing",
 				"cache_key", cacheKey, "expected", "map[string]float64", "actual", fmt.Sprintf("%T", cached))
 			// Continue to fetch fresh data
 		}

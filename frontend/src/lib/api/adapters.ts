@@ -26,7 +26,7 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const groupedStats = groupStats(uiStats);
 
 	// Process achievements (keep existing logic for now)
-	const mapped = achievements?.map(achievement => ({
+	const mapped = achievements?.map((achievement: any) => ({
 		id: achievement.id,
 		name: achievement.display_name || achievement.name || achievement.id,
 		display_name: achievement.display_name || achievement.name || achievement.id,
@@ -45,7 +45,7 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const unlockedFromSummary = toNum(achievementSummary?.unlocked);
 
 	const total = totalFromSummary || mapped.length;
-	const unlocked = unlockedFromSummary || mapped.filter(a => a.unlocked).length;
+	const unlocked = unlockedFromSummary || mapped.filter((a: any) => a.unlocked).length;
 
 	return {
 		id: raw.steam_id,

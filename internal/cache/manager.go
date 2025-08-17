@@ -212,8 +212,8 @@ func GetTTLFromEnv() TTLConfig {
 		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", PlayerSummaryTTL),
 		PlayerAchievements: getEnvDuration("CACHE_PLAYER_ACHIEVEMENTS_TTL", 2*time.Minute),
 		PlayerCombined:     getEnvDuration("CACHE_PLAYER_COMBINED_TTL", 10*time.Minute),
-		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", SteamAPITTL),   // Use deprecated constant for backward compatibility
-		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", DefaultTTL),     // Use deprecated constant for backward compatibility
+		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", SteamAPITTL), // Use deprecated constant for backward compatibility
+		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", DefaultTTL),    // Use deprecated constant for backward compatibility
 	}
 
 	// Log TTL configuration source for debugging

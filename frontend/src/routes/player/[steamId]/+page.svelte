@@ -85,9 +85,14 @@
 	
 	// Separate achievements by category using new type system
 	$: achievementsByType = (() => {
+		// Add safety check for achievements
+		if (!player?.achievements?.mapped) {
+			return { all: [], survivor: [], killer: [] };
+		}
+		
 		const all = player.achievements.mapped.filter(a => a.type === 'general');
-		const survivor = player.achievements.mapped.filter(a => a.type === 'adept_survivor');
-		const killer = player.achievements.mapped.filter(a => a.type === 'adept_killer');
+		const survivor = player.achievements.mapped.filter(a => a.type === 'survivor' || a.type === 'adept_survivor');
+		const killer = player.achievements.mapped.filter(a => a.type === 'killer' || a.type === 'adept_killer');
 		
 		return { all, survivor, killer };
 	})();
@@ -118,6 +123,11 @@
 	})();
 
 	$: achievementStats = (() => {
+		// Add safety check for achievements
+		if (!player?.achievements?.mapped) {
+			return {};
+		}
+		
 		const byType = player.achievements.mapped.reduce((acc, a) => {
 			const type = a.type || 'unknown';
 			if (!acc[type]) acc[type] = { total: 0, unlocked: 0 };
@@ -127,12 +137,22 @@
 		}, {} as Record<string, { total: number; unlocked: number }>);
 		
 		return byType;
-	})();	// Calculate adept completion
+	})();
+	
+	// Calculate adept completion
 	$: adeptStats = (() => {
-		const survivorTotal = Object.keys(player.achievements.adepts.survivors).length;
-		const survivorUnlocked = Object.values(player.achievements.adepts.survivors).filter(Boolean).length;
-		const killerTotal = Object.keys(player.achievements.adepts.killers).length;
-		const killerUnlocked = Object.values(player.achievements.adepts.killers).filter(Boolean).length;
+		// Add safety checks for adepts
+		if (!player?.achievements?.adepts) {
+			return {
+				survivor: { unlocked: 0, total: 0 },
+				killer: { unlocked: 0, total: 0 }
+			};
+		}
+		
+		const survivorTotal = Object.keys(player.achievements.adepts.survivors || {}).length;
+		const survivorUnlocked = Object.values(player.achievements.adepts.survivors || {}).filter(Boolean).length;
+		const killerTotal = Object.keys(player.achievements.adepts.killers || {}).length;
+		const killerUnlocked = Object.values(player.achievements.adepts.killers || {}).filter(Boolean).length;
 		
 		return {
 			survivor: { unlocked: survivorUnlocked, total: survivorTotal },

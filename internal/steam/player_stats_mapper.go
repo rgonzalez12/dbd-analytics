@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,16 +15,16 @@ import (
 
 // Stat represents a single player statistic with metadata
 type Stat struct {
-	ID          string  `json:"id"`            // schema name
-	DisplayName string  `json:"display_name"`  // schema displayName
-	Value       float64 `json:"value"`         // raw numeric
-	Formatted   string  `json:"formatted"`     // human string (optional; derived)
-	Category    string  `json:"category"`      // "killer" | "survivor" | "general"
-	ValueType   string  `json:"value_type"`    // "count" | "percent" | "grade" | "level" | "duration"
-	SortWeight  int     `json:"sort_weight"`   // for stable ordering in UI
+	ID          string  `json:"id"`           // schema name
+	DisplayName string  `json:"display_name"` // schema displayName
+	Value       float64 `json:"value"`        // raw numeric
+	Formatted   string  `json:"formatted"`    // human string (optional; derived)
+	Category    string  `json:"category"`     // "killer" | "survivor" | "general"
+	ValueType   string  `json:"value_type"`   // "count" | "percent" | "grade" | "level" | "duration"
+	SortWeight  int     `json:"sort_weight"`  // for stable ordering in UI
 	Icon        string  `json:"icon,omitempty"`
-	Alias       string  `json:"alias,omitempty"`       // e.g., killer_grade
-	MatchedBy   string  `json:"matched_by,omitempty"`  // rule id (for debugging)
+	Alias       string  `json:"alias,omitempty"`      // e.g., killer_grade
+	MatchedBy   string  `json:"matched_by,omitempty"` // rule id (for debugging)
 }
 
 // PlayerStatsResponse represents the complete stats response
@@ -69,38 +70,395 @@ var ruleSet = []StatRule{
 				id == "DBD_BloodwebMaxPrestigeLevel" // explicit match for known field
 		},
 	},
-	// Conservative percent rules removed for now - add back only when verified by actual payloads
+
+	// Survivor-specific stats
+	{ // Escapes
+		ID: "DBD_Escape", Category: "survivor", ValueType: "count", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_Escape"
+		},
+	},
+	{ // Escapes through hatch
+		ID: "DBD_EscapeThroughHatch", Category: "survivor", ValueType: "count", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_EscapeThroughHatch"
+		},
+	},
+	{ // Escapes while injured
+		ID: "DBD_EscapeKO", Category: "survivor", ValueType: "count", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_EscapeKO"
+		},
+	},
+	{ // Generator progress
+		ID: "DBD_GeneratorPct_float", Category: "survivor", ValueType: "percent", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_GeneratorPct_float"
+		},
+	},
+	{ // Healing progress
+		ID: "DBD_HealPct_float", Category: "survivor", ValueType: "percent", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_HealPct_float"
+		},
+	},
+	{ // Unhooks/saves
+		ID: "DBD_UnhookOrHeal", Category: "survivor", ValueType: "count", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_UnhookOrHeal"
+		},
+	},
+	{ // Post-exit saves
+		ID: "DBD_UnhookOrHeal_PostExit", Category: "survivor", ValueType: "count", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_UnhookOrHeal_PostExit"
+		},
+	},
+	{ // Skill checks
+		ID: "DBD_SkillCheckSuccess", Category: "survivor", ValueType: "count", Weight: 20,
+		Match: func(id, dn string) bool {
+			return id == "DBD_SkillCheckSuccess"
+		},
+	},
+	{ // Escaped with new item
+		ID: "DBD_CamperNewItem", Category: "survivor", ValueType: "count", Weight: 25,
+		Match: func(id, dn string) bool {
+			return id == "DBD_CamperNewItem"
+		},
+	},
+	{ // Escaped with item from someone else
+		ID: "DBD_CamperEscapeWithItemFrom", Category: "survivor", ValueType: "count", Weight: 25,
+		Match: func(id, dn string) bool {
+			return id == "DBD_CamperEscapeWithItemFrom"
+		},
+	},
+	{ // Survivor full loadout matches
+		ID: "DBD_CamperFullLoadout", Category: "survivor", ValueType: "count", Weight: 30,
+		Match: func(id, dn string) bool {
+			return id == "DBD_CamperFullLoadout"
+		},
+	},
+	{ // Max score by category (survivor)
+		ID: "DBD_CamperMaxScoreByCategory", Category: "survivor", ValueType: "count", Weight: 35,
+		Match: func(id, dn string) bool {
+			return id == "DBD_CamperMaxScoreByCategory"
+		},
+	},
+
+	// Killer-specific stats
+	{ // Sacrifices
+		ID: "DBD_SacrificedCampers", Category: "killer", ValueType: "count", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_SacrificedCampers"
+		},
+	},
+	{ // Mori kills
+		ID: "DBD_KilledCampers", Category: "killer", ValueType: "count", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_KilledCampers"
+		},
+	},
+	{ // Hits near hook
+		ID: "DBD_HitNearHook", Category: "killer", ValueType: "count", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_HitNearHook"
+		},
+	},
+	{ // Hooked and escaped (killer perspective)
+		ID: "DBD_HookedAndEscape", Category: "killer", ValueType: "count", Weight: 15,
+		Match: func(id, dn string) bool {
+			return id == "DBD_HookedAndEscape"
+		},
+	},
+	{ // Chainsaw hits
+		ID: "DBD_ChainsawHit", Category: "killer", ValueType: "count", Weight: 20,
+		Match: func(id, dn string) bool {
+			return id == "DBD_ChainsawHit"
+		},
+	},
+	{ // Uncloak attacks
+		ID: "DBD_UncloakAttack", Category: "killer", ValueType: "count", Weight: 20,
+		Match: func(id, dn string) bool {
+			return id == "DBD_UncloakAttack"
+		},
+	},
+	{ // Trap pickups
+		ID: "DBD_TrapPickup", Category: "killer", ValueType: "count", Weight: 20,
+		Match: func(id, dn string) bool {
+			return id == "DBD_TrapPickup"
+		},
+	},
+	{ // Killer full loadout matches
+		ID: "DBD_SlasherFullLoadout", Category: "killer", ValueType: "count", Weight: 30,
+		Match: func(id, dn string) bool {
+			return id == "DBD_SlasherFullLoadout"
+		},
+	},
+	{ // Max score by category (killer)
+		ID: "DBD_SlasherMaxScoreByCategory", Category: "killer", ValueType: "count", Weight: 35,
+		Match: func(id, dn string) bool {
+			return id == "DBD_SlasherMaxScoreByCategory"
+		},
+	},
+
+	// General stats
+	{ // Bloodpoints
+		ID: "DBD_BloodwebPoints", Category: "general", ValueType: "count", Weight: 5,
+		Match: func(id, dn string) bool {
+			return id == "DBD_BloodwebPoints"
+		},
+	},
+	{ // Max bloodweb level
+		ID: "DBD_BloodwebMaxLevel", Category: "general", ValueType: "level", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_BloodwebMaxLevel"
+		},
+	},
+	{ // Max perk level
+		ID: "DBD_BloodwebPerkMaxLevel", Category: "general", ValueType: "level", Weight: 10,
+		Match: func(id, dn string) bool {
+			return id == "DBD_BloodwebPerkMaxLevel"
+		},
+	},
+	{ // Ultra rare offerings
+		ID: "DBD_BurnOffering_UltraRare", Category: "general", ValueType: "count", Weight: 25,
+		Match: func(id, dn string) bool {
+			return id == "DBD_BurnOffering_UltraRare"
+		},
+	},
+	{ // Max bloodpoints in single category
+		ID: "DBD_MaxBloodwebPointsOneCategory", Category: "general", ValueType: "count", Weight: 30,
+		Match: func(id, dn string) bool {
+			return id == "DBD_MaxBloodwebPointsOneCategory"
+		},
+	},
 }
 
 // displayNameOverrides provides human-readable names for common stats
 var displayNameOverrides = map[string]string{
-	"DBD_BloodwebMaxPrestigeLevel":      "Highest Prestige Level",
-	"DBD_BloodwebPrestige3MaxLevel":     "Legacy Prestige (Old System)",
-	"DBD_DailyRitualsRerolled":          "Daily Rituals Rerolled",
-	"DBD_CamperMaxLevel":                "Survivor Max Level",
-	"DBD_SlasherMaxLevel":               "Killer Max Level",
-	"DBD_Chapter9Slasher_Stat1":         "Plague Vomit Hits",
-	"DBD_Chapter9Camper_Stat1":          "Cleansing Pool Uses",
-	"DBD_Chapter9Camper_Stat2":          "Infection Cleanses",
+	"DBD_BloodwebMaxPrestigeLevel":        "Highest Prestige Level",
+	"DBD_BloodwebPrestige3MaxLevel":       "Legacy Prestige (Old System)",
+	"DBD_DailyRitualsRerolled":            "Daily Rituals Rerolled",
+	"DBD_CamperMaxLevel":                  "Survivor Max Level",
+	"DBD_SlasherMaxLevel":                 "Killer Max Level",
+	"DBD_Chapter9Slasher_Stat1":           "Plague Vomit Hits",
+	"DBD_Chapter9Camper_Stat1":            "Cleansing Pool Uses",
+	"DBD_Chapter9Camper_Stat2":            "Infection Cleanses",
 	"DBD_Stat_Camper_DB_TotalDistanceRun": "Total Distance Run",
-	"DBD_Stat_Slasher_TotalHooks":       "Total Hooks",
-	"DBD_RankResetLastTime":             "Last Rank Reset",
-	"DBD_Stat_Camper_DB_Unhooks":        "Unhooks Performed",
-	"DBD_Stat_Camper_DB_HealOthers":     "Others Healed",
-	"DBD_Stat_Camper_DB_Escapes":        "Successful Escapes",
-	"DBD_Stat_Slasher_DB_KillKillers":   "Kills as Killer",
-	"DBD_Stat_Slasher_DB_TimesKilled":   "Times Killed Others",
-	"DBD_UnlockRanking":                 "Survivor Grade",
-	"DBD_SlasherTierIncrement":          "Killer Grade",
-	"DBD_Bloodwebpoints":                "Bloodpoints",
-	"DBD_Bloodwebmaxlevel":              "Max Bloodweb Level",
-	"DBD_Bloodwebperkmaxlevel":          "Max Perk Level",
-	"DBD_Chainsawhit":                   "Chainsaw Hits",
-	"DBD_Skillchecksuccess":             "Skill Checks Succeeded",
-	"DBD_Uncloakattack":                 "Uncloak Attacks",
-	"DBD_Trappickup":                    "Trap Pickups",
-	"DBD_Burnoffering_Ultrarare":        "Ultra Rare Offerings Used",
-	"DBD_Maxbloodwebpointsonecategory":  "Max Bloodpoints Single Category",
+	"DBD_Stat_Slasher_TotalHooks":         "Total Hooks",
+	"DBD_RankResetLastTime":               "Last Rank Reset",
+	"DBD_Stat_Camper_DB_Unhooks":          "Unhooks Performed",
+	"DBD_Stat_Camper_DB_HealOthers":       "Others Healed",
+	"DBD_Stat_Camper_DB_Escapes":          "Successful Escapes",
+	"DBD_Stat_Slasher_DB_KillKillers":     "Kills as Killer",
+	"DBD_Stat_Slasher_DB_TimesKilled":     "Times Killed Others",
+	"DBD_UnlockRanking":                   "Survivor Grade",
+	"DBD_SlasherTierIncrement":            "Killer Grade",
+	"DBD_Bloodwebpoints":                  "Bloodpoints",
+	"DBD_Bloodwebmaxlevel":                "Max Bloodweb Level",
+	"DBD_Bloodwebperkmaxlevel":            "Max Perk Level",
+	"DBD_Chainsawhit":                     "Chainsaw Hits",
+	"DBD_Skillchecksuccess":               "Skill Checks Succeeded",
+	"DBD_Uncloakattack":                   "Uncloak Attacks",
+	"DBD_Trappickup":                      "Trap Pickups",
+	"DBD_Burnoffering_Ultrarare":          "Ultra Rare Offerings Used",
+	"DBD_Maxbloodwebpointsonecategory":    "Max Bloodpoints Single Category",
+}
+
+// tokenDictionary maps common DBD terms to human-readable equivalents
+var tokenDictionary = map[string]string{
+	// Common DBD terms
+	"bloodwebpoints":            "Bloodpoints",
+	"bloodwebmaxlevel":          "Max Bloodweb Level",
+	"bloodwebperkmaxlevel":      "Max Perk Level",
+	"ultrarare":                 "Ultra Rare",
+	"obsession":                 "Obsession",
+	"hatch":                     "Hatch",
+	"basement":                  "Basement",
+	"generator":                 "Generator",
+	"generators":                "Generators",
+	"sacrificed":                "Sacrificed",
+	"sacrificedcampers":         "Survivors Sacrificed",
+	"mori":                      "Mori",
+	"healdying":                 "Healed From Dying",
+	"unhook":                    "Unhook",
+	"unhooks":                   "Unhooks",
+	"escape":                    "Escape",
+	"escapes":                   "Escapes",
+	"escapeko":                  "Escape While Injured",
+	"escapethroughhatch":        "Escape Through Hatch",
+	"skillcheck":                "Skill Check",
+	"skillchecks":               "Skill Checks",
+	"skillchecksuccess":         "Skill Checks Succeeded",
+	"chainsaw":                  "Chainsaw",
+	"chainsawhit":               "Chainsaw Hits",
+	"uncloakattack":             "Uncloak Attacks",
+	"trappickup":                "Trap Pickups",
+	"hookedandescape":           "Hooked And Escaped",
+	"hitnearhook":               "Hits Near Hook",
+	"killedcampers":             "Survivors Killed",
+	"camperfullloadout":         "Survivor Full Loadout",
+	"slasherfullloadout":        "Killer Full Loadout",
+	"maxscorebycategory":        "Max Score By Category",
+	"campermaxscorebycategory":  "Survivor Max Score By Category",
+	"slashermaxscorebycategory": "Killer Max Score By Category",
+	"generatorpct":              "Generator Progress",
+	"healpct":                   "Healing Progress",
+	"prestige":                  "Prestige",
+	"prestigelevel":             "Prestige Level",
+	"maxprestigelevel":          "Max Prestige Level",
+	"camper":                    "Survivor",
+	"slasher":                   "Killer",
+	"chapter":                   "Chapter",
+	"dlc":                       "DLC",
+	"event":                     "Event",
+	"stat":                      "",
+	"dbd":                       "",
+	"db":                        "",
+	"count":                     "",
+	"maxlevel":                  "Max Level",
+	"iam":                       "",
+	"idx":                       "",
+	"float":                     "",
+}
+
+// labelForStat chooses the best display name for a stat
+func labelForStat(id, schemaDisplayName string) (label string, matched bool) {
+	// 1) If schemaDisplayName is non-empty, use it
+	if schemaDisplayName != "" {
+		return schemaDisplayName, true
+	}
+
+	// 2) Check displayNameOverrides
+	if override, exists := displayNameOverrides[id]; exists {
+		return override, true
+	}
+
+	// 3) Construct from ID using normalizeIDToTitle
+	return normalizeIDToTitle(id), false
+}
+
+// normalizeIDToTitle converts DBD-style IDs to human titles
+func normalizeIDToTitle(id string) string {
+	if id == "" {
+		return "Unknown Stat"
+	}
+
+	// Convert to lowercase for processing
+	normalized := strings.ToLower(id)
+
+	// Remove common prefixes
+	prefixes := []string{"dbd_", "stat_", "db_", "dbdstat_"}
+	for _, prefix := range prefixes {
+		normalized = strings.TrimPrefix(normalized, prefix)
+	}
+
+	// Split on underscores and camelCase boundaries
+	parts := splitIDParts(normalized)
+
+	// Process each part through token dictionary and filtering
+	var cleanParts []string
+	for _, part := range parts {
+		// Skip noisy tokens
+		if isNoisyToken(part) {
+			continue
+		}
+
+		// Apply token dictionary
+		if replacement, exists := tokenDictionary[part]; exists {
+			if replacement != "" { // Skip empty replacements
+				cleanParts = append(cleanParts, replacement)
+			}
+		} else {
+			// Capitalize first letter
+			cleanParts = append(cleanParts, strings.Title(part))
+		}
+	}
+
+	// Join and clean up
+	result := strings.Join(cleanParts, " ")
+
+	// Remove duplicate words
+	result = removeDuplicateWords(result)
+
+	// Fallback if result is empty
+	if strings.TrimSpace(result) == "" {
+		return strings.Title(strings.ReplaceAll(id, "_", " "))
+	}
+
+	return result
+}
+
+// splitIDParts splits an ID on underscores and camelCase boundaries
+func splitIDParts(s string) []string {
+	// First split on underscores
+	parts := strings.Split(s, "_")
+
+	var result []string
+	for _, part := range parts {
+		// Further split on camelCase boundaries
+		camelParts := splitCamelCase(part)
+		result = append(result, camelParts...)
+	}
+
+	return result
+}
+
+// splitCamelCase splits a string on camelCase boundaries
+func splitCamelCase(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+
+	// Use regex to split on camelCase boundaries
+	re := regexp.MustCompile(`([a-z])([A-Z])`)
+	s = re.ReplaceAllString(s, `${1}_${2}`)
+
+	return strings.Split(strings.ToLower(s), "_")
+}
+
+// isNoisyToken checks if a token should be filtered out
+func isNoisyToken(token string) bool {
+	// Filter out common noise
+	noisePatterns := []string{
+		"^event\\d+$",
+		"^idx\\d+$",
+		"^stat\\d+$",
+		"^\\d+$", // pure numbers
+	}
+
+	for _, pattern := range noisePatterns {
+		matched, _ := regexp.MatchString(pattern, token)
+		if matched {
+			return true
+		}
+	}
+
+	// Also filter very short meaningless tokens
+	if len(token) <= 1 {
+		return true
+	}
+
+	return false
+}
+
+// removeDuplicateWords removes consecutive duplicate words from a string
+func removeDuplicateWords(s string) string {
+	words := strings.Fields(s)
+	if len(words) <= 1 {
+		return s
+	}
+
+	var result []string
+	result = append(result, words[0])
+
+	for i := 1; i < len(words); i++ {
+		if !strings.EqualFold(words[i], words[i-1]) {
+			result = append(result, words[i])
+		}
+	}
+
+	return strings.Join(result, " ")
 }
 
 func findRule(id, dn string) (StatRule, bool) {
@@ -129,42 +487,44 @@ func inferStatRule(id, dn string) StatRule {
 }
 
 // gradeMapping maps raw grade values to human readable grades
-// Based on user feedback: DBD_SlasherTierIncrement=16 corresponds to Ash IV (lowest rank)
-// This means the mapping is inverted from what we initially assumed
+// Based on confirmed user data from in-game screenshots
 var gradeMapping = map[int]Grade{
-	// User confirmed: 16 = Ash IV (lowest killer rank)
-	16: {Tier: "Ash", Sub: 4},
-	17: {Tier: "Ash", Sub: 3},
-	18: {Tier: "Ash", Sub: 2},
-	19: {Tier: "Ash", Sub: 1},
-	20: {Tier: "Bronze", Sub: 4},
-	21: {Tier: "Bronze", Sub: 3},
-	22: {Tier: "Bronze", Sub: 2},
-	23: {Tier: "Bronze", Sub: 1},
-	24: {Tier: "Silver", Sub: 4},
-	25: {Tier: "Silver", Sub: 3},
-	26: {Tier: "Silver", Sub: 2},
-	27: {Tier: "Silver", Sub: 1},
-	28: {Tier: "Gold", Sub: 4},
-	29: {Tier: "Gold", Sub: 3},
-	30: {Tier: "Gold", Sub: 2},
-	31: {Tier: "Gold", Sub: 1},
-	32: {Tier: "Iridescent", Sub: 4},
-	33: {Tier: "Iridescent", Sub: 3},
-	34: {Tier: "Iridescent", Sub: 2},
-	35: {Tier: "Iridescent", Sub: 1},
+	// Killer grade mappings - confirmed values
+	0:   {Tier: "Unranked", Sub: 0}, // Unranked players
+	16:  {Tier: "Ash", Sub: 4},      // Ash IV
+	29:  {Tier: "Ash", Sub: 3},      // Ash III
+	65:  {Tier: "Bronze", Sub: 2},   // Bronze II
+	73:  {Tier: "Bronze", Sub: 4},   // Bronze IV
+	93:  {Tier: "Ash", Sub: 4},      // Ash IV - confirmed user data
+	300: {Tier: "Ash", Sub: 4},      // Ash IV - confirmed user data
+	439: {Tier: "Bronze", Sub: 2},   // Bronze II
+
+	// Pattern observed: Lower values for lower tiers
 }
 
 // survivorGradeMapping maps DBD_UnlockRanking values to survivor grades
 // Based on confirmed user data from in-game screenshots
+// NOTE: DBD ranking goes IV→III→II→I (4 is lowest, 1 is highest within each tier)
 var survivorGradeMapping = map[int]Grade{
-	// CONFIRMED data points from user screenshots:
-	4226: {Tier: "Gold", Sub: 1},     // Previous grade - Gold I
-	4227: {Tier: "Gold", Sub: 1},     // Gold I (slight variation)
-	4228: {Tier: "Iridescent", Sub: 4}, // CURRENT: User promoted to Iridescent IV
-	
-	// TODO: Collect more data points from different players to build complete mapping
-	// The survivor grade system appears to use much higher numbers than killer grades
+	// Survivor grade mappings - confirmed values
+	7:    {Tier: "Ash", Sub: 4},        // Ash IV
+	541:  {Tier: "Ash", Sub: 3},        // Ash III - confirmed user data
+	948:  {Tier: "Ash", Sub: 2},        // Ash II
+	949:  {Tier: "Ash", Sub: 2},        // Ash II
+	951:  {Tier: "Iridescent", Sub: 4}, // Iridescent IV - confirmed current
+	1743: {Tier: "Ash", Sub: 1},        // Ash I
+	2050: {Tier: "Silver", Sub: 1},     // Silver I
+	2115: {Tier: "Ash", Sub: 4},        // Ash IV
+	4226: {Tier: "Gold", Sub: 1},       // Gold I
+	4227: {Tier: "Gold", Sub: 1},       // Gold I
+	4228: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
+	4229: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
+	4230: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
+	4233: {Tier: "Iridescent", Sub: 3}, // Iridescent III - confirmed user data
+	8995: {Tier: "Iridescent", Sub: 4}, // Iridescent IV - confirmed user data
+
+	// Pattern observed: Values can vary within same rank tiers
+	// TODO: Need more data for complete mapping coverage
 }
 
 // MapPlayerStats maps raw Steam stats to structured response using schema as source of truth
@@ -183,19 +543,19 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 	// 2) Fetch user's actual stat values with safe DBDAppID parsing
 	var userStats *SteamPlayerstats
 	var apiErr *APIError
-	
+
 	appID, parseErr := strconv.Atoi(DBDAppID)
 	if parseErr != nil || appID == 0 {
 		log.Error("Invalid DBDAppID; defaulting", "DBDAppID", DBDAppID, "err", parseErr)
 		appID = 381210
 	}
-	
+
 	if cacheManager != nil {
 		userStats, apiErr = client.GetUserStatsForGameCached(ctx, steamID, appID, cacheManager)
 	} else {
 		userStats, apiErr = client.GetUserStatsForGame(ctx, steamID, appID)
 	}
-	
+
 	if apiErr != nil {
 		log.Error("Failed to get user stats", "error", apiErr, "steam_id", steamID)
 		return nil, fmt.Errorf("failed to get user stats: %w", apiErr)
@@ -236,80 +596,32 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		}
 	}
 
-	// Helper to humanize IDs when schema display name is missing
-	humanizeID := func(id string) string {
-		s := strings.TrimSpace(strings.ReplaceAll(id, "_", " "))
-		if s == "" {
-			return id
-		}
-		parts := strings.Fields(strings.ToLower(s))
-		for i := range parts {
-			p := parts[i]
-			if len(p) > 0 {
-				parts[i] = strings.ToUpper(p[:1]) + p[1:]
-			}
-		}
-		return strings.Join(parts, " ")
-	}
-
 	// 6) Map each stat in the union
 	mapped := make([]Stat, 0, len(keys))
-	
-	// DEBUG: Log all stat names to find separate killer/survivor grades
-	log.Info("DEBUG: All available stats", "total_count", len(keys))
-	
-	// Look specifically for tier/increment fields that might be separate grades
-	var killerTierField, survivorTierField string
-	var killerTierValue, survivorTierValue float64
-	
-	for i, id := range keys {
-		value := userByID[id]
-		idLower := strings.ToLower(id)
-		
-		// Look for specific tier increment fields
-		if strings.Contains(idLower, "slashertierincrement") {
-			killerTierField = id
-			killerTierValue = value
-			log.Info("DEBUG: Found killer tier field", "field", id, "value", value)
-		}
-		if strings.Contains(idLower, "campertierincrement") || strings.Contains(idLower, "survivortierincrement") || id == "DBD_UnlockRanking" {
-			survivorTierField = id
-			survivorTierValue = value
-			log.Info("DEBUG: Found survivor tier field", "field", id, "value", value)
-		}
-		
-		// Look for grade/rank fields OR killer/survivor specific fields
-		if strings.Contains(idLower, "rank") || strings.Contains(idLower, "grade") || 
-		   strings.Contains(idLower, "slasher") || strings.Contains(idLower, "camper") ||
-		   strings.Contains(idLower, "killer") || strings.Contains(idLower, "survivor") {
-			log.Info("DEBUG: Potential grade/role field", "index", i, "id", id, "value", value)
-		}
-	}
-	
-	// Log findings about tier fields
-	log.Info("DEBUG: Tier field analysis", "killer_field", killerTierField, "killer_value", killerTierValue, "survivor_field", survivorTierField, "survivor_value", survivorTierValue)
-	
+	unlabeledStats := make([]map[string]interface{}, 0, 30) // For diagnostics
+	unruledCount := 0
+
 	for _, id := range keys {
-		dn := schemaByID[id]
-		if dn == "" {
-			dn = humanizeID(id)
-		}
-		
-		// Use display name overrides for better names
-		if override, exists := displayNameOverrides[id]; exists {
-			dn = override
-		}
-		
+		schemaDisplayName := schemaByID[id]
 		raw := userByID[id] // 0 if missing
 
-		rule, ok := findRule(id, dn)
-		if !ok {
-			rule = inferStatRule(id, dn)
+		// Use new labeling pipeline
+		displayName, labelMatched := labelForStat(id, schemaDisplayName)
+
+		// Try to find explicit rule first
+		rule, ruleMatched := findRule(id, schemaDisplayName)
+		if !ruleMatched {
+			rule = inferStatRule(id, schemaDisplayName)
+		}
+
+		// Track unruled stats
+		if rule.ID == "" {
+			unruledCount++
 		}
 
 		st := Stat{
 			ID:          id,
-			DisplayName: dn,
+			DisplayName: displayName,
 			Value:       raw,
 			Formatted:   formatValue(raw, rule.ValueType),
 			Category:    rule.Category,
@@ -326,12 +638,18 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 			}
 		}
 
-		// Optional: drop pure unknown zeroes to reduce noise
-		// if st.Value == 0 && st.Alias == "" && schemaByID[id] == "" { continue }
+		// Collect unlabeled examples for diagnostics
+		if !labelMatched && len(unlabeledStats) < 30 {
+			unlabeledStats = append(unlabeledStats, map[string]interface{}{
+				"id":               id,
+				"value":            raw,
+				"normalized_label": normalizeIDToTitle(id),
+			})
+		}
 
 		// Diagnostic: "looks like grade" but not typed as grade
-		if strings.Contains(strings.ToLower(id+"|"+dn), "grade") && st.ValueType != "grade" {
-			log.Debug("Looks like grade but not typed as grade", "id", id, "name", dn, "value", raw)
+		if strings.Contains(strings.ToLower(id+"|"+displayName), "grade") && st.ValueType != "grade" {
+			log.Debug("Looks like grade but not typed as grade", "id", id, "name", displayName, "value", raw)
 		}
 
 		mapped = append(mapped, st)
@@ -342,22 +660,42 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		// Category order: killer, survivor, general
 		categoryOrder := map[string]int{"killer": 0, "survivor": 1, "general": 2}
 		catI, catJ := categoryOrder[mapped[i].Category], categoryOrder[mapped[j].Category]
-		
+
 		if catI != catJ {
 			return catI < catJ
 		}
-		
+
 		// Within category: sort by weight
 		if mapped[i].SortWeight != mapped[j].SortWeight {
 			return mapped[i].SortWeight < mapped[j].SortWeight
 		}
-		
+
 		// Finally by display name for stability
 		return mapped[i].DisplayName < mapped[j].DisplayName
 	})
 
-	// 8) Build summary
-	summary := buildStatsSummary(mapped)
+	// 8) Build summary with diagnostics
+	summary := buildStatsSummary(mapped, unruledCount, unlabeledStats)
+
+	// Log diagnostic information
+	log.Debug("Stats processing complete",
+		"total_stats", len(mapped),
+		"unruled_count", unruledCount,
+		"unlabeled_examples_count", len(unlabeledStats),
+		"killer_grade", summary["killer_grade"],
+		"survivor_grade", summary["survivor_grade"],
+		"prestige_level", summary["prestige_level"])
+
+	// Log top unlabeled examples for debugging
+	for i, example := range unlabeledStats {
+		if i >= 10 { // Limit log spam
+			break
+		}
+		log.Debug("Unlabeled stat example",
+			"id", example["id"],
+			"value", example["value"],
+			"normalized_label", example["normalized_label"])
+	}
 
 	// 9) Enhanced diagnostics for low stats count
 	if len(mapped) < 50 {
@@ -398,21 +736,26 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 // decodeGrade converts raw grade value to human readable format
 func decodeGrade(v float64) (Grade, string, string) {
 	gradeCode := int(v)
-	
+
 	// Check if this is a killer grade (DBD_SlasherTierIncrement) - typically 16-35 range
 	if grade, exists := gradeMapping[gradeCode]; exists {
+		// Handle special case for unranked
+		if grade.Tier == "Unranked" {
+			log.Info("Killer grade decoded as unranked", "raw_value", gradeCode)
+			return grade, "Unranked", ""
+		}
 		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
 		log.Info("Killer grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
 		return grade, human, roman(grade.Sub)
 	}
-	
+
 	// Check if this is a survivor grade (DBD_UnlockRanking) - uses different encoding
 	if grade, exists := survivorGradeMapping[gradeCode]; exists {
 		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
 		log.Info("Survivor grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
 		return grade, human, roman(grade.Sub)
 	}
-	
+
 	// Unknown grade code - determine if it's likely killer or survivor based on value range
 	if gradeCode >= 1000 {
 		log.Info("Unknown survivor grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_UnlockRanking")
@@ -462,24 +805,24 @@ func formatInt(n int) string {
 	if n < 1000 {
 		return strconv.Itoa(n)
 	}
-	
+
 	str := strconv.Itoa(n)
 	var result strings.Builder
-	
+
 	for i, char := range str {
 		if i > 0 && (len(str)-i)%3 == 0 {
 			result.WriteString(",")
 		}
 		result.WriteRune(char)
 	}
-	
+
 	return result.String()
 }
 
 // formatDuration formats seconds into human readable duration
 func formatDuration(seconds int64) string {
 	duration := time.Duration(seconds) * time.Second
-	
+
 	if duration < time.Minute {
 		return fmt.Sprintf("%ds", int(duration.Seconds()))
 	} else if duration < time.Hour {
@@ -491,21 +834,21 @@ func formatDuration(seconds int64) string {
 	}
 }
 
-// buildStatsSummary creates aggregate statistics
-func buildStatsSummary(stats []Stat) map[string]interface{} {
+// buildStatsSummary creates aggregate statistics with diagnostics
+func buildStatsSummary(stats []Stat, unruledCount int, unlabeledStats []map[string]interface{}) map[string]interface{} {
 	summary := map[string]interface{}{
-		"total_stats":    len(stats),
-		"killer_count":   0,
-		"survivor_count": 0,
-		"general_count":  0,
-		"grade_stats":    []Stat{},
-		"prestige_level": 0,
-		"unruled_count":  0,
+		"total_stats":        len(stats),
+		"killer_count":       0,
+		"survivor_count":     0,
+		"general_count":      0,
+		"grade_stats":        []Stat{},
+		"prestige_level":     0,
+		"unruled_count":      unruledCount,
+		"unlabeled_examples": unlabeledStats,
 	}
 
 	var gradeStats []Stat
 	var maxPrestige float64
-	unruled := 0
 
 	for _, stat := range stats {
 		switch stat.Category {
@@ -533,16 +876,25 @@ func buildStatsSummary(stats []Stat) map[string]interface{} {
 		if stat.Alias == "survivor_grade" {
 			summary["survivor_grade"] = stat.Formatted
 		}
-
-		// Count unruled stats for troubleshooting
-		if stat.MatchedBy == "" {
-			unruled++
-		}
 	}
 
 	summary["grade_stats"] = gradeStats
-	summary["prestige_level"] = int(maxPrestige)
-	summary["unruled_count"] = unruled
+	// Cap prestige level at 100 as specified
+	prestigeLevel := int(maxPrestige)
+	if prestigeLevel > 100 {
+		prestigeLevel = 100
+	}
+	summary["prestige_level"] = prestigeLevel
+
+	// Log grade warnings if missing
+	if summary["killer_grade"] == nil {
+		log.Warn("Killer grade missing from summary", "unruled_count", unruledCount)
+		summary["killer_grade"] = "Unranked"
+	}
+	if summary["survivor_grade"] == nil {
+		log.Warn("Survivor grade missing from summary", "unruled_count", unruledCount)
+		summary["survivor_grade"] = "Unranked"
+	}
 
 	return summary
 }

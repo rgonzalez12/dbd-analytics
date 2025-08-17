@@ -29,7 +29,7 @@ func main() {
 
 	fmt.Printf("🚀 Server running on http://localhost%s\n", port)
 	fmt.Printf("💡 Try: http://localhost%s/api/player/76561198000000000\n", port)
-	
+
 	if err := http.ListenAndServe(port, r); err != nil {
 		log.Error("Server failed", "error", err.Error())
 		os.Exit(1)
@@ -67,12 +67,12 @@ func setupRouter() *mux.Router {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			
+
 			if req.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-			
+
 			next.ServeHTTP(w, req)
 		})
 	})

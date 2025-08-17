@@ -20,7 +20,7 @@ export interface WireStat {
 
 export interface WirePlayerResponse {
   stats?: WireStat[] | { stats?: WireStat[]; summary?: unknown };
-  achievements?: unknown[] | { achievements?: unknown[]; summary?: unknown };
+  achievements?: unknown[] | { mapped_achievements?: unknown[]; summary?: unknown };
 }
 
 function extractArray<T = unknown>(maybe: unknown, key: 'stats' | 'achievements'): T[] {
@@ -35,7 +35,12 @@ function extractArray<T = unknown>(maybe: unknown, key: 'stats' | 'achievements'
 export function normalizePlayerPayload(raw: WirePlayerResponse) {
   const stats = extractArray<WireStat>(raw.stats, 'stats');
   const statsSummary = (raw.stats && typeof raw.stats === 'object' && (raw.stats as any).summary) || null;
-  const achievements = extractArray<any>(raw.achievements, 'achievements');
+  
+  // Fix: Extract mapped_achievements instead of achievements
+  const achievements = raw.achievements && typeof raw.achievements === 'object' 
+    ? (raw.achievements as any).mapped_achievements || []
+    : Array.isArray(raw.achievements) ? raw.achievements : [];
+  
   const achievementSummary = (raw.achievements && typeof raw.achievements === 'object' && (raw.achievements as any).summary) || null;
   return { stats, statsSummary, achievements, achievementSummary };
 }

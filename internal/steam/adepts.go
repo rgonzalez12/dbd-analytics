@@ -33,7 +33,7 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 
 	killerNames := make(map[string]bool)
 	survivorNames := make(map[string]bool)
-	
+
 	for _, char := range AdeptAchievementMapping {
 		normalizedName := strings.ToLower(char.Name)
 		switch char.Type {
@@ -43,7 +43,7 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 			survivorNames[normalizedName] = true
 		}
 	}
-	
+
 	// Add character name variations for proper type detection
 	killerNames["dark lord"] = true
 	killerNames["ghost face"] = true
@@ -64,7 +64,7 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 		if matches := adeptRe.FindStringSubmatch(dn); len(matches) == 2 {
 			char := normalizeChar(matches[1])
 			normalizedChar := strings.ToLower(char)
-			
+
 			// Determine type using hardcoded mapping first, then heuristics
 			kind := "survivor" // default
 			switch {
@@ -79,13 +79,13 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 				}
 				// Additional heuristics for common killer naming patterns
 				lowerChar := strings.ToLower(char)
-				if strings.Contains(lowerChar, "doctor") || strings.Contains(lowerChar, "nurse") || 
-				   strings.Contains(lowerChar, "spirit") || strings.Contains(lowerChar, "plague") ||
-				   strings.Contains(lowerChar, "executioner") || strings.Contains(lowerChar, "blight") {
+				if strings.Contains(lowerChar, "doctor") || strings.Contains(lowerChar, "nurse") ||
+					strings.Contains(lowerChar, "spirit") || strings.Contains(lowerChar, "plague") ||
+					strings.Contains(lowerChar, "executioner") || strings.Contains(lowerChar, "blight") {
 					kind = "killer"
 				}
 			}
-			
+
 			m[ach.Name] = AdeptEntry{APIName: ach.Name, Character: char, Kind: kind}
 		}
 	}
@@ -95,20 +95,20 @@ func (c *Client) BuildAdeptMap() (map[string]AdeptEntry, error) {
 // GetAdeptMapCached returns the adept map with caching support
 func (c *Client) GetAdeptMapCached(ctx context.Context, cacheManager cache.Cache) (map[string]AdeptEntry, error) {
 	key := cache.GenerateKey(cache.AdeptMapPrefix, "dbd")
-	
+
 	if cached, ok := cacheManager.Get(key); ok {
 		if adeptMap, ok := cached.(map[string]AdeptEntry); ok {
 			return adeptMap, nil
 		}
 	}
-	
+
 	m, err := c.BuildAdeptMap()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Cache for 24 hours
 	_ = cacheManager.Set(key, m, 24*time.Hour)
-	
+
 	return m, nil
 }

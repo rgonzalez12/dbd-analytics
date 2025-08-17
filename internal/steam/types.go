@@ -122,9 +122,9 @@ type schemaForGameResponse struct {
 }
 
 type SchemaGame struct {
-	GameName              string               `json:"gameName"`
-	GameVersion           string               `json:"gameVersion"`
-	AvailableGameStats    AvailableGameStats   `json:"availableGameStats"`
+	GameName           string             `json:"gameName"`
+	GameVersion        string             `json:"gameVersion"`
+	AvailableGameStats AvailableGameStats `json:"availableGameStats"`
 }
 
 type AvailableGameStats struct {
@@ -133,7 +133,7 @@ type AvailableGameStats struct {
 }
 
 type SchemaAchievement struct {
-	Name         string `json:"name"`         // API name (apiname)
+	Name         string `json:"name"` // API name (apiname)
 	DefaultValue int    `json:"defaultvalue"`
 	DisplayName  string `json:"displayName"`
 	Hidden       int    `json:"hidden"`

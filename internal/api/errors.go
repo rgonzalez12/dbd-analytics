@@ -10,10 +10,10 @@ import (
 )
 
 type StandardError struct {
-	Status    int                    `json:"status"`
-	Message   string                 `json:"message"`
-	Details   map[string]interface{} `json:"details,omitempty"`
-	RetryAfter *int                  `json:"retryAfter,omitempty"`
+	Status     int                    `json:"status"`
+	Message    string                 `json:"message"`
+	Details    map[string]interface{} `json:"details,omitempty"`
+	RetryAfter *int                   `json:"retryAfter,omitempty"`
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, code string, message string, statusCode int, details map[string]interface{}, retryAfter *int) {
@@ -127,6 +127,6 @@ func writeTimeoutError(w http.ResponseWriter, r *http.Request, operation string)
 		"timeout":   true,
 	}
 	writeError(w, r, "REQUEST_TIMEOUT",
-		"Request timeout during "+operation+" operation", 
+		"Request timeout during "+operation+" operation",
 		http.StatusRequestTimeout, details, nil)
 }

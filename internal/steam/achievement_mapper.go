@@ -16,13 +16,13 @@ import (
 type AchievementMapping struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`         // displayName from schema
-	DisplayName string  `json:"display_name"` // kept for backwards compatibility  
+	DisplayName string  `json:"display_name"` // kept for backwards compatibility
 	Description string  `json:"description"`
 	Icon        string  `json:"icon,omitempty"`
 	IconGray    string  `json:"icon_gray,omitempty"`
 	Hidden      bool    `json:"hidden,omitempty"`
 	Character   string  `json:"character"`
-	Type        string  `json:"type"`    // "adept_survivor", "adept_killer", "general"
+	Type        string  `json:"type"` // "adept_survivor", "adept_killer", "general"
 	Unlocked    bool    `json:"unlocked"`
 	UnlockTime  int64   `json:"unlock_time,omitempty"`
 	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
@@ -35,11 +35,11 @@ type UnknownAchievement struct {
 }
 
 type AchievementMapper struct {
-	unknownAchievs    map[string]*UnknownAchievement
-	unknownsMutex     sync.RWMutex
-	client            *Client
-	adeptRegex        *regexp.Regexp
-	adeptsByAPI       map[string]string // apiName -> "killer"|"survivor"
+	unknownAchievs map[string]*UnknownAchievement
+	unknownsMutex  sync.RWMutex
+	client         *Client
+	adeptRegex     *regexp.Regexp
+	adeptsByAPI    map[string]string // apiName -> "killer"|"survivor"
 }
 
 func NewAchievementMapper() *AchievementMapper {
@@ -77,7 +77,7 @@ func (am *AchievementMapper) MapPlayerAchievements(achievements *PlayerAchieveme
 
 func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *PlayerAchievements, cacheManager cache.Cache) []AchievementMapping {
 	ctx := context.Background()
-	
+
 	// 1) Build map from player data
 	unlockedMap := make(map[string]SteamAchievement)
 	for _, achievement := range achievements.Achievements {
@@ -92,7 +92,7 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 			log.Debug("Using cached global achievement percentages", "count", len(globalPercentages))
 		}
 	}
-	
+
 	if globalPercentages == nil && am.client != nil {
 		if percentages, err := am.client.FetchGlobalAchievementPercentages(ctx); err == nil {
 			globalPercentages = percentages
@@ -132,7 +132,7 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 	for _, schemaAch := range fullSchema.AvailableGameStats.Achievements {
 		id := schemaAch.Name
 		title := schemaAch.DisplayName
-		
+
 		// desc := schema.Description; if schema.Hidden==1 && !unlocked -> desc=""
 		description := schemaAch.Description
 		unlocked := false
@@ -146,7 +146,7 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		if schemaAch.Hidden == 1 && !unlocked {
 			description = ""
 		}
-		
+
 		// rarity := globals[id] if present
 		rarity := float64(0)
 		if globalPercentages != nil {
@@ -154,11 +154,11 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				rarity = percentage
 			}
 		}
-		
+
 		// type/character classification
 		typ := "general"
 		character := ""
-		
+
 		if strings.HasPrefix(title, "Adept ") {
 			switch am.adeptsByAPI[id] {
 			case "killer":
@@ -171,13 +171,13 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 				am.trackUnknown(id)
 				log.Debug("Unknown adept achievement detected", "api_name", id, "title", title, "suggestion", "Consider adding to AdeptAchievementMapping")
 			}
-			
+
 			// Extract character with regex (keep exact schema casing)
 			if m := am.adeptRegex.FindStringSubmatch(title); len(m) == 2 {
 				character = m[1] // exact schema casing, including "The "
 			}
 		}
-		
+
 		mapping := AchievementMapping{
 			ID:          id,
 			Name:        title,
@@ -192,7 +192,7 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 			UnlockTime:  unlockTime,
 			Rarity:      rarity,
 		}
-		
+
 		mapped = append(mapped, mapping)
 	}
 
@@ -224,7 +224,7 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 	// SURGICAL EDIT: In fallback mode, only process known adept achievements
 	// Since schema is unavailable, we can't validate general achievements reliably
 	mapped := make([]AchievementMapping, 0, len(AdeptAchievementMapping))
-	
+
 	// Process each achievement from player data
 	for apiName, steamAch := range unlockedMap {
 		// SURGICAL EDIT: Only process adept achievements in fallback mode
@@ -233,42 +233,42 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 			am.trackUnknown(apiName)
 			continue
 		}
-		
+
 		unlocked := steamAch.Achieved == 1
 		var unlockTime int64
 		if steamAch.UnlockTime > 0 {
 			unlockTime = int64(steamAch.UnlockTime)
 		}
-		
+
 		rarity := float64(0)
 		if globalPercentages != nil {
 			if percentage, exists := globalPercentages[apiName]; exists {
 				rarity = percentage
 			}
 		}
-		
+
 		// Base mapping for adept achievements only
 		mapping := AchievementMapping{
 			ID:          apiName,
-			Name:        apiName,        // raw; no title-casing
-			DisplayName: apiName,        // raw; no title-casing
+			Name:        apiName, // raw; no title-casing
+			DisplayName: apiName, // raw; no title-casing
 			Description: "Achievement not present in schema",
 			Unlocked:    unlocked,
 			UnlockTime:  unlockTime,
 			Rarity:      rarity,
-			Character:   entry.Name,     // keep mapping's casing
+			Character:   entry.Name, // keep mapping's casing
 		}
-		
+
 		// Set adept type
 		if entry.Type == "killer" {
 			mapping.Type = "adept_killer"
 		} else {
 			mapping.Type = "adept_survivor"
 		}
-		
+
 		mapped = append(mapped, mapping)
 	}
-	
+
 	// Sort by DisplayName, then ID for stability
 	sort.Slice(mapped, func(i, j int) bool {
 		if mapped[i].DisplayName == mapped[j].DisplayName {
@@ -276,25 +276,25 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 		}
 		return mapped[i].DisplayName < mapped[j].DisplayName
 	})
-	
+
 	log.Info("All-achievement mapping completed",
 		"total_achievements", len(mapped),
 		"source", "player_data_with_fallback_classification")
-	
+
 	return mapped
 }
 
 // GetAchievementSummary returns a summary of achievements by type with enhanced adept tracking
 func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) map[string]interface{} {
 	summary := map[string]interface{}{
-		"total_achievements":     len(mapped),
-		"unlocked_count":         0,
-		"general_count":          0,
-		"adept_survivor_count":   0,
-		"adept_killer_count":     0,
-		"adept_survivors":        []string{},
-		"adept_killers":          []string{},
-		"completion_rate":        0.0,
+		"total_achievements":   len(mapped),
+		"unlocked_count":       0,
+		"general_count":        0,
+		"adept_survivor_count": 0,
+		"adept_killer_count":   0,
+		"adept_survivors":      []string{},
+		"adept_killers":        []string{},
+		"completion_rate":      0.0,
 	}
 
 	var adeptSurvivors, adeptKillers []string
@@ -325,7 +325,7 @@ func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) 
 
 	summary["adept_survivors"] = adeptSurvivors
 	summary["adept_killers"] = adeptKillers
-	
+
 	if len(mapped) > 0 {
 		summary["completion_rate"] = float64(summary["unlocked_count"].(int)) / float64(len(mapped)) * 100
 	}
@@ -342,7 +342,7 @@ func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
 	for _, unknown := range am.unknownAchievs {
 		unknowns = append(unknowns, unknown)
 	}
-	
+
 	return unknowns
 }
 
@@ -350,7 +350,7 @@ func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
 func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
 	survivorCount := 0
 	killerCount := 0
-	
+
 	for _, adept := range AdeptAchievementMapping {
 		switch adept.Type {
 		case "survivor":
@@ -359,7 +359,7 @@ func (am *AchievementMapper) ValidateMappingCoverage() map[string]interface{} {
 			killerCount++
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"survivor_adepts_mapped": survivorCount,
 		"killer_adepts_mapped":   killerCount,
@@ -409,7 +409,7 @@ func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache)
 		log.Warn("Unknown achievements detected - may need mapping updates",
 			"unknown_count", len(unknowns),
 			"suggestion", "Check Steam API or new game content for updates")
-		
+
 		for _, unknown := range unknowns {
 			if unknown.Occurrences > 5 { // Only log frequently seen unknowns
 				log.Debug("Frequent unknown achievement",
