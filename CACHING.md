@@ -9,7 +9,7 @@ In-memory caching layer that reduces Steam API calls and improves response times
 ### Request Flow
 ```
 1. HTTP Request → Handler
-2. Generate Cache Key (e.g., "player_stats:76561198000000000")
+2. Generate Cache Key (e.g., "player_stats:[steam_id]")
 3. Check Cache
    ├─ HIT: Return cached data (< 1ms)
    └─ MISS: Fetch from Steam API
@@ -104,7 +104,7 @@ if h.cacheManager != nil {
 
 ### Key Generation
 ```go
-// Generates keys like: "player_stats:76561198000000000"
+// Generates keys like: "player_stats:[steam_id]"
 cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)
 
 const (

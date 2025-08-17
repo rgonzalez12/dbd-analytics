@@ -13,7 +13,7 @@ Fetches player statistics and adept achievements for all survivors and killers.
 **Response:**
 ```json
 {
-  "steam_id": "76561198000000000",
+  "steam_id": "[steam_id]",
   "display_name": "PlayerName",
   
   "killer_pips": 1250,

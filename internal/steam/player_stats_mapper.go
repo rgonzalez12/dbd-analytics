@@ -487,31 +487,30 @@ func inferStatRule(id, dn string) StatRule {
 }
 
 // gradeMapping maps raw grade values to human readable grades
-// Based on confirmed user data from in-game screenshots
+// Values are based on observed DBD grade system patterns
 var gradeMapping = map[int]Grade{
-	// Killer grade mappings - confirmed values
+	// Killer grade mappings
 	0:   {Tier: "Unranked", Sub: 0}, // Unranked players
 	16:  {Tier: "Ash", Sub: 4},      // Ash IV
 	29:  {Tier: "Ash", Sub: 3},      // Ash III
 	65:  {Tier: "Bronze", Sub: 2},   // Bronze II
 	73:  {Tier: "Bronze", Sub: 4},   // Bronze IV
-	93:  {Tier: "Ash", Sub: 4},      // Ash IV - confirmed user data
-	300: {Tier: "Ash", Sub: 4},      // Ash IV - confirmed user data
+	93:  {Tier: "Ash", Sub: 4},      // Ash IV
+	300: {Tier: "Ash", Sub: 4},      // Ash IV
 	439: {Tier: "Bronze", Sub: 2},   // Bronze II
-
-	// Pattern observed: Lower values for lower tiers
+	640: {Tier: "Ash", Sub: 4},      // Ash IV
 }
 
 // survivorGradeMapping maps DBD_UnlockRanking values to survivor grades
-// Based on confirmed user data from in-game screenshots
-// NOTE: DBD ranking goes IV→III→II→I (4 is lowest, 1 is highest within each tier)
+// DBD ranking goes IV→III→II→I (4 is lowest, 1 is highest within each tier)
 var survivorGradeMapping = map[int]Grade{
-	// Survivor grade mappings - confirmed values
+	// Survivor grade mappings
 	7:    {Tier: "Ash", Sub: 4},        // Ash IV
-	541:  {Tier: "Ash", Sub: 3},        // Ash III - confirmed user data
+	541:  {Tier: "Ash", Sub: 3},        // Ash III
+	640:  {Tier: "Bronze", Sub: 1},     // Bronze I
 	948:  {Tier: "Ash", Sub: 2},        // Ash II
 	949:  {Tier: "Ash", Sub: 2},        // Ash II
-	951:  {Tier: "Iridescent", Sub: 4}, // Iridescent IV - confirmed current
+	951:  {Tier: "Iridescent", Sub: 4}, // Iridescent IV
 	1743: {Tier: "Ash", Sub: 1},        // Ash I
 	2050: {Tier: "Silver", Sub: 1},     // Silver I
 	2115: {Tier: "Ash", Sub: 4},        // Ash IV
@@ -520,11 +519,8 @@ var survivorGradeMapping = map[int]Grade{
 	4228: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
 	4229: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
 	4230: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
-	4233: {Tier: "Iridescent", Sub: 3}, // Iridescent III - confirmed user data
-	8995: {Tier: "Iridescent", Sub: 4}, // Iridescent IV - confirmed user data
-
-	// Pattern observed: Values can vary within same rank tiers
-	// TODO: Need more data for complete mapping coverage
+	4233: {Tier: "Iridescent", Sub: 3}, // Iridescent III
+	8995: {Tier: "Iridescent", Sub: 4}, // Iridescent IV
 }
 
 // MapPlayerStats maps raw Steam stats to structured response using schema as source of truth
@@ -623,7 +619,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 			ID:          id,
 			DisplayName: displayName,
 			Value:       raw,
-			Formatted:   formatValue(raw, rule.ValueType),
+			Formatted:   formatValue(raw, rule.ValueType, id),
 			Category:    rule.Category,
 			ValueType:   rule.ValueType,
 			SortWeight:  rule.Weight,
@@ -734,34 +730,67 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 }
 
 // decodeGrade converts raw grade value to human readable format
-func decodeGrade(v float64) (Grade, string, string) {
+func decodeGrade(v float64, fieldID string) (Grade, string, string) {
 	gradeCode := int(v)
 
-	// Check if this is a killer grade (DBD_SlasherTierIncrement) - typically 16-35 range
-	if grade, exists := gradeMapping[gradeCode]; exists {
-		// Handle special case for unranked
-		if grade.Tier == "Unranked" {
-			log.Info("Killer grade decoded as unranked", "raw_value", gradeCode)
-			return grade, "Unranked", ""
+	// Determine if this is killer or survivor based on field name
+	isKillerGrade := strings.Contains(strings.ToLower(fieldID), "slasher") || 
+					strings.Contains(strings.ToLower(fieldID), "killer")
+	isSurvivorGrade := strings.Contains(strings.ToLower(fieldID), "unlock") || 
+					  strings.Contains(strings.ToLower(fieldID), "survivor") ||
+					  strings.Contains(strings.ToLower(fieldID), "camper")
+
+	// Try killer grade mapping if it's a killer field
+	if isKillerGrade {
+		if grade, exists := gradeMapping[gradeCode]; exists {
+			// Handle special case for unranked
+			if grade.Tier == "Unranked" {
+				log.Info("Killer grade decoded as unranked", "raw_value", gradeCode, "field_id", fieldID)
+				return grade, "Unranked", ""
+			}
+			human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+			log.Info("Killer grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub, "field_id", fieldID)
+			return grade, human, roman(grade.Sub)
 		}
-		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
-		log.Info("Killer grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
-		return grade, human, roman(grade.Sub)
 	}
 
-	// Check if this is a survivor grade (DBD_UnlockRanking) - uses different encoding
-	if grade, exists := survivorGradeMapping[gradeCode]; exists {
-		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
-		log.Info("Survivor grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
-		return grade, human, roman(grade.Sub)
+	// Try survivor grade mapping if it's a survivor field
+	if isSurvivorGrade {
+		if grade, exists := survivorGradeMapping[gradeCode]; exists {
+			human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+			log.Info("Survivor grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub, "field_id", fieldID)
+			return grade, human, roman(grade.Sub)
+		}
 	}
 
-	// Unknown grade code - determine if it's likely killer or survivor based on value range
-	if gradeCode >= 1000 {
-		log.Info("Unknown survivor grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_UnlockRanking")
+	// Fallback: try both mappings if field type is unclear
+	if !isKillerGrade && !isSurvivorGrade {
+		// Check killer mapping first
+		if grade, exists := gradeMapping[gradeCode]; exists {
+			// Handle special case for unranked
+			if grade.Tier == "Unranked" {
+				log.Info("Grade decoded as unranked (fallback)", "raw_value", gradeCode, "field_id", fieldID)
+				return grade, "Unranked", ""
+			}
+			human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+			log.Info("Killer grade decoded (fallback)", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub, "field_id", fieldID)
+			return grade, human, roman(grade.Sub)
+		}
+
+		// Check survivor mapping
+		if grade, exists := survivorGradeMapping[gradeCode]; exists {
+			human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+			log.Info("Survivor grade decoded (fallback)", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub, "field_id", fieldID)
+			return grade, human, roman(grade.Sub)
+		}
+	}
+
+	// Unknown grade code - determine if it's likely killer or survivor based on value range and field context
+	if isSurvivorGrade || (!isKillerGrade && gradeCode >= 1000) {
+		log.Info("Unknown survivor grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_UnlockRanking", "field_id", fieldID)
 		return Grade{Tier: "Unknown", Sub: 1}, fmt.Sprintf("Unknown Survivor (%d)", gradeCode), "?"
 	} else {
-		log.Info("Unknown killer grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_SlasherTierIncrement")
+		log.Info("Unknown killer grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_SlasherTierIncrement", "field_id", fieldID)
 		return Grade{Tier: "Unknown", Sub: 1}, fmt.Sprintf("Unknown Killer (%d)", gradeCode), "?"
 	}
 }
@@ -783,12 +812,12 @@ func roman(n int) string {
 }
 
 // formatValue formats a raw value according to its type
-func formatValue(v float64, valueType string) string {
+func formatValue(v float64, valueType string, fieldID string) string {
 	switch valueType {
 	case "percent":
 		return fmt.Sprintf("%.1f%%", v)
 	case "grade":
-		_, human, _ := decodeGrade(v)
+		_, human, _ := decodeGrade(v, fieldID)
 		return human
 	case "level":
 		return strconv.Itoa(int(v))

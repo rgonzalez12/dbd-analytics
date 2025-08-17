@@ -13,17 +13,16 @@ func TestDecodeGrade(t *testing.T) {
 		expectedSub   int
 		expectedHuman string
 	}{
-		{"Ash 4", 0, "Ash", 4, "Ash IV"},
-		{"Bronze 1", 7, "Bronze", 1, "Bronze I"},
-		{"Silver 2", 10, "Silver", 2, "Silver II"},
-		{"Gold 1", 15, "Gold", 1, "Gold I"},
-		{"Iridescent 1", 19, "Iridescent", 1, "Iridescent I"},
-		{"Unknown grade", 999, "Unranked", 0, "Unranked"},
+		{"Unranked", 0, "Unranked", 0, "Unranked"},
+		{"Ash IV", 16, "Ash", 4, "Ash IV"},
+		{"Bronze II", 65, "Bronze", 2, "Bronze II"},
+		{"Bronze IV", 73, "Bronze", 4, "Bronze IV"},
+		{"Unknown grade", 999, "Unknown", 1, "Unknown Killer (999)"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			grade, human, roman := decodeGrade(tt.input)
+			grade, human, roman := decodeGrade(tt.input, "DBD_SlasherTierIncrement")
 
 			if grade.Tier != tt.expectedTier {
 				t.Errorf("Expected tier %s, got %s", tt.expectedTier, grade.Tier)
@@ -37,7 +36,12 @@ func TestDecodeGrade(t *testing.T) {
 				t.Errorf("Expected human %s, got %s", tt.expectedHuman, human)
 			}
 
-			if tt.expectedSub > 0 && roman != romanExpected(tt.expectedSub) {
+			// For unknown grades, roman numeral is "?", not the expected roman numeral
+			if tt.name == "Unknown grade" {
+				if roman != "?" {
+					t.Errorf("Expected roman ?, got %s", roman)
+				}
+			} else if tt.expectedSub > 0 && roman != romanExpected(tt.expectedSub) {
 				t.Errorf("Expected roman %s, got %s", romanExpected(tt.expectedSub), roman)
 			}
 		})
@@ -70,7 +74,7 @@ func TestFormatValue(t *testing.T) {
 		{"Small count", 123, "count", "123"},
 		{"Percentage", 87.5, "percent", "87.5%"},
 		{"Level", 100, "level", "100"},
-		{"Grade", 15, "grade", "Gold I"},
+		{"Grade", 16, "grade", "Ash IV"},
 		{"Duration seconds", 45, "duration", "45s"},
 		{"Duration minutes", 75, "duration", "1m 15s"},
 		{"Duration hours", 3665, "duration", "1h 1m"},
@@ -78,7 +82,7 @@ func TestFormatValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatValue(tt.value, tt.valueType)
+			result := formatValue(tt.value, tt.valueType, "DBD_SlasherTierIncrement")
 			if result != tt.expected {
 				t.Errorf("Expected %s, got %s", tt.expected, result)
 			}

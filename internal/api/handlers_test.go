@@ -105,9 +105,9 @@ func TestGetPlayerSummary(t *testing.T) {
 	}{
 		{
 			name:    "Successful response with valid Steam ID",
-			steamID: "76561198000000000",
+			steamID: "counteredspell",
 			mockResponse: &steam.SteamPlayer{
-				SteamID:     "76561198000000000",
+				SteamID:     "counteredspell",
 				PersonaName: "TestPlayer",
 				Avatar:      "https://avatars.steamstatic.com/test.jpg",
 				AvatarFull:  "https://avatars.steamstatic.com/test_full.jpg",
@@ -126,7 +126,7 @@ func TestGetPlayerSummary(t *testing.T) {
 		},
 		{
 			name:           "Steam API timeout/network error",
-			steamID:        "76561198000000000",
+			steamID:        "counteredspell",
 			mockResponse:   nil,
 			mockError:      steam.NewNetworkError(nil),
 			expectedStatus: http.StatusBadGateway,
@@ -134,7 +134,7 @@ func TestGetPlayerSummary(t *testing.T) {
 		},
 		{
 			name:           "Steam API rate limiting",
-			steamID:        "76561198000000000",
+			steamID:        "counteredspell",
 			mockResponse:   nil,
 			mockError:      steam.NewRateLimitError(),
 			expectedStatus: http.StatusTooManyRequests,
@@ -142,7 +142,7 @@ func TestGetPlayerSummary(t *testing.T) {
 		},
 		{
 			name:           "Steam API server error (500)",
-			steamID:        "76561198000000000",
+			steamID:        "counteredspell",
 			mockResponse:   nil,
 			mockError:      steam.NewAPIError(500, "Internal Server Error"),
 			expectedStatus: http.StatusBadGateway,
@@ -150,7 +150,7 @@ func TestGetPlayerSummary(t *testing.T) {
 		},
 		{
 			name:           "Player not found",
-			steamID:        "76561198000000000",
+			steamID:        "counteredspell",
 			mockResponse:   nil,
 			mockError:      steam.NewNotFoundError("Player"),
 			expectedStatus: http.StatusNotFound,
@@ -240,14 +240,14 @@ func TestGetPlayerStats(t *testing.T) {
 	}{
 		{
 			name:    "Successful stats response",
-			steamID: "76561198000000000",
+			steamID: "counteredspell",
 			mockSummary: &steam.SteamPlayer{
-				SteamID:     "76561198000000000",
+				SteamID:     "counteredspell",
 				PersonaName: "TestPlayer",
 			},
 			mockSummaryError: nil,
 			mockStats: &steam.SteamPlayerstats{
-				SteamID:  "76561198000000000",
+				SteamID:  "counteredspell",
 				GameName: "Dead by Daylight",
 				Stats: []steam.SteamStat{
 					{Name: "DBD_DiedAsKiller", Value: 10},
@@ -270,7 +270,7 @@ func TestGetPlayerStats(t *testing.T) {
 		},
 		{
 			name:             "Player summary fails",
-			steamID:          "76561198000000000",
+			steamID:          "counteredspell",
 			mockSummary:      nil,
 			mockSummaryError: steam.NewNotFoundError("Player"),
 			mockStats:        nil,
@@ -280,9 +280,9 @@ func TestGetPlayerStats(t *testing.T) {
 		},
 		{
 			name:    "Stats fetch fails after successful summary",
-			steamID: "76561198000000000",
+			steamID: "counteredspell",
 			mockSummary: &steam.SteamPlayer{
-				SteamID:     "76561198000000000",
+				SteamID:     "counteredspell",
 				PersonaName: "TestPlayer",
 			},
 			mockSummaryError: nil,
@@ -293,9 +293,9 @@ func TestGetPlayerStats(t *testing.T) {
 		},
 		{
 			name:    "Stats API server error",
-			steamID: "76561198000000000",
+			steamID: "counteredspell",
 			mockSummary: &steam.SteamPlayer{
-				SteamID:     "76561198000000000",
+				SteamID:     "counteredspell",
 				PersonaName: "TestPlayer",
 			},
 			mockSummaryError: nil,
@@ -383,7 +383,7 @@ func TestValidateSteamIDOrVanity(t *testing.T) {
 	}{
 		{
 			name:        "Valid Steam ID",
-			input:       "76561198000000000",
+			input:       "counteredspell",
 			expectError: false,
 		},
 		{
@@ -415,7 +415,7 @@ func TestValidateSteamIDOrVanity(t *testing.T) {
 		},
 		{
 			name:        "Too long Steam ID",
-			input:       "765611980000000000",
+			input:       "765611980000000001",
 			expectError: true,
 			errorType:   steam.ErrorTypeValidation,
 		},

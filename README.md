@@ -221,8 +221,8 @@ npm run dev
 
 ### Example Usage
 ```bash
-curl http://localhost:8080/api/player/76561198000000000
-curl http://localhost:8080/api/player/counteredspell
+curl http://localhost:8080/api/player/[steam_id]
+curl http://localhost:8080/api/player/[vanity_url]
 curl http://localhost:8080/api/cache/status
 ```
 

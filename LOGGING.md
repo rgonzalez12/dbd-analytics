@@ -17,8 +17,8 @@ Example log output:
   "source": {"function": "main.main", "file": "main.go", "line": 92},
   "msg": "incoming_request",
   "method": "GET",
-  "path": "/api/player/76561198000000000",
-  "steam_id": "76561198000000000",
+  "path": "/api/player/[steam_id]",
+  "steam_id": "[steam_id]",
   "remote_addr": "[::1]:63035"
 }
 ```

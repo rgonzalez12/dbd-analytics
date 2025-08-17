@@ -28,7 +28,7 @@ func main() {
 	r := setupRouter()
 
 	fmt.Printf("🚀 Server running on http://localhost%s\n", port)
-	fmt.Printf("💡 Try: http://localhost%s/api/player/76561198000000000\n", port)
+	fmt.Printf("💡 Try: http://localhost%s/api/player/[steam_id]\n", port)
 
 	if err := http.ListenAndServe(port, r); err != nil {
 		log.Error("Server failed", "error", err.Error())

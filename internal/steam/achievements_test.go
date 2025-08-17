@@ -146,7 +146,7 @@ func TestAdeptAchievementMapping(t *testing.T) {
 func TestPlayerStatsWithAchievements(t *testing.T) {
 	// Test that the enhanced model works correctly
 	stats := models.PlayerStats{
-		SteamID:     "76561198000000000",
+		SteamID:     "counteredspell",
 		DisplayName: "TestPlayer",
 		KillerPips:  100,
 	}

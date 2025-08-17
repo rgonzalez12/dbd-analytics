@@ -202,8 +202,8 @@ func TestGetPlayerStatsWithAchievements_HappyPath(t *testing.T) {
 		createTestCacheManager(t),
 	)
 
-	req := httptest.NewRequest("GET", "/player/76561198000000000", nil)
-	req = mux.SetURLVars(req, map[string]string{"steamid": "76561198000000000"})
+	req := httptest.NewRequest("GET", "/player/counteredspell", nil)
+	req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
 	w := httptest.NewRecorder()
 
 	// Execute
@@ -220,8 +220,8 @@ func TestGetPlayerStatsWithAchievements_HappyPath(t *testing.T) {
 	}
 
 	// Verify data structure
-	if response.SteamID != "76561198000000000" {
-		t.Errorf("Expected SteamID 76561198000000000, got %s", response.SteamID)
+	if response.SteamID != "counteredspell" {
+		t.Errorf("Expected SteamID counteredspell, got %s", response.SteamID)
 	}
 	if response.Achievements == nil {
 		t.Error("Expected achievements to be present")
@@ -244,8 +244,8 @@ func TestGetPlayerStatsWithAchievements_AchievementsFailStatsSucceed(t *testing.
 		createTestCacheManager(t),
 	)
 
-	req := httptest.NewRequest("GET", "/player/76561198000000000", nil)
-	req = mux.SetURLVars(req, map[string]string{"steamid": "76561198000000000"})
+	req := httptest.NewRequest("GET", "/player/counteredspell", nil)
+	req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
 	w := httptest.NewRecorder()
 
 	// Execute
@@ -291,8 +291,8 @@ func TestGetPlayerStatsWithAchievements_StatsFailAchievementsSucceed(t *testing.
 		createTestCacheManager(t),
 	)
 
-	req := httptest.NewRequest("GET", "/player/76561198000000000", nil)
-	req = mux.SetURLVars(req, map[string]string{"steamid": "76561198000000000"})
+	req := httptest.NewRequest("GET", "/player/counteredspell", nil)
+	req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
 	w := httptest.NewRecorder()
 
 	// Execute
@@ -332,8 +332,8 @@ func TestGetPlayerStatsWithAchievements_Timeout(t *testing.T) {
 		createTestCacheManager(t),
 	)
 
-	req := httptest.NewRequest("GET", "/player/76561198000000000", nil)
-	req = mux.SetURLVars(req, map[string]string{"steamid": "76561198000000000"})
+	req := httptest.NewRequest("GET", "/player/counteredspell", nil)
+	req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
 	w := httptest.NewRecorder()
 
 	start := time.Now()

@@ -20,7 +20,7 @@ func TestLiveSteamAPI(t *testing.T) {
 	client := steam.NewClient()
 
 	t.Run("PlayerSummary", func(t *testing.T) {
-		summary, err := client.GetPlayerSummary("76561198000000000") // test SteamID
+		summary, err := client.GetPlayerSummary("counteredspell") // vanity URL
 		if err != nil {
 			t.Fatalf("Failed to fetch player summary: %v", err)
 		}
@@ -31,7 +31,7 @@ func TestLiveSteamAPI(t *testing.T) {
 	})
 
 	t.Run("PlayerStats", func(t *testing.T) {
-		stats, err := client.GetPlayerStats("76561198000000000") // test SteamID
+		stats, err := client.GetPlayerStats("counteredspell") // vanity URL
 		if err != nil {
 			t.Fatalf("Failed to fetch player stats: %v", err)
 		}
