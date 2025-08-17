@@ -1,12 +1,13 @@
 # DBD Analytics
 
-Dead by Daylight player statistics and achievement tracker with Steam API integration.
+Dead by Daylight player statistics and achievement tracker with Steam API integration, featuring field-aware grade detection and comprehensive caching.
 
 ## Architecture
 
-- **Backend**: Go API server with caching and Steam integration
+- **Backend**: Go API server with intelligent caching, circuit breaker, and Steam integration
 - **Frontend**: SvelteKit web application with TypeScript
-- **Data**: Steam API for player stats and achievements
+- **Data**: Steam API for player stats and achievements with field-aware grade mapping
+- **Caching**: Multi-layer cache with corruption detection and graceful fallback
 
 ## Quick Start
 
@@ -56,6 +57,30 @@ The frontend will start on `http://localhost:5173` with proxy to backend
 - **Web Interface**: http://localhost:5173
 - **API Endpoints**: http://localhost:8080/api
 - **Example**: http://localhost:5173/player/counteredspell
+
+## Key Features
+
+### 🎯 Field-Aware Grade Detection
+- **Smart Grade Mapping**: Distinguishes between killer (`DBD_SlasherTierIncrement`) and survivor (`DBD_UnlockRanking`) grade fields
+- **Accurate Display**: Correctly shows Ash/Bronze/Silver/Gold/Iridescent with Roman numeral sub-tiers
+- **Unknown Grade Handling**: Gracefully handles new or unmapped grade values with "?" display
+
+### 🏆 Achievement System
+- **Adept Tracking**: Automatically tracks all 86 adept achievements (46 survivors + 40 killers)
+- **Character Mapping**: Intelligent character name normalization and mapping
+- **Schema Integration**: Uses Steam achievement schema with hardcoded fallback for reliability
+
+### 🔄 Intelligent Caching
+- **Multi-Layer Cache**: Memory cache with LRU eviction and configurable TTL
+- **Circuit Breaker**: Protects Steam API with automatic failure detection and recovery
+- **Graceful Degradation**: Serves stale data during Steam API outages
+- **Corruption Detection**: Automatic cache validation and recovery
+
+### 🚀 Production Ready
+- **Vanity URL Support**: Seamlessly handles both Steam IDs and vanity URLs like `counteredspell`
+- **Concurrent Safety**: Thread-safe operations with proper synchronization
+- **Structured Logging**: Comprehensive observability with structured JSON logs
+- **Error Recovery**: Robust error handling with detailed error classification
 
 ## Configuration
 
