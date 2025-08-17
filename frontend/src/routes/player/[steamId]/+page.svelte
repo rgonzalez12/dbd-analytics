@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { displayStatValue } from '$lib/api/player-adapter';
+	import { displayStatValue, hasStats } from '$lib/api/player-adapter';
 	
 	export let data: PageData;
 	

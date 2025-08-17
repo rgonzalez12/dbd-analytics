@@ -49,24 +49,16 @@ type StatRule struct {
 }
 
 var ruleSet = []StatRule{
-	{ // killer grade - expanded patterns
-		ID: "killer_grade", Category: "killer", ValueType: "grade", Weight: 0, Alias: "killer_grade",
+	{ // Survivor grade field - DBD_UnlockRanking appears to be survivor/overall grade
+		ID: "DBD_UnlockRanking", Category: "survivor", ValueType: "grade", Weight: 0, Alias: "survivor_grade",
 		Match: func(id, dn string) bool {
-			s := strings.ToLower(id + "|" + dn)
-			return (strings.Contains(s, "killer") && (strings.Contains(s, "grade") || strings.Contains(s, "rank"))) ||
-				strings.Contains(s, "rank_killer") || strings.Contains(s, "killer_rank") ||
-				strings.Contains(s, "slasher") && (strings.Contains(s, "grade") || strings.Contains(s, "rank")) ||
-				strings.Contains(s, "dbd_grade_slasher") || strings.Contains(s, "dbd_slasher_grade")
+			return id == "DBD_UnlockRanking"
 		},
 	},
-	{ // survivor grade - expanded patterns
-		ID: "survivor_grade", Category: "survivor", ValueType: "grade", Weight: 0, Alias: "survivor_grade",
+	{ // Killer grade field - DBD_SlasherTierIncrement is killer-specific progression
+		ID: "DBD_SlasherTierIncrement", Category: "killer", ValueType: "grade", Weight: 0, Alias: "killer_grade",
 		Match: func(id, dn string) bool {
-			s := strings.ToLower(id + "|" + dn)
-			return ((strings.Contains(s, "survivor") || strings.Contains(s, "camper")) &&
-				(strings.Contains(s, "grade") || strings.Contains(s, "rank"))) ||
-				strings.Contains(s, "rank_camper") || strings.Contains(s, "survivor_rank") ||
-				strings.Contains(s, "dbd_grade_camper") || strings.Contains(s, "dbd_camper_grade")
+			return id == "DBD_SlasherTierIncrement"
 		},
 	},
 	{ // highest prestige level
@@ -98,6 +90,17 @@ var displayNameOverrides = map[string]string{
 	"DBD_Stat_Camper_DB_Escapes":        "Successful Escapes",
 	"DBD_Stat_Slasher_DB_KillKillers":   "Kills as Killer",
 	"DBD_Stat_Slasher_DB_TimesKilled":   "Times Killed Others",
+	"DBD_UnlockRanking":                 "Survivor Grade",
+	"DBD_SlasherTierIncrement":          "Killer Grade",
+	"DBD_Bloodwebpoints":                "Bloodpoints",
+	"DBD_Bloodwebmaxlevel":              "Max Bloodweb Level",
+	"DBD_Bloodwebperkmaxlevel":          "Max Perk Level",
+	"DBD_Chainsawhit":                   "Chainsaw Hits",
+	"DBD_Skillchecksuccess":             "Skill Checks Succeeded",
+	"DBD_Uncloakattack":                 "Uncloak Attacks",
+	"DBD_Trappickup":                    "Trap Pickups",
+	"DBD_Burnoffering_Ultrarare":        "Ultra Rare Offerings Used",
+	"DBD_Maxbloodwebpointsonecategory":  "Max Bloodpoints Single Category",
 }
 
 func findRule(id, dn string) (StatRule, bool) {
@@ -126,28 +129,42 @@ func inferStatRule(id, dn string) StatRule {
 }
 
 // gradeMapping maps raw grade values to human readable grades
-// TODO: Update with actual observed values from Steam API
+// Based on user feedback: DBD_SlasherTierIncrement=16 corresponds to Ash IV (lowest rank)
+// This means the mapping is inverted from what we initially assumed
 var gradeMapping = map[int]Grade{
-	0:  {Tier: "Ash", Sub: 4},
-	1:  {Tier: "Ash", Sub: 3},
-	2:  {Tier: "Ash", Sub: 2},
-	3:  {Tier: "Ash", Sub: 1},
-	4:  {Tier: "Bronze", Sub: 4},
-	5:  {Tier: "Bronze", Sub: 3},
-	6:  {Tier: "Bronze", Sub: 2},
-	7:  {Tier: "Bronze", Sub: 1},
-	8:  {Tier: "Silver", Sub: 4},
-	9:  {Tier: "Silver", Sub: 3},
-	10: {Tier: "Silver", Sub: 2},
-	11: {Tier: "Silver", Sub: 1},
-	12: {Tier: "Gold", Sub: 4},
-	13: {Tier: "Gold", Sub: 3},
-	14: {Tier: "Gold", Sub: 2},
-	15: {Tier: "Gold", Sub: 1},
-	16: {Tier: "Iridescent", Sub: 4},
-	17: {Tier: "Iridescent", Sub: 3},
-	18: {Tier: "Iridescent", Sub: 2},
-	19: {Tier: "Iridescent", Sub: 1},
+	// User confirmed: 16 = Ash IV (lowest killer rank)
+	16: {Tier: "Ash", Sub: 4},
+	17: {Tier: "Ash", Sub: 3},
+	18: {Tier: "Ash", Sub: 2},
+	19: {Tier: "Ash", Sub: 1},
+	20: {Tier: "Bronze", Sub: 4},
+	21: {Tier: "Bronze", Sub: 3},
+	22: {Tier: "Bronze", Sub: 2},
+	23: {Tier: "Bronze", Sub: 1},
+	24: {Tier: "Silver", Sub: 4},
+	25: {Tier: "Silver", Sub: 3},
+	26: {Tier: "Silver", Sub: 2},
+	27: {Tier: "Silver", Sub: 1},
+	28: {Tier: "Gold", Sub: 4},
+	29: {Tier: "Gold", Sub: 3},
+	30: {Tier: "Gold", Sub: 2},
+	31: {Tier: "Gold", Sub: 1},
+	32: {Tier: "Iridescent", Sub: 4},
+	33: {Tier: "Iridescent", Sub: 3},
+	34: {Tier: "Iridescent", Sub: 2},
+	35: {Tier: "Iridescent", Sub: 1},
+}
+
+// survivorGradeMapping maps DBD_UnlockRanking values to survivor grades
+// Based on confirmed user data from in-game screenshots
+var survivorGradeMapping = map[int]Grade{
+	// CONFIRMED data points from user screenshots:
+	4226: {Tier: "Gold", Sub: 1},     // Previous grade - Gold I
+	4227: {Tier: "Gold", Sub: 1},     // Gold I (slight variation)
+	4228: {Tier: "Iridescent", Sub: 4}, // CURRENT: User promoted to Iridescent IV
+	
+	// TODO: Collect more data points from different players to build complete mapping
+	// The survivor grade system appears to use much higher numbers than killer grades
 }
 
 // MapPlayerStats maps raw Steam stats to structured response using schema as source of truth
@@ -237,6 +254,40 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 
 	// 6) Map each stat in the union
 	mapped := make([]Stat, 0, len(keys))
+	
+	// DEBUG: Log all stat names to find separate killer/survivor grades
+	log.Info("DEBUG: All available stats", "total_count", len(keys))
+	
+	// Look specifically for tier/increment fields that might be separate grades
+	var killerTierField, survivorTierField string
+	var killerTierValue, survivorTierValue float64
+	
+	for i, id := range keys {
+		value := userByID[id]
+		idLower := strings.ToLower(id)
+		
+		// Look for specific tier increment fields
+		if strings.Contains(idLower, "slashertierincrement") {
+			killerTierField = id
+			killerTierValue = value
+			log.Info("DEBUG: Found killer tier field", "field", id, "value", value)
+		}
+		if strings.Contains(idLower, "campertierincrement") || strings.Contains(idLower, "survivortierincrement") || id == "DBD_UnlockRanking" {
+			survivorTierField = id
+			survivorTierValue = value
+			log.Info("DEBUG: Found survivor tier field", "field", id, "value", value)
+		}
+		
+		// Look for grade/rank fields OR killer/survivor specific fields
+		if strings.Contains(idLower, "rank") || strings.Contains(idLower, "grade") || 
+		   strings.Contains(idLower, "slasher") || strings.Contains(idLower, "camper") ||
+		   strings.Contains(idLower, "killer") || strings.Contains(idLower, "survivor") {
+			log.Info("DEBUG: Potential grade/role field", "index", i, "id", id, "value", value)
+		}
+	}
+	
+	// Log findings about tier fields
+	log.Info("DEBUG: Tier field analysis", "killer_field", killerTierField, "killer_value", killerTierValue, "survivor_field", survivorTierField, "survivor_value", survivorTierValue)
 	
 	for _, id := range keys {
 		dn := schemaByID[id]
@@ -348,19 +399,28 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 func decodeGrade(v float64) (Grade, string, string) {
 	gradeCode := int(v)
 	
+	// Check if this is a killer grade (DBD_SlasherTierIncrement) - typically 16-35 range
 	if grade, exists := gradeMapping[gradeCode]; exists {
 		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+		log.Info("Killer grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
 		return grade, human, roman(grade.Sub)
 	}
 	
-	// Unknown grade code - log for investigation
-	log.Debug("Unknown grade code detected", 
-		"grade_code", gradeCode, 
-		"suggestion", "Consider adding to gradeMapping")
+	// Check if this is a survivor grade (DBD_UnlockRanking) - uses different encoding
+	if grade, exists := survivorGradeMapping[gradeCode]; exists {
+		human := fmt.Sprintf("%s %s", grade.Tier, roman(grade.Sub))
+		log.Info("Survivor grade decoded successfully", "raw_value", gradeCode, "tier", grade.Tier, "sub", grade.Sub)
+		return grade, human, roman(grade.Sub)
+	}
 	
-	// Return safe default
-	defaultGrade := Grade{Tier: "Unranked", Sub: 0}
-	return defaultGrade, "Unranked", ""
+	// Unknown grade code - determine if it's likely killer or survivor based on value range
+	if gradeCode >= 1000 {
+		log.Info("Unknown survivor grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_UnlockRanking")
+		return Grade{Tier: "Unknown", Sub: 1}, fmt.Sprintf("Unknown Survivor (%d)", gradeCode), "?"
+	} else {
+		log.Info("Unknown killer grade detected", "grade_code", gradeCode, "field_type", "likely_DBD_SlasherTierIncrement")
+		return Grade{Tier: "Unknown", Sub: 1}, fmt.Sprintf("Unknown Killer (%d)", gradeCode), "?"
+	}
 }
 
 // roman converts 1-4 to Roman numerals I-IV

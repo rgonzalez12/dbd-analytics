@@ -19,8 +19,8 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	// Convert to UI-friendly stats format
 	const uiStats = sortStats(toUIStats(stats));
 	
-	// Extract header data using stable aliases
-	const header = selectHeader(uiStats);
+	// Extract header data using stable aliases with summary fallback
+	const header = selectHeader(uiStats, statsSummary);
 	
 	// Group stats by category
 	const groupedStats = groupStats(uiStats);

@@ -1,6 +1,9 @@
 export type StatCategory = 'killer' | 'survivor' | 'general';
 export type ValueType = 'count' | 'percent' | 'grade' | 'level' | 'duration';
-export type StatAlias = 'killer_grade' | 'survivor_grade' | 'highest_prestige';
+export type StatAlias = 
+	| 'killer_grade'
+	| 'survivor_grade'
+	| 'highest_prestige';
 
 export interface WireStat {
   id: string;
@@ -87,27 +90,43 @@ export function groupStats(stats: UIStat[]) {
   };
 }
 
-export function selectHeader(stats: UIStat[]) {
+export function selectHeader(stats: UIStat[], statsSummary?: any) {
+  // Prefer statsSummary values if available
+  if (statsSummary) {
+    return {
+      killerGrade: statsSummary.killer_grade || 'Unranked',
+      survivorGrade: statsSummary.survivor_grade || 'Unranked', 
+      highestPrestige: Math.min(statsSummary.prestige_level || 0, 100).toString(),
+    };
+  }
+
+  // Look for separate killer and survivor grade fields
   const byAlias = (a: StatAlias) => stats.find(s => s.alias === a);
-  const killer = byAlias('killer_grade');
-  const survivor = byAlias('survivor_grade');
+  const killerGrade = byAlias('killer_grade');
+  const survivorGrade = byAlias('survivor_grade');
   const prestige = byAlias('highest_prestige');
+
+  // Fallback: look for any grade field if the specific ones aren't found
+  const gradeFallback = (!killerGrade && !survivorGrade) ? stats.find(s => s.valueType === 'grade') : null;
+  
+  // Use separate grades for killer and survivor
+  const killerGradeDisplay = killerGrade?.formatted || gradeFallback?.formatted || 'Unranked';
+  const survivorGradeDisplay = survivorGrade?.formatted || gradeFallback?.formatted || 'Unranked';
+
   return {
-    killerGrade: killer?.formatted ?? 'Unranked',
-    survivorGrade: survivor?.formatted ?? 'Unranked',
-    highestPrestige: prestige?.formatted ?? (prestige ? String(prestige.value) : '0'),
+    killerGrade: killerGradeDisplay,
+    survivorGrade: survivorGradeDisplay,
+    highestPrestige: prestige?.formatted || (prestige ? Math.min(prestige.value, 100).toString() : '0'),
   };
 }
 
 // Helper function for displaying stat values according to rendering rules
 export function displayStatValue(stat: UIStat): string {
-  // Always use formatted if available
+  // Always use formatted if available (backend handles all formatting)
   if (stat.formatted) return stat.formatted;
   
-  // Apply rendering rules based on value type
+  // Apply rendering rules based on value type - no client-side % guessing
   switch (stat.valueType) {
-    case 'percent':
-      return `${stat.value}%`;
     case 'count':
     case 'level':
       return stat.value.toLocaleString();
@@ -124,4 +143,9 @@ function formatDuration(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   return `${Math.floor(seconds / 3600)}h`;
+}
+
+// Friendly empty state helper
+export function hasStats(stats: UIStat[]): boolean {
+  return stats.length > 0;
 }
