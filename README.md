@@ -1,292 +1,176 @@
 # DBD Analytics
 
-Dead by Daylight player statistics and achievement tracker with Steam API integration, featuring field-aware grade detection and comprehensive caching.
+A Dead by Daylight statistics and achievement tracker that uses the Steam API to provide player data in a readable format.
 
-## Architecture
+## Overview
 
-- **Backend**: Go API server with intelligent caching, circuit breaker, and Steam integration
-- **Frontend**: SvelteKit web application with TypeScript
-- **Data**: Steam API for player stats and achievements with field-aware grade mapping
-- **Caching**: Multi-layer cache with corruption detection and graceful fallback
+This application solves several problems with Steam's Dead by Daylight data:
+
+- Steam returns grade data as numbers (16, 73, 439) without context - this tool converts them to readable grades like "Bronze II" or "Ash IV"
+- Dead by Daylight has 86+ adept achievements with inconsistent character naming - this application normalizes them
+- Steam API responses are slow and unreliable - a caching layer improves performance and availability
+
+## Features
+
+- **Grade Detection**: Converts numeric grade codes to readable rank names for both killer and survivor grades
+- **Achievement Mapping**: Complete catalog of all Dead by Daylight adept achievements with standardized character names
+- **Caching System**: Multi-layer cache reduces response times and handles Steam API outages
+- **Circuit Breaker**: Graceful degradation when Steam API is unavailable
+- **REST API**: Clean JSON endpoints for integration with other tools
 
 ## Quick Start
 
-### Prerequisites
-- Go 1.21+ for backend
-- Node.js 18+ for frontend  
-- Steam API key (set as `STEAM_API_KEY` environment variable)
+### Requirements
+- Go 1.21 or higher
+- Node.js 18 or higher  
+- Steam API key (get from https://steamcommunity.com/dev/apikey)
 
-### 1. Clone the Repository
+### Setup
+
+1. Clone the repository:
 ```bash
 git clone https://github.com/rgonzalez12/dbd-analytics.git
 cd dbd-analytics
 ```
 
-### 2. Set Up Environment
-Create a `.env` file in the root directory:
+2. Create environment configuration:
 ```bash
-STEAM_API_KEY=your_steam_api_key_here
-LOG_LEVEL=info
-PORT=8080
+echo "STEAM_API_KEY=your_key_here" > .env
+echo "LOG_LEVEL=info" >> .env
+echo "PORT=8080" >> .env
 ```
 
-### 3. Start the Backend
+3. Start the backend server:
 ```bash
-# Build and run the Go server
-go build -o dbd-analytics.exe ./cmd/app
-./dbd-analytics.exe
+go run ./cmd/app
+# Server runs at http://localhost:8080
 ```
 
-The backend will start on `http://localhost:8080`
-
-### 4. Start the Frontend (New Terminal)
+4. Start the frontend (optional):
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
+# Frontend runs at http://localhost:5173
 ```
 
-The frontend will start on `http://localhost:5173` with proxy to backend
-
-### 5. Access the Application
-- **Web Interface**: http://localhost:5173
-- **API Endpoints**: http://localhost:8080/api
-- **Example**: http://localhost:5173/player/counteredspell
-
-## Key Features
-
-### 🎯 Field-Aware Grade Detection
-- **Smart Grade Mapping**: Distinguishes between killer (`DBD_SlasherTierIncrement`) and survivor (`DBD_UnlockRanking`) grade fields
-- **Accurate Display**: Correctly shows Ash/Bronze/Silver/Gold/Iridescent with Roman numeral sub-tiers
-- **Unknown Grade Handling**: Gracefully handles new or unmapped grade values with "?" display
-
-### 🏆 Achievement System
-- **Adept Tracking**: Automatically tracks all 86 adept achievements (46 survivors + 40 killers)
-- **Character Mapping**: Intelligent character name normalization and mapping
-- **Schema Integration**: Uses Steam achievement schema with hardcoded fallback for reliability
-
-### 🔄 Intelligent Caching
-- **Multi-Layer Cache**: Memory cache with LRU eviction and configurable TTL
-- **Circuit Breaker**: Protects Steam API with automatic failure detection and recovery
-- **Graceful Degradation**: Serves stale data during Steam API outages
-- **Corruption Detection**: Automatic cache validation and recovery
-
-### 🚀 Production Ready
-- **Vanity URL Support**: Seamlessly handles both Steam IDs and vanity URLs like `counteredspell`
-- **Concurrent Safety**: Thread-safe operations with proper synchronization
-- **Structured Logging**: Comprehensive observability with structured JSON logs
-- **Error Recovery**: Robust error handling with detailed error classification
-
-## Configuration
-
-### Environment Variables
-
-Required:
+5. Test the API:
 ```bash
-STEAM_API_KEY=your_steam_api_key_here
+# Get player stats for any Steam ID
+curl http://localhost:8080/api/player/76561198215615835
 ```
 
-Optional:
-```bash
-PORT=8080
-LOG_LEVEL=info
-
-# Cache TTL settings
-CACHE_PLAYER_STATS_TTL=5m
-CACHE_PLAYER_SUMMARY_TTL=10m  
-CACHE_STEAM_API_TTL=3m
-
-# Circuit breaker settings
-CIRCUIT_BREAKER_MAX_FAILURES=5
-CIRCUIT_BREAKER_RESET_TIMEOUT=30s
-```
-
-## Features
-
-### Cache System
-- In-memory cache with LRU eviction and TTL
-- Circuit breaker for Steam API protection
-- Stale data fallback during outages
-- Automatic corruption detection and recovery
-
-### Production Ready
-- Thread-safe concurrent access
-- Graceful shutdown and cleanup
-- Structured logging with observability
-- Comprehensive error handling
-- Steam vanity URL resolution
-- Player achievement tracking
-
-## Monitoring
-
-Cache metrics available at `/api/cache/status`:
-
+## API Response Example
 ```json
 {
-  "cache_stats": {
-    "hits": 1234,
-    "misses": 56,
-    "hit_rate": 95.6,
-    "entries": 500,
-    "memory_usage": 1048576
+  "steam_id": "76561198215615835",
+  "display_name": "PlayerName",
+  "stats": {
+    "killer": {
+      "killer_grade": "Bronze II",
+      "total_kills": "1,234",
+      "sacrificed_victims": "987"
+    },
+    "survivor": {
+      "survivor_grade": "Gold IV", 
+      "total_escapes": "456",
+      "generators_completed": "78.5%"
+    }
   },
-  "circuit_breaker": {
-    "state": "closed",
-    "failures": 0,
-    "last_success": "2025-08-03T20:35:30Z"
+  "achievements": {
+    "adept_trapper": {"unlocked": true, "character": "The Trapper"},
+    "adept_dwight": {"unlocked": false, "character": "Dwight Fairfield"}
   }
 }
 ```
-```
 
-### Log Examples
-```log
-INFO  Cache TTL configuration loaded player_stats_ttl=5m source_priority="env_vars > deprecated_constants > defaults"
-WARN  Circuit breaker triggered for key="player:123" error="timeout" circuit_state="open" failure_count=3
-INFO  Circuit breaker recovered and closed recovery_successes=3 downtime_duration=45s
-INFO  Serving stale data from fallback cache key="player:123" circuit_state="open"
-```
-
-## Testing
-
-```bash
-# Backend tests
-go test ./...
-go test -cover ./...
-go test -race ./...
-
-# Frontend tests
-cd frontend
-npm run check
-npm run lint
-```
-
-## Production Deployment
-
-### Backend Build
-```bash
-go build -ldflags="-s -w" -o dbd-analytics.exe ./cmd/app
-```
-
-### Frontend Build
-```bash
-cd frontend
-npm run build
-```
-
-### Production Environment
-```bash
-STEAM_API_KEY=your_production_key
-PORT=8080
-LOG_LEVEL=warn
-CACHE_PLAYER_STATS_TTL=10m
-CACHE_PLAYER_SUMMARY_TTL=30m
-```
-
-## 📁 Project Structure
+## System Architecture
 
 ```
-dbd-analytics/
-├── cmd/app/                    # Go application entry point
-│   └── main.go
-├── internal/                   # Go backend source code
-│   ├── api/                    # HTTP handlers and API routes
-│   ├── cache/                  # Caching system with circuit breaker
-│   ├── steam/                  # Steam API client integration
-│   ├── models/                 # Data models and types
-│   ├── security/               # Validation and security
-│   └── log/                    # Structured logging
-├── frontend/                   # SvelteKit web application
-│   ├── src/
-│   │   ├── lib/                # Shared utilities and API client
-│   │   │   └── api/            # TypeScript API client
-│   │   ├── routes/             # SvelteKit page routes
-│   │   │   ├── +layout.svelte  # Root layout
-│   │   │   ├── +page.svelte    # Home page
-│   │   │   └── player/         # Player pages
-│   │   └── app.html            # HTML template
-│   └── package.json            # Frontend dependencies
-├── tools/                      # Development and testing utilities
-├── .env                        # Environment configuration
-└── go.mod                      # Go module definition
+Frontend (SvelteKit)     API Server (Go)         Steam API
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│                 │    │                  │    │                 │
+│ • TypeScript    │◄──►│ • HTTP Handlers  │◄──►│ • Player Stats  │
+│ • Responsive UI │    │ • Caching Layer  │    │ • Achievements  │
+│ • Real-time     │    │ • Circuit Breaker│    │ • Game Schema   │
+│                 │    │ • Grade Detection│    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
+
+## How It Works
+
+The application converts Steam's numeric grade codes into readable ranks by using the field context from Steam's game schema.
+
+**Problem**: Steam API returns grades as numbers without context
+```json
+{"DBD_SlasherTierIncrement": 439}
+```
+
+**Solution**: Field-aware decoding determines if this is a killer or survivor grade
+```json
+{"killer_grade": "Bronze II"}
+```
+
+The system identifies grade types by examining Steam schema field names:
+- `DBD_SlasherTierIncrement` indicates killer grades
+- `DBD_UnlockRanking` indicates survivor grades
+
+## Documentation
+
+- [Technical Architecture](TECHNICAL_ARCHITECTURE.md) - System design details
+- [Achievement System](ACHIEVEMENTS.md) - Character name mapping for 86+ achievements
+- [Caching Strategy](CACHING.md) - Multi-layer cache and circuit breaker implementation
+- [Stats Implementation](STATS_IMPLEMENTATION.md) - Grade detection algorithm details
+- [Security](SECURITY.md) - Production security measures
+- [Logging](LOGGING.md) - Structured logging and monitoring setup
 
 ## Development
 
-### Backend
+### Running Tests
 ```bash
-# Live reload (install: go install github.com/air-verse/air@latest)
-air
+# Backend tests
+go test ./...
 
-# Direct run
-go run ./cmd/app
+# Frontend tests  
+cd frontend && npm test
 ```
 
-### Frontend
-```bash
-cd frontend
-npm run dev
+### Project Structure
+```
+cmd/app/           # Application entry point
+internal/
+  ├── api/         # HTTP handlers and middleware
+  ├── cache/       # Caching layer with circuit breaker
+  ├── steam/       # Steam API integration
+  └── models/      # Data structures
+frontend/          # SvelteKit application
 ```
 
-## API Endpoints
+## Deployment
 
-### Player Data
-- `GET /api/player/{steamId}` - Combined player stats and achievements
-- `GET /api/player/{steamId}/stats` - Player statistics only
-- `GET /api/player/{steamId}/summary` - Player summary only
-
-### System Status
-- `GET /api/cache/status` - Cache and circuit breaker metrics
-- `GET /api/health` - Application health check
-
-### Example Usage
+### Using Docker
 ```bash
-curl http://localhost:8080/api/player/[steam_id]
-curl http://localhost:8080/api/player/[vanity_url]
-curl http://localhost:8080/api/cache/status
+docker-compose build
+docker-compose up -d
+```
+
+### Manual Deployment
+```bash
+# Build backend
+go build -o dbd-analytics ./cmd/app
+
+# Build frontend
+cd frontend && npm run build
 ```
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/name`)
-3. Make your changes and add tests
-4. Ensure tests pass (`go test ./...` and `npm run check`)
-5. Commit changes (`git commit -m 'Add feature'`)
-6. Push to branch (`git push origin feature/name`)
-7. Open a Pull Request
+2. Create a feature branch: `git checkout -b feature/new-feature`
+3. Commit your changes: `git commit -m 'Add new feature'`
+4. Push to the branch: `git push origin feature/new-feature`
+5. Open a Pull Request
 
-## 📈 Performance Characteristics
-
-- **Memory Cache**: Efficiently handles up to 100K entries
-- **Concurrent Access**: Tested with multiple goroutines
-- **Circuit Breaker**: 60-second sliding window with configurable thresholds
-- **Recovery**: Jitter-based to prevent thundering herd issues
-- **Frontend**: Optimized bundle with code splitting
-- **API Response**: Typical response times under 100ms (cached)
-
-## Troubleshooting
-
-**Backend not starting:**
-- Check `STEAM_API_KEY` is set in `.env` file
-- Verify port 8080 is available
-- Check logs for configuration errors
-
-**Frontend not loading data:**
-- Ensure backend is running on port 8080
-- Check browser network tab for API errors
-- Verify proxy configuration in `vite.config.ts`
-
-**Steam API errors:**
-- Validate Steam API key
-- Check rate limiting (Steam has request limits)
-- Review circuit breaker status at `/api/cache/status`
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

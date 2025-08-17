@@ -1,196 +1,238 @@
-# Achievement System Implementation
+# Achievement System
 
-## Overview
+Complete tracking system for Dead by Daylight's 86+ adept achievements with character name normalization.
 
-The achievement system provides comprehensive tracking for Dead by Daylight achievements, with specialized focus on **Adept achievements** which require character name mapping for proper display.
+## Problem Description
 
-## Key Features
+Dead by Daylight has 86 adept achievements (46 survivors + 40 killers), but Steam provides them with inconsistent naming conventions:
 
-### 🎯 Character Name Normalization
-- **86 tracked adept achievements** with character name mapping
-- **Steam API inconsistencies resolved**: Maps Steam names like "cannibal" → "The Cannibal"
-- **Display-ready formatting**: Proper capitalization and "The" prefix handling
-- **Missing character handling**: Graceful fallback for unmapped characters
-
-### 📊 Achievement Categories
-- **All Steam achievements**: Complete set from Dead by Daylight (381210)
-- **Adept filtering**: Easy identification of character-specific achievements  
-- **Progress tracking**: Unlocked status and unlock timestamps
-- **Data completeness**: Handles achievements with missing descriptions or icons
-
-### ⚡ Performance & Reliability
-- **Intelligent caching**: Multi-layer cache with TTL and corruption detection
-- **Parallel fetching**: Concurrent API calls for achievements + stats
-- **Circuit breaker protection**: Automatic Steam API failure recovery
-- **Graceful degradation**: Continues operation even with partial Steam API failures
-
-## Architecture Details
-
-### Character Mapping System
-
-**Problem Solved**: Steam API returns inconsistent character names for adept achievements.
-
-**Solution**: Comprehensive character mapping that normalizes names for proper display:
-
-```go
-// Character mapping handles Steam API inconsistencies
-var characterMapping = map[string]string{
-    "cannibal":     "The Cannibal",     // Steam: "cannibal" → Display: "The Cannibal"
-    "shape":        "The Shape",        // Steam: "shape" → Display: "The Shape"  
-    "nightmare":    "The Nightmare",    // Steam: "nightmare" → Display: "The Nightmare"
-    "pig":          "The Pig",          // Steam: "pig" → Display: "The Pig"
-    // ... 86 total mappings
+```json
+// Raw Steam achievement data
+{
+  "ACH_UNLOCK_DWIGHT_PERKS": "Achieved with a level...",
+  "ACH_UNLOCK_CHUCKLES_PERKS": "Adept Chuckles",  
+  "ACH_UNLOCK_CANNIBAL_PERKS": "Adept cannibal"
 }
 ```
 
-**Why This Approach:**
-- **User Experience**: Proper character names instead of internal Steam IDs
-- **Consistency**: Uniform "The" prefix handling across all characters
-- **Maintainability**: Single mapping table for all character name transformations
-- **Future-Proof**: Easy to add new characters as they're released
+Issues with the raw data:
+- Inconsistent capitalization (`cannibal` vs `Chuckles`)
+- Cryptic internal names (`CHUCKLES_PERKS` refers to The Trapper)
+- Lack of character context in achievement names
 
-### Achievement Processing Pipeline
+## Normalization Solution
 
-1. **Fetch**: Get all achievements from Steam API (app 381210)
-2. **Filter**: Identify adept achievements using name patterns
-3. **Map**: Transform character names using mapping table
-4. **Enhance**: Add proper formatting and display names
-5. **Cache**: Store processed results with intelligent TTL
-6. **Serve**: Return achievement data with proper character names
+The system transforms raw Steam data into consistent, readable format:
 
-### Integration with Stats System
-
-The achievement system works alongside the field-aware stats system:
-
-- **Parallel Data Fetching**: Achievements and stats fetched concurrently
-- **Unified Response**: Single API endpoint returns both achievements and stats
-- **Consistent Caching**: Both use the same multi-layer cache infrastructure
-- **Error Isolation**: Achievement failures don't impact stats display (and vice versa)
-
-## Technical Implementation
-
-### Core Files
-
-#### Achievement Processing
-- **`internal/steam/achievements.go`** - Core achievement fetching and processing
-- **`internal/steam/adepts.go`** - Specialized adept achievement handling with character mapping
-- **`internal/steam/achievement_mapper.go`** - Character name transformation logic
-
-#### Character Mapping
-- **`internal/steam/achievement_config.go`** - Complete character mapping table (86 entries)
-- **Handles edge cases**: Characters with/without "The" prefix, special characters, DLC characters
-
-#### API Integration  
-- **`internal/api/handlers.go`** - Parallel achievement + stats fetching
-- **`internal/steam/client.go`** - Steam API communication with caching
-
-### Steam API Schema Discovery
-
-**Problem**: Achievement names were initially guessed rather than using official Steam API identifiers.
-
-**Solution**: Used Steam's `GetSchemaForGame` API to discover official achievement structure:
-
-```
-https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?appid=381210&key={STEAM_API_KEY}
+```json
+// Processed achievement data
+{
+  "adept_dwight": {
+    "unlocked": true,
+    "character": "Dwight Fairfield",
+    "display_name": "Adept Dwight",
+    "type": "adept_survivor"
+  },
+  "adept_trapper": {
+    "unlocked": false, 
+    "character": "The Trapper",
+    "display_name": "Adept Trapper",
+    "type": "adept_killer"
+  }
+}
 ```
 
-**Discovery Process:**
-1. Fetch complete achievement schema for Dead by Daylight (AppID: 381210)
-2. Filter achievements matching "Adept {CharacterName}" pattern
-3. Map Steam API names to proper character display names
-4. Verify coverage for all characters (survivors + killers + DLC)
+## Character Mapping Implementation
 
-**Naming Pattern Evolution:**
-- **Base Game**: `ACH_UNLOCK_DWIGHT_PERKS`
-- **Early DLC**: `ACH_DLC2_SURVIVOR_1`, `ACH_DLC3_KILLER_3` 
-- **Chapter System**: `ACH_CHAPTER9_SURVIVOR_3`, `ACH_CHAPTER16_KILLER_3`
-- **Modern DLC**: `NEW_ACHIEVEMENT_245_23`, `NEW_ACHIEVEMENT_280_10`
-
-**Why Schema-First Approach:**
-- **100% Accuracy**: Uses official Steam identifiers instead of guessing
-- **Complete Coverage**: Includes all DLC and chapter characters
-- **Future-Proof**: New achievements automatically discovered
-- **Maintenance-Free**: No manual updates needed when new characters release
-
-### Testing Coverage
-
-#### Unit Tests (All Passing ✅)
-- **Character mapping validation**: All 86 adept achievements properly mapped
-- **Name transformation**: Proper "The" prefix handling and capitalization
-- **Edge case handling**: Unknown characters, malformed names, missing data
-- **API integration**: Mocked Steam API responses and error scenarios
-
-#### Integration Tests
-- **Live Steam API**: Tests against actual Steam API with real account data
-- **Character accuracy**: Validates character names match actual game names
-- **Performance validation**: Confirms caching reduces API calls
-- **Error recovery**: Tests graceful handling of Steam API failures
-
-## Usage Examples
-
-### Character Name Display
-```
-Steam API Returns: "adept_cannibal"
-System Transforms To: "Adept The Cannibal"
-
-Steam API Returns: "adept_trapper" 
-System Transforms To: "Adept The Trapper"
+### Survivor Character Mapping
+```go
+var survivorMap = map[string]string{
+    "dwight":     "Dwight Fairfield",
+    "meg":        "Meg Thomas", 
+    "claudette":  "Claudette Morel",
+    "jake":       "Jake Park",
+    "nea":        "Nea Karlsson",
+    "laurie":     "Laurie Strode",
+    "ace":        "Ace Visconti",
+    "feng":       "Feng Min",
+    // ... 38 more mappings
+}
 ```
 
-### API Response Structure
+### Killer Mapping (40 Characters)  
+```go
+var killerMap = map[string]string{
+    "chuckles":   "The Trapper",
+    "wraith":     "The Wraith",
+    "hillbilly":  "The Hillbilly", 
+    "nurse":      "The Nurse",
+    "shape":      "The Shape",
+    "cannibal":   "The Cannibal",
+    "nightmare":  "The Nightmare",
+    "pig":        "The Pig",
+    // ... 32 more mappings
+}
+```
+
+## Processing Pipeline
+
+### 1. Achievement Discovery
+```go
+func processAchievements(playerAchievements []SteamAchievement) {
+    // Get all possible achievements from Steam schema
+    allAchievements := getCompleteAchievementCatalog()
+    
+    // Merge with player's unlocked achievements
+    return mergePlayerProgress(allAchievements, playerAchievements)
+}
+```
+
+### 2. Adept Filtering & Classification
+```go
+func classifyAchievement(apiName, displayName string) AchievementType {
+    // Check for adept patterns
+    if isAdeptPattern(apiName, displayName) {
+        if isKillerCharacter(extractCharacter(apiName)) {
+            return "adept_killer"
+        }
+        return "adept_survivor" 
+    }
+    return "general"
+}
+```
+
+### 3. Character Name Normalization
+```go
+func normalizeCharacterName(rawName string) string {
+    // Clean up the name
+    cleaned := strings.ToLower(strings.TrimSpace(rawName))
+    
+    // Remove common prefixes/suffixes
+    cleaned = strings.TrimPrefix(cleaned, "the ")
+    cleaned = strings.TrimSuffix(cleaned, " perks")
+    
+    // Apply character mapping
+    if proper, exists := characterMap[cleaned]; exists {
+        return proper
+    }
+    
+    // Fallback to title case
+    return strings.Title(cleaned)
+}
+```
+
+## Complete Achievement Catalog
+
+### Complete Coverage: Always 86 Adepts
+
+Even with an empty Steam account, our system returns the complete catalog:
+
 ```json
 {
+  "summary": {
+    "total_achievements": 86,
+    "unlocked_count": 0,
+    "survivor_count": 46, 
+    "killer_count": 40,
+    "completion_rate": 0.0
+  },
   "achievements": [
-    {
-      "name": "adept_cannibal",
-      "displayName": "Adept The Cannibal",
-      "description": "Achieve a merciless victory...",
-      "unlocked": true,
-      "unlockTime": "2023-10-15T14:30:00Z",
-      "isAdept": true,
-      "characterName": "The Cannibal"
-    }
-  ],
-  "adeptCount": 25,
-  "totalAchievements": 127
+    // All 86 adepts with unlocked: false
+  ]
 }
 ```
 
-## API Endpoints
+### Benefits
+- **Complete Picture**: See what you haven't unlocked yet
+- **Progress Tracking**: Clear completion percentage  
+- **Character Discovery**: Learn about all available characters
 
-### GET /api/player/{steamID}
+## 🎭 Character Categories
 
-Fetches player statistics and achievements in a single endpoint.
+### Survivors (46 Total)
+- **Original Four**: Dwight, Meg, Claudette, Jake
+- **Licensed**: Laurie Strode, Bill Overbeck, Ash Williams, etc.
+- **Recent Additions**: All new survivors automatically mapped
 
-**Graceful Degradation:**
-- **Both succeed**: Full response with stats and achievements
-- **Stats succeed, achievements fail**: Stats-only response with error in `data_sources`
-- **Stats fail**: Returns HTTP error (stats are critical)
+### Killers (40 Total)  
+- **Original Trio**: Trapper, Wraith, Hillbilly
+- **Licensed**: The Shape, Pig, Ghost Face, Pyramid Head, etc.
+- **Recent Additions**: Automated detection for new killers
 
-**Caching Strategy:**
-- **Player Stats**: 5 minutes TTL
-- **Player Achievements**: 30 minutes TTL  
-- **Combined Response**: 10 minutes TTL
+## 🔧 Error Handling & Fallbacks
 
-Cache keys:
-- `player_stats:{steamID}`
-- `player_achievements:{steamID}`
-- `player_combined:{steamID}`
+### Unknown Characters
+```go
+func handleUnknownCharacter(apiName string) Achievement {
+    log.Warn("Unknown character detected", 
+        "api_name", apiName,
+        "action", "using_fallback_display")
+        
+    return Achievement{
+        Character: "Unknown Character",
+        DisplayName: generateFallbackName(apiName),
+        Type: "adept_unknown"
+    }
+}
+```
 
-**Error Handling:**
-- Private Steam profiles return achievement errors but continue with stats
-- Invalid Steam IDs return validation errors
-- API failures are logged with detailed context
-- Circuit breaker protects against Steam API outages
+### Steam API Failures
+```go
+func getAchievements(playerData *PlayerAchievements) map[string]interface{} {
+    // Try Steam schema first
+    schema := fetchAchievementSchema()
+    if schema == nil {
+        log.Warn("Schema unavailable, using hardcoded catalog")
+        schema = getHardcodedCatalog()
+    }
+    
+    // Process with available data
+    return processWithSchema(schema, playerData)
+}
+```
 
-## Future Considerations
+## Performance Features
 
-### Scalability
-- **New Character Support**: Easy addition to character mapping table
-- **Achievement Expansion**: System handles new achievement types automatically
-- **Performance**: Caching strategy scales with achievement count growth
+### Efficient Processing
+- **Parallel Fetching**: Schema + player data fetched concurrently
+- **Smart Caching**: Character mappings cached for 1 hour
+- **Batch Processing**: All achievements processed in single pass
 
-### Maintenance
-- **Character Updates**: Simple mapping table updates for character reworks
-- **Steam API Changes**: Robust error handling for API modifications
-- **Testing**: Comprehensive test suite ensures reliability across updates
+### Memory Optimization
+- **Lazy Loading**: Only load mappings when needed
+- **Compact Storage**: Minimal memory footprint per achievement
+- **Garbage Collection**: Automatic cleanup of unused mappings
+
+## 📈 Real-World Usage
+
+### API Response Example
+```bash
+curl http://localhost:8080/api/player/counteredspell/achievements
+```
+
+```json
+{
+  "steam_id": "76561198215615835",
+  "display_name": "counteredspell", 
+  "summary": {
+    "total_achievements": 86,
+    "unlocked_count": 23,
+    "completion_rate": 26.7,
+    "survivor_count": 46,
+    "killer_count": 40
+  },
+  "achievements": {
+    "adept_dwight": {
+      "unlocked": true,
+      "character": "Dwight Fairfield",
+      "unlock_time": "2024-10-15T14:30:00Z"
+    },
+    "adept_trapper": {
+      "unlocked": false,
+      "character": "The Trapper"
+    }
+  }
+}
+```
+
+This achievement system transforms Steam's raw data into a comprehensive, user-friendly catalog that enhances the Dead by Daylight player experience.
