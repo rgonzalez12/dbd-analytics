@@ -36,8 +36,8 @@ type PlayerStatsResponse struct {
 
 // Aliases map provides stable display names for important DBD stats
 var aliases = map[string]string{
-	"DBD_CamperSkulls":                "Survivor Grade (Pips)",
-	"DBD_KillerSkulls":                "Killer Grade (Pips)",
+	"DBD_CamperSkulls":                "Survivor Bloodpoints (Skulls)",
+	"DBD_SlasherSkulls":               "Killer Bloodpoints (Skulls)",
 	"DBD_GeneratorPct_float":          "Generators Repaired (equivalent)",
 	"DBD_HealPct_float":               "Survivors Healed (equivalent)",
 	"DBD_BloodwebPoints":              "Bloodpoints Earned",
@@ -157,6 +157,7 @@ var gradeMapping = map[int]Grade{
 	22:  {Tier: "Bronze", Sub: 2},   // Bronze II
 	23:  {Tier: "Bronze", Sub: 1},   // Bronze I
 	73:  {Tier: "Bronze", Sub: 4},   // Bronze IV (alternative)
+	300: {Tier: "Silver", Sub: 3},   // Silver III (estimated based on value range)
 	439: {Tier: "Bronze", Sub: 2},   // Bronze II
 	640: {Tier: "Ash", Sub: 4},      // Ash IV
 }
@@ -166,6 +167,7 @@ var survivorGradeMapping = map[int]Grade{
 	// Survivor grade mappings based on actual Steam API data
 	7:    {Tier: "Ash", Sub: 4},        // Ash IV
 	541:  {Tier: "Ash", Sub: 3},        // Ash III
+	545:  {Tier: "Ash", Sub: 3},        // Ash III (close to 541)
 	640:  {Tier: "Bronze", Sub: 1},     // Bronze I
 	948:  {Tier: "Ash", Sub: 2},        // Ash II
 	949:  {Tier: "Ash", Sub: 2},        // Ash II
@@ -315,9 +317,9 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		case "DBD_SlasherTierIncrement":
 			alias = "killer_grade"
 		case "DBD_CamperSkulls":
-			alias = "survivor_grade_pips"
-		case "DBD_KillerSkulls":
-			alias = "killer_grade_pips"
+			alias = "survivor_bloodpoints"
+		case "DBD_SlasherSkulls":
+			alias = "killer_bloodpoints"
 		case "DBD_BloodwebMaxPrestigeLevel":
 			alias = "highest_prestige"
 		}

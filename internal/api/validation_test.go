@@ -12,8 +12,7 @@ import (
 func TestSteamIDValidation(t *testing.T) {
 	handler := NewHandler()
 	router := mux.NewRouter()
-	router.HandleFunc("/api/player/{steamid}/summary", handler.GetPlayerSummary).Methods("GET")
-	router.HandleFunc("/api/player/{steamid}/stats", handler.GetPlayerStats).Methods("GET")
+	router.HandleFunc("/api/player/{steamid}", handler.GetPlayerStatsWithAchievements).Methods("GET")
 
 	tests := []struct {
 		name           string
@@ -25,49 +24,49 @@ func TestSteamIDValidation(t *testing.T) {
 		{
 			name:           "Invalid Steam ID - Too Short",
 			steamID:        "123456789",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
 			name:           "Invalid Steam ID - Too Long",
 			steamID:        "765611980000000001",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
 			name:           "Invalid Steam ID - Wrong Prefix",
 			steamID:        "12345678901234567",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
 			name:           "Invalid Steam ID - Contains Letters",
 			steamID:        "7656119800000000a",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
 			name:           "Invalid Vanity URL - Too Short",
 			steamID:        "ab",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
 		},
 		{
 			name:           "Invalid Vanity URL - Special Characters",
 			steamID:        "test@user",
-			endpoint:       "/summary",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
 		},
 		{
-			name:           "Validation Applied to Stats Endpoint",
+			name:           "Another Invalid Test",
 			steamID:        "test@invalid",
-			endpoint:       "/stats",
+			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
 		},

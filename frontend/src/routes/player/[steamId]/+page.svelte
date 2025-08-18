@@ -1,584 +1,431 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { displayStatValue, hasStats } from '$lib/api/player-adapter';
 	
 	export let data: PageData;
 	
 	$: player = data.data;
 	
 	// Tab state
-	let activeTab: 'stats' | 'adepts' | 'achievements' = 'stats';
-	let achievementTab: 'all' | 'survivor' | 'killer' = 'all';
-	let statsTab: 'killer' | 'survivor' | 'general' = 'killer';
+	let activeTab: 'overview' | 'adepts' | 'stats' | 'achievements' = 'overview';
+	
+	// Dead by Daylight character mappings (restored from your original work)
+	const adeptMapping = {
+		// Base Game Survivors
+		"ACH_UNLOCK_DWIGHT_PERKS": { name: "dwight", type: "survivor", displayName: "Dwight Fairfield" },
+		"ACH_UNLOCK_MEG_PERKS": { name: "meg", type: "survivor", displayName: "Meg Thomas" },
+		"ACH_UNLOCK_CLAUDETTE_PERKS": { name: "claudette", type: "survivor", displayName: "Claudette Morel" },
+		"ACH_USE_JAKE_PERKS": { name: "jake", type: "survivor", displayName: "Jake Park" },
+
+		// DLC Survivors
+		"ACH_USE_NEA_PERKS": { name: "nea", type: "survivor", displayName: "Nea Karlsson" },
+		"ACH_DLC2_SURVIVOR_1": { name: "laurie", type: "survivor", displayName: "Laurie Strode" },
+		"ACH_DLC3_SURVIVOR_3": { name: "ace", type: "survivor", displayName: "Ace Visconti" },
+		"SURVIVOR7_ACHIEVEMENT_3": { name: "bill", type: "survivor", displayName: "Bill Overbeck" },
+		"ACH_DLC4_SURVIVOR_3": { name: "feng", type: "survivor", displayName: "Feng Min" },
+		"ACH_DLC5_SURVIVOR_3": { name: "david", type: "survivor", displayName: "David King" },
+		"ACH_DLC7_SURVIVOR_3": { name: "quentin", type: "survivor", displayName: "Quentin Smith" },
+		"ACH_DLC8_SURVIVOR_3": { name: "tapp", type: "survivor", displayName: "Detective Tapp" },
+		"ACH_DLC9_SURVIVOR_3": { name: "kate", type: "survivor", displayName: "Kate Denson" },
+		"ACH_CHAPTER9_SURVIVOR_3": { name: "adam", type: "survivor", displayName: "Adam Francis" },
+		"ACH_CHAPTER10_SURVIVOR_3": { name: "jeff", type: "survivor", displayName: "Jeff Johansen" },
+		"ACH_CHAPTER11_SURVIVOR_3": { name: "jane", type: "survivor", displayName: "Jane Romero" },
+		"ACH_CHAPTER12_SURVIVOR_3": { name: "ash", type: "survivor", displayName: "Ash Williams" },
+		"ACH_CHAPTER14_SURVIVOR_3": { name: "yui", type: "survivor", displayName: "Yui Kimura" },
+		"NEW_ACHIEVEMENT_146_31": { name: "zarina", type: "survivor", displayName: "Zarina Kassir" },
+		"ACH_CHAPTER16_SURVIVOR_3": { name: "cheryl", type: "survivor", displayName: "Cheryl Mason" },
+		"ACH_CHAPTER17_SURVIVOR_3": { name: "felix", type: "survivor", displayName: "Felix Richter" },
+		"ACH_CHAPTER18_SURVIVOR_3": { name: "elodie", type: "survivor", displayName: "Élodie Rakoto" },
+		"ACH_CHAPTER19_SURVIVOR_3": { name: "yun-jin", type: "survivor", displayName: "Yun-Jin Lee" },
+		"ACH_CHAPTER20_SURVIVOR_3": { name: "jill", type: "survivor", displayName: "Jill Valentine" },
+		"ACH_CHAPTER20_SURVIVOR_2": { name: "leon", type: "survivor", displayName: "Leon S. Kennedy" },
+		"NEW_ACHIEVEMENT_211_3": { name: "mikaela", type: "survivor", displayName: "Mikaela Reid" },
+		"ACH_CHAPTER22_SURVIVOR_3": { name: "jonah", type: "survivor", displayName: "Jonah Vasquez" },
+		"NEW_ACHIEVEMENT_211_15": { name: "yoichi", type: "survivor", displayName: "Yoichi Asakawa" },
+		"NEW_ACHIEVEMENT_211_21": { name: "haddie", type: "survivor", displayName: "Haddie Kaur" },
+		"NEW_ACHIEVEMENT_211_26_NAME": { name: "ada", type: "survivor", displayName: "Ada Wong" },
+		"NEW_ACHIEVEMENT_211_27_NAME": { name: "rebecca", type: "survivor", displayName: "Rebecca Chambers" },
+		"NEW_ACHIEVEMENT_245_1": { name: "vittorio", type: "survivor", displayName: "Vittorio Toscano" },
+		"NEW_ACHIEVEMENT_245_6": { name: "thalita", type: "survivor", displayName: "Thalita Lyra" },
+		"NEW_ACHIEVEMENT_245_7": { name: "renato", type: "survivor", displayName: "Renato Lyra" },
+		"NEW_ACHIEVEMENT_245_13": { name: "gabriel", type: "survivor", displayName: "Gabriel Soma" },
+		"NEW_ACHIEVEMENT_245_17": { name: "nicolas", type: "survivor", displayName: "Nicolas Cage" },
+		"NEW_ACHIEVEMENT_245_23": { name: "ellen", type: "survivor", displayName: "Ellen Ripley" },
+		"NEW_ACHIEVEMENT_245_29": { name: "alan", type: "survivor", displayName: "Alan Wake" },
+		"NEW_ACHIEVEMENT_280_3": { name: "sable", type: "survivor", displayName: "Sable Ward" },
+		"NEW_ACHIEVEMENT_280_10": { name: "troupe", type: "survivor", displayName: "The Troupe" },
+		"NEW_ACHIEVEMENT_280_13": { name: "lara", type: "survivor", displayName: "Lara Croft" },
+		"NEW_ACHIEVEMENT_280_19": { name: "trevor", type: "survivor", displayName: "Trevor Belmont" },
+		"NEW_ACHIEVEMENT_280_25": { name: "taurie", type: "survivor", displayName: "Taurie Cain" },
+		"NEW_ACHIEVEMENT_280_31": { name: "orela", type: "survivor", displayName: "Orela" },
+		"NEW_ACHIEVEMENT_312_4": { name: "rick", type: "survivor", displayName: "Rick Grimes" },
+		"NEW_ACHIEVEMENT_312_5": { name: "michonne", type: "survivor", displayName: "Michonne" },
+
+		// Base Game Killers
+		"ACH_UNLOCK_CHUCKLES_PERKS": { name: "trapper", type: "killer", displayName: "The Trapper" },
+		"ACH_UNLOCKBANSHEE_PERKS": { name: "wraith", type: "killer", displayName: "The Wraith" },
+		"ACH_UNLOCKHILLBILY_PERKS": { name: "hillbilly", type: "killer", displayName: "The Hillbilly" },
+		"ACH_DLC1_KILLER_3": { name: "nurse", type: "killer", displayName: "The Nurse" },
+
+		// DLC Killers
+		"ACH_DLC2_KILLER_1": { name: "shape", type: "killer", displayName: "The Shape" },
+		"ACH_DLC3_KILLER_3": { name: "hag", type: "killer", displayName: "The Hag" },
+		"ACH_DLC4_KILLER_3": { name: "doctor", type: "killer", displayName: "The Doctor" },
+		"ACH_DLC5_KILLER_3": { name: "huntress", type: "killer", displayName: "The Huntress" },
+		"ACH_DLC6_KILLER_3": { name: "cannibal", type: "killer", displayName: "The Cannibal" },
+		"ACH_DLC7_KILLER_3": { name: "nightmare", type: "killer", displayName: "The Nightmare" },
+		"ACH_DLC8_KILLER_3": { name: "pig", type: "killer", displayName: "The Pig" },
+		"ACH_DLC9_KILLER_3": { name: "clown", type: "killer", displayName: "The Clown" },
+		"ACH_CHAPTER9_KILLER_3": { name: "spirit", type: "killer", displayName: "The Spirit" },
+		"ACH_CHAPTER10_KILLER_3": { name: "legion", type: "killer", displayName: "The Legion" },
+		"ACH_CHAPTER11_KILLER_3": { name: "plague", type: "killer", displayName: "The Plague" },
+		"ACH_CHAPTER12_KILLER_3": { name: "ghostface", type: "killer", displayName: "The Ghost Face" },
+		"ACH_CHAPTER14_KILLER_3": { name: "oni", type: "killer", displayName: "The Oni" },
+		"NEW_ACHIEVEMENT_146_28": { name: "deathslinger", type: "killer", displayName: "The Deathslinger" },
+		"ACH_CHAPTER16_KILLER_3": { name: "executioner", type: "killer", displayName: "The Executioner" },
+		"ACH_CHAPTER17_KILLER_3": { name: "blight", type: "killer", displayName: "The Blight" },
+		"ACH_CHAPTER18_KILLER_3": { name: "twins", type: "killer", displayName: "The Twins" },
+		"ACH_CHAPTER19_KILLER_3": { name: "trickster", type: "killer", displayName: "The Trickster" },
+		"ACH_CHAPTER20_KILLER_3": { name: "nemesis", type: "killer", displayName: "The Nemesis" },
+		"ACH_CHAPTER21_KILLER_3": { name: "cenobite", type: "killer", displayName: "The Cenobite" },
+		"ACH_CHAPTER22_KILLER_3": { name: "artist", type: "killer", displayName: "The Artist" },
+		"NEW_ACHIEVEMENT_211_12": { name: "onryo", type: "killer", displayName: "The Onryō" },
+		"NEW_ACHIEVEMENT_211_18": { name: "dredge", type: "killer", displayName: "The Dredge" },
+		"NEW_ACHIEVEMENT_211_24_NAME": { name: "mastermind", type: "killer", displayName: "The Mastermind" },
+		"NEW_ACHIEVEMENT_211_30": { name: "knight", type: "killer", displayName: "The Knight" },
+		"NEW_ACHIEVEMENT_245_4": { name: "skull-merchant", type: "killer", displayName: "The Skull Merchant" },
+		"NEW_ACHIEVEMENT_245_10": { name: "singularity", type: "killer", displayName: "The Singularity" },
+		"NEW_ACHIEVEMENT_245_20": { name: "xenomorph", type: "killer", displayName: "The Xenomorph" },
+		"NEW_ACHIEVEMENT_245_26": { name: "chucky", type: "killer", displayName: "The Good Guy" },
+		"NEW_ACHIEVEMENT_280_0": { name: "unknown", type: "killer", displayName: "The Unknown" },
+		"NEW_ACHIEVEMENT_280_7": { name: "vecna", type: "killer", displayName: "Vecna" },
+		"NEW_ACHIEVEMENT_280_16": { name: "dark-lord", type: "killer", displayName: "The Dark Lord" },
+		"NEW_ACHIEVEMENT_280_22": { name: "houndmaster", type: "killer", displayName: "The Houndmaster" },
+		"NEW_ACHIEVEMENT_312_1": { name: "lich", type: "killer", displayName: "The Lich" },
+		"NEW_ACHIEVEMENT_312_2": { name: "animatronic", type: "killer", displayName: "The Animatronic" },
+		"NEW_ACHIEVEMENT_312_8": { name: "ghoul", type: "killer", displayName: "The Ghoul" }
+	};
 	
 	// Tab navigation
-	function setActiveTab(tab: 'stats' | 'adepts' | 'achievements') {
+	function setActiveTab(tab: 'overview' | 'adepts' | 'stats' | 'achievements') {
 		activeTab = tab;
 	}
 
-	// Achievement tab navigation
-	function setAchievementTab(tab: 'all' | 'survivor' | 'killer') {
-		achievementTab = tab;
-	}
-
-	// Stats tab navigation
-	function setStatsTab(tab: 'killer' | 'survivor' | 'general') {
-		statsTab = tab;
-	}
-
-	// Keyboard navigation for achievement tabs
-	function handleAchievementTabKeydown(event: KeyboardEvent, tab: 'all' | 'survivor' | 'killer') {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			setAchievementTab(tab);
-		}
-	}
-	
-	// Keyboard navigation for stats tabs
-	function handleStatsTabKeydown(event: KeyboardEvent, tab: 'killer' | 'survivor' | 'general') {
-		if (event.key === 'Enter' || event.key === ' ') {
-			event.preventDefault();
-			setStatsTab(tab);
-		}
-	}
-	
 	// Keyboard navigation for tabs
-	function handleTabKeydown(event: KeyboardEvent, tab: 'stats' | 'adepts' | 'achievements') {
+	function handleTabKeydown(event: KeyboardEvent, tab: 'overview' | 'adepts' | 'stats' | 'achievements') {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
 			setActiveTab(tab);
 		}
 	}
-	
-	// Format numbers for display
-	function formatNumber(value: number): string {
-		return value.toLocaleString();
-	}
 
-	// Format time played
-	function formatTimePlayedHours(hours: number): string {
-		if (hours < 1) return '<1 hour';
-		if (hours < 24) return `${Math.round(hours)} hours`;
-		const days = Math.floor(hours / 24);
-		const remainingHours = Math.round(hours % 24);
-		return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days} days`;
-	}
+	// Categorize achievements by type using the original Player data structure
+	// Note: Adept achievements are excluded here since they have their own dedicated tab
+	$: achievementsByCategory = (() => {
+		if (!player?.achievements?.mapped) return { killer: [], survivor: [], general: [] };
 
-	// Format rarity percentage
-	function formatRarity(rarity?: number): string {
-		if (rarity === undefined || rarity === 0) return '';
-		return `${rarity.toFixed(1)}%`;
-	}
+		const killer = [];
+		const survivor = [];
+		const general = [];
 
-	// Get rarity color class
-	function getRarityColor(rarity?: number): string {
-		if (!rarity || rarity === 0) return 'text-neutral-500';
-		if (rarity >= 50) return 'text-green-400'; // Common
-		if (rarity >= 25) return 'text-yellow-400'; // Uncommon  
-		if (rarity >= 10) return 'text-orange-400'; // Rare
-		if (rarity >= 5) return 'text-red-400';     // Epic
-		return 'text-purple-400';                   // Legendary
-	}
-
-	// Filter achievements by type
-	let achievementSort: 'name' | 'rarity' | 'unlocked' | 'type' = 'name';
-	
-	// Separate achievements by category using new type system
-	$: achievementsByType = (() => {
-		// Add safety check for achievements
-		if (!player?.achievements?.mapped) {
-			return { all: [], survivor: [], killer: [] };
-		}
-		
-		const all = player.achievements.mapped.filter(a => a.type === 'general');
-		const survivor = player.achievements.mapped.filter(a => a.type === 'survivor' || a.type === 'adept_survivor');
-		const killer = player.achievements.mapped.filter(a => a.type === 'killer' || a.type === 'adept_killer');
-		
-		return { all, survivor, killer };
-	})();
-	
-	$: currentAchievements = (() => {
-		let achievements = achievementTab === 'all' 
-			? achievementsByType.all
-			: achievementsByType[achievementTab];
-		
-		// Sort achievements
-		return achievements.sort((a, b) => {
-			switch (achievementSort) {
-				case 'unlocked':
-					if (a.unlocked !== b.unlocked) return b.unlocked ? 1 : -1;
-					break;
-				case 'rarity':
-					const aRarity = a.rarity || 100;
-					const bRarity = b.rarity || 100;
-					if (aRarity !== bRarity) return aRarity - bRarity; // Lower rarity = rarer
-					break;
-				case 'type':
-					if (a.type !== b.type) return (a.type || '').localeCompare(b.type || '');
-					break;
+		for (const achievement of player.achievements.mapped) {
+			// SKIP adept achievements - they have their own dedicated tab
+			// Check both the mapping and the achievement type field for comprehensive exclusion
+			if (Object.keys(adeptMapping).includes(achievement.id) || 
+			    achievement.type === 'adept_survivor' || 
+			    achievement.type === 'adept_killer') {
+				continue; // Skip adept achievements entirely
 			}
-			// Default to name sort - use display_name for proper Steam titles
-			return (a.display_name || a.name || a.id).localeCompare(b.display_name || b.name || b.id);
-		});
+			// Categorize by achievement name patterns (non-adept only)
+			else if (achievement.id.includes('KILLER') || achievement.id.includes('SACRIFICE') || achievement.id.includes('HOOK') || achievement.id.includes('MORI')) {
+				killer.push(achievement);
+			}
+			else if (achievement.id.includes('SURVIVOR') || achievement.id.includes('ESCAPE') || achievement.id.includes('HEAL') || achievement.id.includes('UNHOOK')) {
+				survivor.push(achievement);
+			}
+			else {
+				general.push(achievement);
+			}
+		}
+
+		return { killer, survivor, general };
 	})();
 
-	$: achievementStats = (() => {
-		// Add safety check for achievements
-		if (!player?.achievements?.mapped) {
-			return {};
-		}
+	// Process adept achievements from the API response (46 survivors, 39 killers)
+	$: adeptData = (() => {
+		if (!player?.achievements?.adepts) return { survivors: [], killers: [] };
 		
-		const byType = player.achievements.mapped.reduce((acc, a) => {
-			const type = a.type || 'unknown';
-			if (!acc[type]) acc[type] = { total: 0, unlocked: 0 };
-			acc[type].total++;
-			if (a.unlocked) acc[type].unlocked++;
-			return acc;
-		}, {} as Record<string, { total: number; unlocked: number }>);
+		const survivors = Object.entries(player.achievements.adepts.survivors || {}).map(([name, unlocked]) => ({
+			name,
+			displayName: name,
+			unlocked: Boolean(unlocked)
+		}));
 		
-		return byType;
+		const killers = Object.entries(player.achievements.adepts.killers || {}).map(([name, unlocked]) => ({
+			name,
+			displayName: name,
+			unlocked: Boolean(unlocked)
+		}));
+		
+		return { survivors, killers };
 	})();
-	
-	// Calculate adept completion
-	$: adeptStats = (() => {
-		// Add safety checks for adepts
-		if (!player?.achievements?.adepts) {
-			return {
-				survivor: { unlocked: 0, total: 0 },
-				killer: { unlocked: 0, total: 0 }
-			};
-		}
-		
-		const survivorTotal = Object.keys(player.achievements.adepts.survivors || {}).length;
-		const survivorUnlocked = Object.values(player.achievements.adepts.survivors || {}).filter(Boolean).length;
-		const killerTotal = Object.keys(player.achievements.adepts.killers || {}).length;
-		const killerUnlocked = Object.values(player.achievements.adepts.killers || {}).filter(Boolean).length;
-		
-		return {
-			survivor: { unlocked: survivorUnlocked, total: survivorTotal },
-			killer: { unlocked: killerUnlocked, total: killerTotal }
-		};
-	})();
+
+	// Format unlock time
+	function formatUnlockTime(unlockTime?: number): string {
+		if (!unlockTime) return '';
+		return new Date(unlockTime * 1000).toLocaleDateString();
+	}
+
+	function getGradeColor(value: number): string {
+		if (value >= 17) return 'text-red-600'; // Iri grades
+		if (value >= 13) return 'text-purple-600'; // Gold grades  
+		if (value >= 9) return 'text-yellow-600'; // Silver grades
+		if (value >= 5) return 'text-gray-600'; // Bronze grades
+		return 'text-amber-700'; // Ash grades
+	}
 </script>
 
 <svelte:head>
 	<title>{player.name} - DBD Analytics</title>
-	<meta name="description" content="Dead by Daylight statistics for {player.name}" />
 </svelte:head>
 
-<article class="space-y-8">
-	<!-- Player Header -->
-	<header class="space-y-4">
-		<div class="space-y-2">
-			<h1 class="text-3xl font-bold tracking-tight">{player.name}</h1>
-			<div class="flex items-center gap-4 text-sm text-neutral-400">
-				<span>Steam ID: {player.id}</span>
-				{#if player.lastUpdated}
-					<span>•</span>
-					<span>Updated: {new Date(player.lastUpdated).toLocaleDateString()}</span>
-				{/if}
-			</div>
-		</div>
-		
-		<!-- Quick Stats Overview -->
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Killer Grade</div>
-				<div class="text-lg font-semibold text-red-400">{player.stats.header.killerGrade}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Survivor Grade</div>
-				<div class="text-lg font-semibold text-blue-400">{player.stats.header.survivorGrade}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Highest Prestige</div>
-				<div class="text-lg font-semibold text-purple-400">{player.stats.header.highestPrestige}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Total Matches</div>
-				<div class="text-lg font-semibold">{formatNumber(player.matches)}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Achievements</div>
-				<div class="text-lg font-semibold">{player.achievements.unlocked}/{player.achievements.total}</div>
-			</div>
-		</div>
-		
-		<!-- Stats Summary -->
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Killer Stats</div>
-				<div class="text-2xl font-semibold text-red-400">{player.stats.summary.killer_count}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Survivor Stats</div>
-				<div class="text-2xl font-semibold text-blue-400">{player.stats.summary.survivor_count}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">General Stats</div>
-				<div class="text-2xl font-semibold text-neutral-300">{player.stats.summary.general_count}</div>
-			</div>
-			<div class="rounded-lg border border-neutral-700 bg-neutral-900/50 p-4">
-				<div class="text-sm text-neutral-400">Total Stats</div>
-				<div class="text-2xl font-semibold">{player.stats.summary.total_stats}</div>
-			</div>
-		</div>
-	</header>
-
-	<!-- Tab Navigation -->
-	<div class="border-b border-neutral-700" role="tablist" aria-label="Player statistics sections">
-		<div class="flex space-x-8">
-			{#each [
-				{ id: 'stats' as const, label: 'Statistics' },
-				{ id: 'adepts' as const, label: 'Adept Achievements' },
-				{ id: 'achievements' as const, label: 'All Achievements' }
-			] as tab}
-				<button
-					role="tab"
-					tabindex={activeTab === tab.id ? 0 : -1}
-					aria-selected={activeTab === tab.id}
-					aria-controls="{tab.id}-panel"
-					class="border-b-2 px-1 py-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900 {activeTab === tab.id 
-						? 'border-blue-500 text-blue-400' 
-						: 'border-transparent text-neutral-400 hover:border-neutral-300 hover:text-neutral-200'}"
-					on:click={() => setActiveTab(tab.id)}
-					on:keydown={(e) => handleTabKeydown(e, tab.id)}
-				>
-					{tab.label}
-				</button>
-			{/each}
-		</div>
-	</div>
-
-	<!-- Tab Panels -->
-	<div class="min-h-[400px]">
-		<!-- Statistics Tab -->
-		{#if activeTab === 'stats'}
-			<div
-				id="stats-panel"
-				role="tabpanel"
-				aria-labelledby="stats-tab"
-				class="space-y-6"
-			>
-				<!-- Stats Sub-Navigation -->
-				<div class="border-b border-neutral-700">
-					<div class="flex space-x-6">
-						{#each [
-							{ id: 'killer' as const, label: 'Killer Stats', color: 'text-red-400' },
-							{ id: 'survivor' as const, label: 'Survivor Stats', color: 'text-blue-400' },
-							{ id: 'general' as const, label: 'General Stats', color: 'text-neutral-300' }
-						] as tab}
-							<button
-								id="{tab.id}-stats-tab"
-								class="border-b-2 px-1 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900
-									{statsTab === tab.id
-										? `border-current ${tab.color}`
-										: 'border-transparent text-neutral-400 hover:text-neutral-300'}"
-								aria-selected={statsTab === tab.id}
-								role="tab"
-								tabindex={statsTab === tab.id ? 0 : -1}
-								on:click={() => setStatsTab(tab.id)}
-								on:keydown={(e) => handleStatsTabKeydown(e, tab.id)}
-							>
-								{tab.label} ({statsTab === 'killer' ? player.stats.killer.length : statsTab === 'survivor' ? player.stats.survivor.length : player.stats.general.length})
-							</button>
-						{/each}
+{#if player}
+	<div class="min-h-screen bg-gray-50">
+		<!-- Header -->
+		<div class="bg-white shadow-sm">
+			<div class="max-w-7xl mx-auto px-4 py-6">
+				<div class="flex items-center gap-4">
+					{#if player.avatar}
+						<img src={player.avatar} alt="{player.name}'s avatar" class="w-16 h-16 rounded-lg" />
+					{/if}
+					<div>
+						<h1 class="text-3xl font-bold text-gray-900">{player.name}</h1>
+						<p class="text-gray-600">Steam ID: {player.steamId || player.id}</p>
 					</div>
 				</div>
+			</div>
+		</div>
 
-				<!-- Stats Grid -->
-				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{#each (statsTab === 'killer' ? player.stats.killer : statsTab === 'survivor' ? player.stats.survivor : player.stats.general) as stat (stat.id)}
-						<div class="rounded-lg border border-neutral-700 bg-neutral-900/30 p-4">
-							<div class="flex items-center justify-between">
-								<div class="min-w-0 flex-1">
-									<div class="text-sm text-neutral-400 mb-1">{stat.name}</div>
-									<div class="text-lg font-semibold text-neutral-200">{displayStatValue(stat)}</div>
-									{#if stat.alias}
-										<div class="text-xs text-neutral-500 mt-1">Featured</div>
-									{/if}
-								</div>
-								{#if stat.icon}
-									<img src={stat.icon} alt="" class="h-8 w-8 opacity-70" />
+		<!-- Tab Navigation -->
+		<div class="max-w-7xl mx-auto px-4">
+			<nav class="flex space-x-8 mt-6" aria-label="Tabs">
+				{#each [
+					{ id: 'overview' as const, label: 'Overview' },
+					{ id: 'adepts' as const, label: 'Adept Achievements' },
+					{ id: 'stats' as const, label: 'Statistics' },
+					{ id: 'achievements' as const, label: 'All Achievements' }
+				] as tab}
+					<button
+						class="py-3 px-1 border-b-2 font-medium text-sm transition-colors {
+							activeTab === tab.id
+								? 'border-blue-500 text-blue-600'
+								: 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+						}"
+						on:click={() => setActiveTab(tab.id)}
+						on:keydown={(e) => handleTabKeydown(e, tab.id)}
+						tabindex="0"
+					>
+						{tab.label}
+					</button>
+				{/each}
+			</nav>
+		</div>
+
+		<!-- Tab Content -->
+		<div class="max-w-7xl mx-auto px-4 py-8">
+			{#if activeTab === 'overview'}
+				<div class="space-y-8">
+					<!-- Quick Stats -->
+					<div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+						<div class="bg-white p-6 rounded-lg shadow">
+							<h3 class="text-lg font-medium text-gray-900">Total Achievements</h3>
+							<p class="text-3xl font-bold text-blue-600">{player.achievements?.mapped?.length || 0}</p>
+						</div>
+						<div class="bg-white p-6 rounded-lg shadow">
+							<h3 class="text-lg font-medium text-gray-900">Completed</h3>
+							<p class="text-3xl font-bold text-green-600">
+								{player.achievements?.mapped?.filter(a => a.achieved).length || 0}
+							</p>
+						</div>
+						<div class="bg-white p-6 rounded-lg shadow">
+							<h3 class="text-lg font-medium text-gray-900">Adepts Earned</h3>
+							<p class="text-3xl font-bold text-purple-600">
+								{adeptData.survivors.filter(a => a.unlocked).length + adeptData.killers.filter(a => a.unlocked).length}
+							</p>
+							<p class="text-sm text-gray-500">
+								{adeptData.survivors.filter(a => a.unlocked).length}/{adeptData.survivors.length} Survivors, 
+								{adeptData.killers.filter(a => a.unlocked).length}/{adeptData.killers.length} Killers
+							</p>
+						</div>
+						<div class="bg-white p-6 rounded-lg shadow">
+							<h3 class="text-lg font-medium text-gray-900">Highest Prestige</h3>
+							<p class="text-3xl font-bold text-orange-600">
+								{player.stats?.header?.highestPrestige || 0}
+							</p>
+						</div>
+						<div class="bg-white p-6 rounded-lg shadow">
+							<h3 class="text-lg font-medium text-gray-900">Profile Status</h3>
+							<p class="text-sm font-medium {(player.public ?? true) ? 'text-green-600' : 'text-red-600'}">
+								{(player.public ?? true) ? 'Public' : 'Private'}
+							</p>
+						</div>
+					</div>
+
+					<!-- Recent Achievements -->
+					{#if player.achievements?.mapped}
+						<div class="bg-white rounded-lg shadow">
+							<div class="px-6 py-4 border-b">
+								<h2 class="text-xl font-bold text-gray-900">Recent Achievements</h2>
+							</div>
+							<div class="p-6">
+								{#if player.achievements.mapped.filter(a => a.achieved && a.unlockTime).sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0)).slice(0, 5).length > 0}
+									<div class="space-y-4">
+										{#each player.achievements.mapped.filter(a => a.achieved && a.unlockTime).sort((a, b) => (b.unlockTime || 0) - (a.unlockTime || 0)).slice(0, 5) as achievement}
+											<div class="flex items-center justify-between">
+												<div>
+													<h3 class="font-medium text-gray-900">{achievement.displayName || achievement.name}</h3>
+													<p class="text-sm text-gray-600">{achievement.description}</p>
+												</div>
+												<span class="text-sm text-gray-500">{formatUnlockTime(achievement.unlockTime)}</span>
+											</div>
+										{/each}
+									</div>
+								{:else}
+									<p class="text-gray-500 text-center py-8">No recent achievements to display.</p>
 								{/if}
 							</div>
 						</div>
-					{/each}
+					{/if}
 				</div>
 
-				{#if (statsTab === 'killer' ? player.stats.killer : statsTab === 'survivor' ? player.stats.survivor : player.stats.general).length === 0}
-					<div class="flex flex-col items-center justify-center py-12 text-center">
-						<div class="text-neutral-400 mb-2">No {statsTab} stats available</div>
-						<div class="text-sm text-neutral-500">Stats may still be loading or unavailable from Steam.</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<!-- Adepts Tab -->
-		{#if activeTab === 'adepts'}
-			<div
-				id="adepts-panel"
-				role="tabpanel"
-				aria-labelledby="adepts-tab"
-				class="space-y-8"
-			>
-				<div class="grid gap-8 lg:grid-cols-2">
+			{:else if activeTab === 'adepts'}
+				<div class="space-y-8">
 					<!-- Survivor Adepts -->
-					<div class="space-y-4">
-						<div class="flex items-center justify-between">
-							<h3 class="text-lg font-semibold text-blue-400">Survivor Adepts</h3>
-							<span class="text-sm text-neutral-400">{adeptStats.survivor.unlocked}/{adeptStats.survivor.total}</span>
+					<div class="bg-white rounded-lg shadow">
+						<div class="px-6 py-4 border-b">
+							<h2 class="text-xl font-bold text-gray-900">Survivor Adepts</h2>
+							<p class="text-sm text-gray-600">
+								{adeptData.survivors.filter(a => a.unlocked).length} of {adeptData.survivors.length} unlocked
+							</p>
 						</div>
-						<div class="grid gap-2 sm:grid-cols-2">
-							{#each Object.entries(player.achievements.adepts.survivors) as [survivor, unlocked]}
-								<div class="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900/30 p-3">
-									<div class="h-2 w-2 rounded-full {unlocked ? 'bg-green-500' : 'bg-neutral-600'}"></div>
-									<span class="text-sm {unlocked ? 'text-neutral-200' : 'text-neutral-400'}">{survivor}</span>
-								</div>
-							{/each}
+						<div class="p-6">
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+								{#each adeptData.survivors as adept}
+									<div class="flex items-center gap-3 p-3 rounded-lg {adept.unlocked ? 'bg-green-50' : 'bg-gray-50'}">
+										<div class="text-lg">
+											{adept.unlocked ? '✅' : '❌'}
+										</div>
+										<div class="flex-1">
+											<p class="font-medium {adept.unlocked ? 'text-green-800' : 'text-gray-600'}">
+												Adept {adept.displayName}
+											</p>
+										</div>
+									</div>
+								{/each}
+							</div>
 						</div>
 					</div>
 
 					<!-- Killer Adepts -->
-					<div class="space-y-4">
-						<div class="flex items-center justify-between">
-							<h3 class="text-lg font-semibold text-red-400">Killer Adepts</h3>
-							<span class="text-sm text-neutral-400">{adeptStats.killer.unlocked}/{adeptStats.killer.total}</span>
+					<div class="bg-white rounded-lg shadow">
+						<div class="px-6 py-4 border-b">
+							<h2 class="text-xl font-bold text-gray-900">Killer Adepts</h2>
+							<p class="text-sm text-gray-600">
+								{adeptData.killers.filter(a => a.unlocked).length} of {adeptData.killers.length} unlocked
+							</p>
 						</div>
-						<div class="grid gap-2 sm:grid-cols-2">
-							{#each Object.entries(player.achievements.adepts.killers) as [killer, unlocked]}
-								<div class="flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-900/30 p-3">
-									<div class="h-2 w-2 rounded-full {unlocked ? 'bg-green-500' : 'bg-neutral-600'}"></div>
-									<span class="text-sm {unlocked ? 'text-neutral-200' : 'text-neutral-400'}">{killer}</span>
-								</div>
-							{/each}
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<!-- Achievements Tab -->
-		{#if activeTab === 'achievements'}
-			<div
-				id="achievements-panel"
-				role="tabpanel"
-				aria-labelledby="achievements-tab"
-				class="space-y-6"
-			>
-				<!-- Achievement Tab Header -->
-				<div class="space-y-4">
-					<div class="flex items-center justify-between">
-						<h3 class="text-lg font-semibold">Achievements</h3>
-						<div class="text-sm text-neutral-400">
-							{player.achievements.unlocked} of {player.achievements.total} total unlocked
-						</div>
-					</div>
-
-					<!-- Achievement Sub-tabs -->
-					<div class="border-b border-neutral-700">
-						<nav class="flex space-x-8" aria-label="Achievement tabs">
-							{#each [
-								{ id: 'all', label: 'All Non-Adept', count: achievementsByType.all.length },
-								{ id: 'survivor', label: 'Survivor', count: achievementsByType.survivor.length },
-								{ id: 'killer', label: 'Killer', count: achievementsByType.killer.length }
-							] as tab}
-								<button
-									role="tab"
-									tabindex={achievementTab === tab.id ? 0 : -1}
-									aria-selected={achievementTab === tab.id}
-									class="border-b-2 px-1 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-neutral-900 {achievementTab === tab.id 
-										? 'border-blue-500 text-blue-400' 
-										: 'border-transparent text-neutral-400 hover:border-neutral-300 hover:text-neutral-200'}"
-									on:click={() => setAchievementTab(tab.id as 'all' | 'survivor' | 'killer')}
-									on:keydown={(e) => handleAchievementTabKeydown(e, tab.id as 'all' | 'survivor' | 'killer')}
-								>
-									{tab.label} ({tab.count})
-								</button>
-							{/each}
-						</nav>
-					</div>
-
-					<!-- Achievement stats for current tab -->
-					<div class="flex flex-wrap gap-2 text-xs">
-						{#if achievementTab === 'all'}
-							{#each Object.entries(achievementStats) as [type, stats]}
-								{#if type !== 'adept'}
-									<span class="inline-flex items-center rounded-full px-2 py-1 {type === 'survivor' 
-										? 'bg-blue-900/50 text-blue-300' 
-										: type === 'killer' 
-										? 'bg-red-900/50 text-red-300'
-										: 'bg-neutral-700/50 text-neutral-300'}">
-										{type}: {stats.unlocked}/{stats.total}
-									</span>
-								{/if}
-							{/each}
-						{:else}
-							{@const stats = achievementStats[achievementTab]}
-							{#if stats}
-								<span class="inline-flex items-center rounded-full px-2 py-1 {achievementTab === 'survivor' 
-									? 'bg-blue-900/50 text-blue-300' 
-									: 'bg-red-900/50 text-red-300'}">
-									{achievementTab}: {stats.unlocked}/{stats.total}
-								</span>
-							{/if}
-						{/if}
-					</div>
-
-					<!-- Sort controls -->
-					<div class="flex items-center justify-between">
-						<div class="text-sm text-neutral-400">
-							Showing {currentAchievements.length} achievements
-						</div>
-						
-						<div class="flex items-center gap-2 text-sm">
-							<label for="achievement-sort" class="text-neutral-400">Sort by:</label>
-							<select 
-								id="achievement-sort"
-								bind:value={achievementSort}
-								class="rounded border border-neutral-600 bg-neutral-800 px-2 py-1 text-neutral-200 focus:border-blue-500 focus:outline-none"
-							>
-								<option value="name">Name</option>
-								<option value="unlocked">Unlocked First</option>
-								<option value="rarity">Rarity (Rarest First)</option>
-								<option value="type">Type</option>
-							</select>
-						</div>
-					</div>
-				</div>
-
-				{#if currentAchievements.length > 0}
-					<div class="grid gap-4">
-						{#each currentAchievements as achievement}
-							<div class="group rounded-lg border border-neutral-700 bg-neutral-900/30 p-4 transition-all duration-200 hover:border-neutral-600 hover:bg-neutral-800/50 hover:shadow-lg">
-								<div class="flex gap-4">
-									<!-- Achievement Icon -->
-									<div class="flex-shrink-0">
-										{#if achievement.icon}
-											<div class="relative">
-												<img 
-													src={achievement.icon} 
-													alt=""
-													class="h-16 w-16 rounded-lg border border-neutral-600 transition-all {achievement.unlocked ? 'border-green-500/30 shadow-md' : 'grayscale opacity-50'}"
-													loading="lazy"
-												/>
-												{#if achievement.unlocked}
-													<div class="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-green-500 border-2 border-neutral-800"></div>
-												{/if}
-											</div>
-										{:else}
-											<div class="flex h-16 w-16 items-center justify-center rounded-lg border border-neutral-600 bg-neutral-700/50">
-												<span class="text-2xl {achievement.unlocked ? '' : 'grayscale'}">
-													{achievement.type === 'adept_killer' ? '🔪' : achievement.type === 'adept_survivor' ? '🏃' : achievement.type === 'general' ? '⭐' : '🏆'}
-												</span>
-											</div>
-										{/if}
-									</div>
-
-									<!-- Achievement Details -->
-									<div class="min-w-0 flex-1 space-y-2">
-										<!-- Name and status -->
-										<div class="flex items-start justify-between gap-2">
-											<div class="min-w-0 flex-1">
-												<h4 class="text-base font-medium {achievement.unlocked ? 'text-neutral-200' : 'text-neutral-400'}">
-													{achievement.display_name || achievement.name || achievement.id}
-												</h4>
-												{#if achievement.description}
-													<p class="text-sm text-neutral-400 {achievement.hidden && !achievement.unlocked ? 'italic' : ''}">
-														{achievement.hidden && !achievement.unlocked ? 'Hidden achievement' : achievement.description}
-													</p>
-												{:else if achievement.character}
-													<p class="text-sm text-neutral-500 italic">
-														{achievement.type} achievement for {achievement.character}
-													</p>
-												{/if}
-											</div>
-											<div class="flex items-center gap-2">
-												<!-- Unlock status -->
-												<div class="h-3 w-3 rounded-full {achievement.unlocked ? 'bg-green-500' : 'bg-neutral-600'}"></div>
-												<!-- Type badge -->
-												<span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium {achievement.type === 'adept_killer' 
-													? 'bg-red-900/50 text-red-300' 
-													: achievement.type === 'adept_survivor'
-													? 'bg-blue-900/50 text-blue-300'
-													: achievement.type === 'general'
-													? 'bg-neutral-700/50 text-neutral-300'
-													: 'bg-purple-900/50 text-purple-300'}">
-													{achievement.type === 'adept_killer' ? 'Adept Killer' 
-													: achievement.type === 'adept_survivor' ? 'Adept Survivor'
-													: achievement.type === 'general' ? 'General'
-													: achievement.type || 'unknown'}
-												</span>
-											</div>
+						<div class="p-6">
+							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+								{#each adeptData.killers as adept}
+									<div class="flex items-center gap-3 p-3 rounded-lg {adept.unlocked ? 'bg-red-50' : 'bg-gray-50'}">
+										<div class="text-lg">
+											{adept.unlocked ? '✅' : '❌'}
 										</div>
-
-										<!-- Metadata row -->
-										<div class="flex items-center justify-between text-xs text-neutral-500">
-											<div class="flex items-center gap-4">
-												{#if achievement.character}
-													<span>Character: {achievement.character}</span>
-												{/if}
-												{#if achievement.unlock_time}
-													<span>Unlocked: {new Date(achievement.unlock_time * 1000).toLocaleDateString()}</span>
-												{/if}
-												{#if achievement.hidden}
-													<span class="text-yellow-400">Hidden</span>
-												{/if}
-											</div>
-											{#if achievement.rarity && achievement.rarity > 0}
-												<div class="flex items-center gap-1">
-													<span class="text-neutral-400">Global:</span>
-													<span class="{getRarityColor(achievement.rarity)} font-medium">
-														{formatRarity(achievement.rarity)}
-													</span>
-												</div>
-											{/if}
+										<div class="flex-1">
+											<p class="font-medium {adept.unlocked ? 'text-red-800' : 'text-gray-600'}">
+												Adept {adept.displayName}
+											</p>
 										</div>
 									</div>
-								</div>
+								{/each}
 							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="flex h-32 items-center justify-center text-neutral-400">
-						<span>No achievements found in this category</span>
-					</div>
-				{/if}
-			</div>
-		{/if}
-	</div>
-
-	<!-- Data Sources Footer -->
-	{#if player.sources.stats || player.sources.achievements}
-		<footer class="border-t border-neutral-700 pt-6">
-			<details class="text-sm text-neutral-400">
-				<summary class="cursor-pointer hover:text-neutral-300">Data Sources</summary>
-				<div class="mt-3 space-y-2 pl-4">
-					{#if player.sources.stats}
-						<div>
-							<strong>Statistics:</strong> {player.sources.stats.source}
-							{#if player.sources.stats.fetched_at}
-								(fetched {new Date(player.sources.stats.fetched_at).toLocaleString()})
-							{/if}
-							{#if player.sources.stats.error}
-								<span class="text-red-400">- {player.sources.stats.error}</span>
-							{/if}
 						</div>
-					{/if}
-					{#if player.sources.achievements}
-						<div>
-							<strong>Achievements:</strong> {player.sources.achievements.source}
-							{#if player.sources.achievements.fetched_at}
-								(fetched {new Date(player.sources.achievements.fetched_at).toLocaleString()})
-							{/if}
-							{#if player.sources.achievements.error}
-								<span class="text-red-400">- {player.sources.achievements.error}</span>
-							{/if}
+					</div>
+				</div>
+
+			{:else if activeTab === 'stats'}
+				<div class="space-y-8">
+					{#if player.stats}
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+							{#each Object.entries(player.stats) as [key, value]}
+								<div class="bg-white p-6 rounded-lg shadow">
+									<h3 class="text-lg font-medium text-gray-900 capitalize">{key.replace(/_/g, ' ')}</h3>
+									<p class="text-3xl font-bold {getGradeColor(Number(value))}">
+										{typeof value === 'number' ? value.toLocaleString() : value}
+									</p>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="bg-white rounded-lg shadow p-8 text-center">
+							<p class="text-gray-500">No statistics available</p>
 						</div>
 					{/if}
 				</div>
-			</details>
-		</footer>
-	{/if}
-</article>
+
+			{:else if activeTab === 'achievements'}
+				<div class="space-y-8">
+					{#if player.achievements?.mapped}
+						<!-- Achievement Categories -->
+						{#each [
+							{ title: 'General Achievements', achievements: achievementsByCategory.general },
+							{ title: 'Killer Achievements', achievements: achievementsByCategory.killer },
+							{ title: 'Survivor Achievements', achievements: achievementsByCategory.survivor }
+						] as category}
+							{#if category.achievements.length > 0}
+								<div class="bg-white rounded-lg shadow">
+									<div class="px-6 py-4 border-b">
+										<h2 class="text-xl font-bold text-gray-900">{category.title}</h2>
+										<p class="text-sm text-gray-600">
+											{category.achievements.filter(a => a.achieved).length} of {category.achievements.length} unlocked
+										</p>
+									</div>
+									<div class="p-6">
+										<div class="space-y-4">
+											{#each category.achievements as achievement}
+												<div class="flex items-start gap-4 p-4 rounded-lg {achievement.achieved ? 'bg-green-50' : 'bg-gray-50'}">
+													<div class="w-6 h-6 rounded {achievement.achieved ? 'bg-green-500' : 'bg-gray-300'} flex-shrink-0 mt-1"></div>
+													<div class="flex-1">
+														<h3 class="font-medium {achievement.achieved ? 'text-green-800' : 'text-gray-700'}">
+															{achievement.displayName || achievement.name}
+														</h3>
+														{#if achievement.description}
+															<p class="text-sm text-gray-600 mt-1">{achievement.description}</p>
+														{/if}
+														{#if achievement.achieved && achievement.unlockTime}
+															<p class="text-sm text-gray-500 mt-2">Unlocked: {formatUnlockTime(achievement.unlockTime)}</p>
+														{/if}
+													</div>
+												</div>
+											{/each}
+										</div>
+									</div>
+								</div>
+							{/if}
+						{/each}
+					{:else}
+						<div class="bg-white rounded-lg shadow p-8 text-center">
+							<p class="text-gray-500">No achievements available</p>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
+{:else}
+	<div class="min-h-screen bg-gray-50 flex items-center justify-center">
+		<div class="text-center">
+			<h1 class="text-2xl font-bold text-gray-900 mb-4">Player Not Found</h1>
+			<p class="text-gray-600">The requested player could not be found or their profile is private.</p>
+		</div>
+	</div>
+{/if}

@@ -77,14 +77,14 @@ func setupRouter() *mux.Router {
 		})
 	})
 
-	h := api.NewHandler()
-
-	// Simple routes
+	// Home route
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "🎮 DBD Analytics API - TypeScript client test ready!")
 	}).Methods("GET")
 
-	r.HandleFunc("/api/player/{steamid}", h.GetPlayerStatsWithAchievements).Methods("GET", "OPTIONS")
+	// Register API routes with proper routing
+	apiRouter := r.PathPrefix("/api").Subrouter()
+	api.RegisterRoutes(apiRouter)
 
 	return r
 }

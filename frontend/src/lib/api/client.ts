@@ -1,6 +1,6 @@
-import type { Player } from '$lib/api/types';
-import type { ApiError, ApiPlayerStats } from './types';
-import { toDomainPlayer } from './adapters';
+import type { Player, SchemaPlayer } from '$lib/api/types';
+import type { ApiError, ApiPlayerStats, ApiSchemaPlayerSummary } from './types';
+import { toDomainPlayer, toSchemaPlayer } from './adapters';
 import { env } from '$env/dynamic/public';
 
 const DEFAULT_TIMEOUT_MS = 10000;
@@ -89,6 +89,11 @@ export const api = {
         combined: async (steamId: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<Player> => {
             const data = await request<ApiPlayerStats>(`/player/${steamId}`, init, customFetch);
             return toDomainPlayer(data);
+        },
+        schema: async (steamId: string, language?: string, customFetch?: typeof fetch, init?: RequestInit & { timeoutMs?: number }): Promise<SchemaPlayer> => {
+            const queryParam = language ? `?language=${encodeURIComponent(language)}` : '';
+            const data = await request<ApiSchemaPlayerSummary>(`/player/${steamId}/schema${queryParam}`, init, customFetch);
+            return toSchemaPlayer(data);
         }
     }
 };

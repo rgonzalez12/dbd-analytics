@@ -25,7 +25,7 @@ func writeError(w http.ResponseWriter, r *http.Request, code string, message str
 	}
 
 	if requestID == "" {
-		requestID = generateRequestID()
+		requestID = GenerateRequestID()
 	}
 
 	if details == nil {

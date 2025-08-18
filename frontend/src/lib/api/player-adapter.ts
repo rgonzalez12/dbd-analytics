@@ -111,7 +111,7 @@ export function selectHeader(stats: UIStat[], statsSummary?: any) {
     return {
       killerGrade: statsSummary.killer_grade || 'Unranked',
       survivorGrade: statsSummary.survivor_grade || 'Unranked', 
-      highestPrestige: Math.min(statsSummary.prestige_level || 0, 100).toString(),
+      highestPrestige: Math.min(statsSummary.prestige_max || 0, 100).toString(),
     };
   }
 

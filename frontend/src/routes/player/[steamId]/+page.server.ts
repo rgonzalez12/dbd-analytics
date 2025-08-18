@@ -3,7 +3,7 @@ import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
 import type { ApiError, Player } from '$lib/api/types';
 
-export const load: PageServerLoad<{ data: Player }> = async ({ params, fetch, depends, setHeaders }) => {
+export const load: PageServerLoad<{ data: Player }> = async ({ params, fetch, depends, setHeaders, url }) => {
 	const { steamId } = params;
 	
 	// Prevent payload caching

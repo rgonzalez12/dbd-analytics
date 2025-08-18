@@ -179,12 +179,12 @@ func TestHandlerErrorPropagation(t *testing.T) {
 		{
 			name:     "Invalid Steam ID format",
 			steamID:  "invalid@id",
-			endpoint: "/summary",
+			endpoint: "",
 		},
 		{
 			name:     "Too short Steam ID",
 			steamID:  "123",
-			endpoint: "/stats",
+			endpoint: "",
 		},
 	}
 
@@ -192,8 +192,7 @@ func TestHandlerErrorPropagation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewHandler()
 			router := mux.NewRouter()
-			router.HandleFunc("/api/player/{steamid}/summary", handler.GetPlayerSummary).Methods("GET")
-			router.HandleFunc("/api/player/{steamid}/stats", handler.GetPlayerStats).Methods("GET")
+			router.HandleFunc("/api/player/{steamid}", handler.GetPlayerStatsWithAchievements).Methods("GET")
 
 			req := httptest.NewRequest("GET", "/api/player/"+tt.steamID+tt.endpoint, nil)
 			w := httptest.NewRecorder()
@@ -244,9 +243,7 @@ func TestRequestIDGeneration(t *testing.T) {
 	ids := make(map[string]bool)
 
 	for i := 0; i < 100; i++ {
-		id := generateRequestID()
-
-		// Should not be empty
+			id := GenerateRequestID()		// Should not be empty
 		if id == "" {
 			t.Error("Request ID should not be empty")
 		}

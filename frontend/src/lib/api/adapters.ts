@@ -1,6 +1,6 @@
-import type { Player } from '$lib/api/types';
+import type { Player, SchemaPlayer } from '$lib/api/types';
 import type { PlayerBundle, DbdAdept, DbdAchievement, DbdStats } from '$lib/types';
-import type { ApiPlayerStats } from '$lib/api/types';
+import type { ApiPlayerStats, ApiSchemaPlayerSummary } from '$lib/api/types';
 import { normalizePlayerPayload, toUIStats, sortStats, selectHeader, groupStats, type WirePlayerResponse } from '$lib/api/player-adapter';
 
 function toNum(v: unknown, d = 0): number {
@@ -13,63 +13,72 @@ function toNum(v: unknown, d = 0): number {
 }
 
 export function toDomainPlayer(raw: ApiPlayerStats): Player {
-	// Use our new player adapter to normalize the stats and achievements
-	const { stats, statsSummary, achievements, achievementSummary } = normalizePlayerPayload(raw as WirePlayerResponse);
-	
-	// Convert to UI-friendly stats format
-	const uiStats = sortStats(toUIStats(stats));
-	
-	// Extract header data using stable aliases with summary fallback
-	const header = selectHeader(uiStats, statsSummary);
-	
-	// Group stats by category
-	const groupedStats = groupStats(uiStats);
+	// Helper function to convert strings/nulls to numbers
+	const toNum = (val: number | string | null | undefined): number => {
+		if (typeof val === 'number') return val;
+		if (typeof val === 'string') {
+			const parsed = parseFloat(val);
+			return isNaN(parsed) ? 0 : parsed;
+		}
+		return 0;
+	};
 
-	// Process achievements (keep existing logic for now)
-	const mapped = achievements?.map((achievement: any) => ({
+	// Direct access to achievements from the API response
+	const achievementsData = raw.achievements?.mapped_achievements || [];
+	const achievementSummary = raw.achievements?.summary;
+	
+	// Process achievements directly from API response
+	const mapped = achievementsData.map((achievement: any) => ({
 		id: achievement.id,
 		name: achievement.display_name || achievement.name || achievement.id,
 		display_name: achievement.display_name || achievement.name || achievement.id,
-		description: achievement.description,
+		displayName: achievement.display_name || achievement.name || achievement.id, // For backward compatibility
+		description: achievement.description || "",
 		...(achievement.icon !== undefined && { icon: achievement.icon }),
 		...(achievement.icon_gray !== undefined && { icon_gray: achievement.icon_gray }),
 		...(achievement.hidden !== undefined && { hidden: achievement.hidden }),
 		...(achievement.character !== undefined && { character: achievement.character }),
-		type: achievement.type,
-		unlocked: achievement.unlocked,
+		type: achievement.type || "general",
+		unlocked: Boolean(achievement.unlocked),
+		achieved: Boolean(achievement.unlocked), // For backward compatibility with existing UI
 		...(achievement.unlock_time !== undefined && { unlock_time: achievement.unlock_time }),
+		...(achievement.unlock_time !== undefined && { unlockTime: achievement.unlock_time }), // For backward compatibility
 		...(achievement.rarity !== undefined && { rarity: achievement.rarity })
-	})) ?? [];
+	}));
 
-	const totalFromSummary = toNum(achievementSummary?.total);
-	const unlockedFromSummary = toNum(achievementSummary?.unlocked);
+	const total = achievementSummary?.total_achievements || mapped.length;
+	const unlocked = achievementSummary?.unlocked_count || mapped.filter((a: any) => a.unlocked).length;
 
-	const total = totalFromSummary || mapped.length;
-	const unlocked = unlockedFromSummary || mapped.filter((a: any) => a.unlocked).length;
+	// Create minimal stats structure to satisfy the type
+	const emptyStats: any[] = [];
+	const defaultSummary = {
+		total_stats: 0,
+		killer_count: 0,
+		survivor_count: 0,
+		general_count: 0
+	};
+
+	// Process actual stats data using selectHeader with statsSummary
+	const statsSummary = raw.stats?.summary || {};
+	const header = selectHeader([], statsSummary);
 
 	return {
 		id: raw.steam_id,
-		name: raw.display_name,
+		steamId: raw.steam_id,
+		name: raw.display_name || raw.steam_id,
+		avatar: `https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/${raw.steam_id.slice(-2)}/${raw.steam_id}_full.jpg`,
+		public: true, // Assume public if we got data
 		matches: toNum(raw.total_matches),
 		lastUpdated: raw.last_updated ?? null,
 		stats: {
-			// Use the new stats structure
-			all: uiStats,
-			killer: groupedStats.killer,
-			survivor: groupedStats.survivor,
-			general: groupedStats.general,
-			header: {
-				killerGrade: header.killerGrade,
-				survivorGrade: header.survivorGrade,
-				highestPrestige: header.highestPrestige
-			},
-			summary: statsSummary || {
-				total_stats: uiStats.length,
-				killer_count: groupedStats.killer.length,
-				survivor_count: groupedStats.survivor.length,
-				general_count: groupedStats.general.length
-			},
-			// Keep legacy fields for backward compatibility
+			// New structured stats (empty for now)
+			all: emptyStats,
+			killer: emptyStats,
+			survivor: emptyStats,
+			general: emptyStats,
+			header: header,
+			summary: defaultSummary,
+			// Legacy individual fields for backward compatibility
 			killerPips: toNum(raw.killer_pips),
 			survivorPips: toNum(raw.survivor_pips),
 			killedCampers: toNum(raw.killed_campers),
@@ -182,4 +191,29 @@ export function toPlayerBundle(raw: ApiPlayerStats): PlayerBundle {
 		adepts,
 		achievements
 	};
+}
+
+function steamIdToName(steamId: string): string {
+	return `Player ${steamId}`;
+}
+
+export function toSchemaPlayer(api: ApiSchemaPlayerSummary): SchemaPlayer {
+	const result: SchemaPlayer = {
+		id: api.playerId,
+		name: api.displayName || steamIdToName(api.playerId),
+		stats: api.stats,
+		achievements: api.achievements,
+		lastUpdated: api.lastUpdated,
+		dataSources: api.dataSources
+	};
+
+	if (api.survivorGrade) {
+		result.survivorGrade = api.survivorGrade;
+	}
+
+	if (api.killerGrade) {
+		result.killerGrade = api.killerGrade;
+	}
+
+	return result;
 }

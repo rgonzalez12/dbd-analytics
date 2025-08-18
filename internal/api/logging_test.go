@@ -58,9 +58,9 @@ func TestStructuredLoggingValidation(t *testing.T) {
 				})
 			})
 
-			router.HandleFunc("/api/player/{steamid}/summary", handler.GetPlayerSummary).Methods("GET")
+			router.HandleFunc("/api/player/{steamid}", handler.GetPlayerStatsWithAchievements).Methods("GET")
 
-			req := httptest.NewRequest("GET", "/api/player/"+tt.steamID+"/summary", nil)
+			req := httptest.NewRequest("GET", "/api/player/"+tt.steamID, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

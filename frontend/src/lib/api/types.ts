@@ -101,52 +101,55 @@ export type ApiPlayerStats = {
 // Domain types - strict, UI-friendly with defaults
 export type Player = {
   id: string;
+  steamId?: string;               // Optional for backward compatibility
   name: string;
-  matches: number;                  // default to 0
-  lastUpdated: string | null;       // normalize null/missing
+  avatar?: string;                // Optional avatar URL
+  public?: boolean;               // Optional public status
+  matches?: number;               // Optional, default to 0
+  lastUpdated: string | null;     // normalize null/missing
   stats: {
     // New structured stats
-    all: UIStat[];
-    killer: UIStat[];
-    survivor: UIStat[];
-    general: UIStat[];
-    header: {
-      killerGrade: string;
-      survivorGrade: string;
-      highestPrestige: string;
+    all?: UIStat[];
+    killer?: UIStat[];
+    survivor?: UIStat[];
+    general?: UIStat[];
+    header?: {
+      killerGrade?: string;
+      survivorGrade?: string;
+      highestPrestige?: string;
     };
-    summary: {
-      total_stats: number;
-      killer_count: number;
-      survivor_count: number;
-      general_count: number;
+    summary?: {
+      total_stats?: number;
+      killer_count?: number;
+      survivor_count?: number;
+      general_count?: number;
     };
     // Legacy individual fields for backward compatibility
-    killerPips: number;
-    survivorPips: number;
-    killedCampers: number;
-    sacrificedCampers: number;
-    moriKills: number;
-    hooksPerformed: number;
-    uncloakAttacks: number;
-    generatorPct: number;
-    healPct: number;
-    escapesKo: number;
-    escapes: number;
-    skillCheckSuccess: number;
-    hookedAndEscape: number;
-    unhookOrHeal: number;
-    healsPerformed: number;
-    unhookOrHealPostExit: number;
-    postExitActions: number;
-    escapeThroughHatch: number;
-    bloodwebPoints: number;
-    camperPerfectGames: number;
-    killerPerfectGames: number;
-    camperFullLoadout: number;
-    killerFullLoadout: number;
-    camperNewItem: number;
-    timePlayedHours: number;
+    killerPips?: number;
+    survivorPips?: number;
+    killedCampers?: number;
+    sacrificedCampers?: number;
+    moriKills?: number;
+    hooksPerformed?: number;
+    uncloakAttacks?: number;
+    generatorPct?: number;
+    healPct?: number;
+    escapesKo?: number;
+    escapes?: number;
+    skillCheckSuccess?: number;
+    hookedAndEscape?: number;
+    unhookOrHeal?: number;
+    healsPerformed?: number;
+    unhookOrHealPostExit?: number;
+    postExitActions?: number;
+    escapeThroughHatch?: number;
+    bloodwebPoints?: number;
+    camperPerfectGames?: number;
+    killerPerfectGames?: number;
+    camperFullLoadout?: number;
+    killerFullLoadout?: number;
+    camperNewItem?: number;
+    timePlayedHours?: number;
   };
   achievements: {
     total: number;                  // default to 0
@@ -154,7 +157,8 @@ export type Player = {
     mapped: Array<{
       id: string;
       name: string;
-      display_name: string;
+      display_name?: string;
+      displayName?: string;         // For backward compatibility
       description: string;
       icon?: string;
       icon_gray?: string;
@@ -162,15 +166,76 @@ export type Player = {
       character?: string;
       type: string;
       unlocked: boolean;
+      achieved?: boolean;           // For backward compatibility
       unlock_time?: number;
+      unlockTime?: number;          // For backward compatibility
       rarity?: number;
     }>;
     adepts: { survivors: Record<string, boolean>; killers: Record<string, boolean> };
   };
-  sources: {
+  sources?: {
     stats?: { success: boolean; source: 'cache'|'api'|'fallback'; error?: string; fetched_at?: string };
     achievements?: { success: boolean; source: 'cache'|'api'|'fallback'; error?: string; fetched_at?: string };
   };
 };
 
 export type LoadState<T> = { ok: true; data: T } | { ok: false; error: ApiError };
+
+// Schema-driven API types for the new endpoint
+export type SchemaGrade = {
+  value: number;
+  label: string;
+};
+
+export type SchemaUIStat = {
+  key: string;
+  displayName: string;
+  value: number | string;
+  unknown: boolean;
+};
+
+export type SchemaUIAchievement = {
+  apiName: string;
+  displayName: string;
+  description: string;
+  hidden: boolean;
+  achieved: boolean;
+  unlockTime?: number;
+  icon?: string;
+  iconGray?: string;
+  unknown: boolean;
+};
+
+export type SchemaDataSource = {
+  success: boolean;
+  source: string;
+};
+
+export type SchemaDataSources = {
+  schema: SchemaDataSource;
+  stats: SchemaDataSource;
+  achievements: SchemaDataSource;
+};
+
+export type ApiSchemaPlayerSummary = {
+  playerId: string;
+  displayName?: string;
+  survivorGrade?: SchemaGrade;
+  killerGrade?: SchemaGrade;
+  stats: SchemaUIStat[];
+  achievements: SchemaUIAchievement[];
+  lastUpdated: string;
+  dataSources: SchemaDataSources;
+};
+
+// Domain type for schema-driven player data
+export type SchemaPlayer = {
+  id: string;
+  name: string;
+  survivorGrade?: SchemaGrade;
+  killerGrade?: SchemaGrade;
+  stats: SchemaUIStat[];
+  achievements: SchemaUIAchievement[];
+  lastUpdated: string;
+  dataSources: SchemaDataSources;
+};

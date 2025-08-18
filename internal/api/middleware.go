@@ -25,7 +25,7 @@ const (
 func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			requestID := generateRequestID()
+			requestID := GenerateRequestID()
 
 			w.Header().Set("X-Request-ID", requestID)
 
@@ -43,7 +43,7 @@ func RequestIDMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-func generateRequestID() string {
+func GenerateRequestID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
 	return hex.EncodeToString(bytes)

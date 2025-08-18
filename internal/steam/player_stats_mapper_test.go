@@ -9,20 +9,23 @@ func TestDecodeGrade(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         float64
+		fieldID       string
 		expectedTier  string
 		expectedSub   int
 		expectedHuman string
 	}{
-		{"Unranked", 0, "Unknown", 1, "?"},
-		{"Ash IV", 16, "Ash", 4, "Ash IV"},
-		{"Bronze II", 65, "Unknown", 1, "?"},  // This value doesn't match our grade mapping
-		{"Bronze IV", 73, "Bronze", 4, "Bronze IV"},
-		{"Unknown grade", 999, "Unknown", 1, "?"},
+		{"Unranked", 0, "DBD_SlasherTierIncrement", "Unknown", 1, "?"},
+		{"Ash IV", 16, "DBD_SlasherTierIncrement", "Ash", 4, "Ash IV"},
+		{"Silver III Killer", 300, "DBD_SlasherTierIncrement", "Silver", 3, "Silver III"},
+		{"Bronze IV", 73, "DBD_SlasherTierIncrement", "Bronze", 4, "Bronze IV"},
+		{"Ash III Survivor", 545, "DBD_UnlockRanking", "Ash", 3, "Ash III"},
+		{"Ash III Survivor (541)", 541, "DBD_UnlockRanking", "Ash", 3, "Ash III"},
+		{"Unknown grade", 999, "DBD_SlasherTierIncrement", "Unknown", 1, "?"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			grade, human, roman := decodeGrade(tt.input, "DBD_SlasherTierIncrement")
+			grade, human, roman := decodeGrade(tt.input, tt.fieldID)
 
 			if grade.Tier != tt.expectedTier {
 				t.Errorf("Expected tier %s, got %s", tt.expectedTier, grade.Tier)
@@ -75,8 +78,8 @@ func TestDetermineValueType(t *testing.T) {
 		{"Heal percentage", "DBD_HealPct_float", "Survivors Healed", 50.0, "float"},
 		{"Killer grade", "DBD_SlasherTierIncrement", "Killer Grade", 300, "grade"},
 		{"Survivor grade", "DBD_UnlockRanking", "Survivor Grade", 541, "grade"},
-		{"Killer pips", "DBD_KillerSkulls", "Killer Pips", 3, "count"},  // The implementation returns count for pips
-		{"Survivor pips", "DBD_CamperSkulls", "Survivor Pips", 3, "count"},  // The implementation returns count for pips
+		{"Killer bloodpoints", "DBD_SlasherSkulls", "Killer Bloodpoints", 98000, "count"},
+		{"Survivor bloodpoints", "DBD_CamperSkulls", "Survivor Bloodpoints", 125000, "count"},
 		{"Prestige level", "DBD_BloodwebMaxPrestigeLevel", "Highest Prestige", 82, "level"},
 		{"Max level", "DBD_BloodwebPerkMaxLevel", "Max Perk Level", 3, "level"},
 		{"Time played", "DBD_TimePlayed", "Time Played", 3600, "duration"},
@@ -153,7 +156,7 @@ func TestFormatValue(t *testing.T) {
 		{"Small count", 123, "count", "DBD_Escapes", "123"},
 		{"Float value", 87.5, "float", "DBD_GeneratorPct_float", "87.5"},
 		{"Level", 100, "level", "DBD_BloodwebMaxLevel", "100"},
-		{"Grade - Killer", 300, "grade", "DBD_SlasherTierIncrement", "?"},
+		{"Grade - Killer", 300, "grade", "DBD_SlasherTierIncrement", "Silver III"},
 		{"Grade - Survivor", 541, "grade", "DBD_UnlockRanking", "Ash III"},
 		{"Duration seconds", 45, "duration", "DBD_TimePlayed", "45s"},
 		{"Duration minutes", 75, "duration", "DBD_SessionTime", "1m 15s"},
@@ -222,7 +225,7 @@ func TestAliasMap(t *testing.T) {
 	requiredAliases := []string{
 		"DBD_SlasherTierIncrement",
 		"DBD_UnlockRanking", 
-		"DBD_KillerSkulls",
+		"DBD_SlasherSkulls",
 		"DBD_CamperSkulls",
 		"DBD_BloodwebMaxPrestigeLevel",
 		"DBD_GeneratorPct_float",

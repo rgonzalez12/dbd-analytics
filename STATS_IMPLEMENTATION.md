@@ -57,9 +57,9 @@ func decodeGrade(gradeCode int, fieldID string) (Grade, string, string) {
         return decodeSurvivorGrade(gradeCode)
     }
     
-    // Pips use count, not grade
+    // Pips/bloodpoints use count, not grade
     if strings.Contains(fieldID, "Skulls") {
-        return Grade{}, "count", fmt.Sprintf("%d pips", gradeCode)
+        return Grade{}, "count", fmt.Sprintf("%d bloodpoints", gradeCode)
     }
     
     return Grade{Tier: "Unknown", Sub: "?"}, "grade", "?"

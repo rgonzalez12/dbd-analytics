@@ -46,11 +46,11 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			handler := NewHandler()
 
-			req := httptest.NewRequest("GET", "/api/player/"+scenario.steamID+"/summary", nil)
+			req := httptest.NewRequest("GET", "/api/player/"+scenario.steamID, nil)
 			req = mux.SetURLVars(req, map[string]string{"steamid": scenario.steamID})
 			w := httptest.NewRecorder()
 
-			handler.GetPlayerSummary(w, req)
+			handler.GetPlayerStatsWithAchievements(w, req)
 
 			if scenario.expectedStatus != 0 {
 				if w.Code != scenario.expectedStatus {
@@ -128,11 +128,11 @@ func TestCacheResiliency(t *testing.T) {
 	handler := NewHandler()
 
 	// Make request with invalid Steam ID to trigger validation error
-	req := httptest.NewRequest("GET", "/api/player/invalid@steamid/stats", nil)
+	req := httptest.NewRequest("GET", "/api/player/invalid@steamid", nil)
 	req = mux.SetURLVars(req, map[string]string{"steamid": "invalid@steamid"})
 	w := httptest.NewRecorder()
 
-	handler.GetPlayerStats(w, req)
+	handler.GetPlayerStatsWithAchievements(w, req)
 
 	// Should return proper validation error
 	if w.Code != http.StatusBadRequest {
@@ -162,11 +162,11 @@ func TestConcurrentRequestHandling(t *testing.T) {
 
 	for i := 0; i < numRequests; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/api/player/counteredspell/summary", nil)
+			req := httptest.NewRequest("GET", "/api/player/counteredspell", nil)
 			req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
 			w := httptest.NewRecorder()
 
-			handler.GetPlayerSummary(w, req)
+			handler.GetPlayerStatsWithAchievements(w, req)
 			results <- w.Code
 		}()
 	}
