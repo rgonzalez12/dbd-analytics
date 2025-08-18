@@ -28,6 +28,7 @@ export type ApiStatsSummary = {
 export type ApiPlayerStats = {
   steam_id: string;
   display_name: string;
+  avatar?: string; // Steam avatar URL
   total_matches?: number | string | null;
   last_updated?: string | null;
   // Legacy fields for backward compatibility

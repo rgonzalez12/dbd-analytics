@@ -66,7 +66,7 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		id: raw.steam_id,
 		steamId: raw.steam_id,
 		name: raw.display_name || raw.steam_id,
-		avatar: `https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/${raw.steam_id.slice(-2)}/${raw.steam_id}_full.jpg`,
+		avatar: raw.avatar || `/favicon.png`, // Use API avatar or fallback to favicon
 		public: true, // Assume public if we got data
 		matches: toNum(raw.total_matches),
 		lastUpdated: raw.last_updated ?? null,

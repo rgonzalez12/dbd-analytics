@@ -55,10 +55,11 @@ func NewHandler() *Handler {
 	}
 }
 
-func convertToPlayerStats(dbdStats steam.DBDPlayerStats) models.PlayerStats {
+func convertToPlayerStats(dbdStats steam.DBDPlayerStats, avatar string) models.PlayerStats {
 	return models.PlayerStats{
 		SteamID:     dbdStats.SteamID,
 		DisplayName: dbdStats.DisplayName,
+		Avatar:      avatar,
 
 		KillerPips:   dbdStats.Killer.KillerPips,
 		SurvivorPips: dbdStats.Survivor.SurvivorPips,
@@ -640,7 +641,7 @@ func (h *Handler) fetchPlayerStatsWithSource(steamID string) (models.PlayerStats
 	}
 
 	playerStats := steam.MapSteamStats(rawStats.Stats, summary.SteamID, summary.PersonaName)
-	flatPlayerStats := convertToPlayerStats(playerStats)
+	flatPlayerStats := convertToPlayerStats(playerStats, summary.AvatarFull)
 
 	if h.cacheManager != nil {
 		cacheKey := cache.GenerateKey(cache.PlayerStatsPrefix, steamID)

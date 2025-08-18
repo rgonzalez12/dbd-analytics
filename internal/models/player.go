@@ -6,6 +6,7 @@ type PlayerStats struct {
 	// Core player identification
 	SteamID     string `json:"steam_id" validate:"required"`
 	DisplayName string `json:"display_name" validate:"required,min=1,max=32"`
+	Avatar      string `json:"avatar,omitempty"` // Steam avatar URL
 
 	// Progression metrics
 	KillerPips   int `json:"killer_pips" validate:"min=0"`
