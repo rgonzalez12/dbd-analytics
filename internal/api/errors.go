@@ -2,11 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
-	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
 type StandardError struct {
@@ -66,58 +64,6 @@ func writeValidationError(w http.ResponseWriter, r *http.Request, message string
 		"field": field,
 	}
 	writeError(w, r, "VALIDATION_ERROR", message, http.StatusBadRequest, details, nil)
-}
-
-func writeSteamAPIError(w http.ResponseWriter, r *http.Request, apiErr *steam.APIError) {
-	var code string
-	var statusCode int
-	var retryAfter *int
-	details := make(map[string]interface{})
-
-	switch apiErr.Type {
-	case steam.ErrorTypeValidation:
-		code = "VALIDATION_ERROR"
-		statusCode = http.StatusBadRequest
-		details["field"] = "steam_id"
-	case steam.ErrorTypeNotFound:
-		code = "NOT_FOUND"
-		statusCode = http.StatusNotFound
-		details["resource"] = "steam_profile"
-	case steam.ErrorTypeRateLimit:
-		code = "RATE_LIMITED"
-		statusCode = http.StatusTooManyRequests
-		if apiErr.RetryAfter > 0 {
-			details["retry_after_seconds"] = apiErr.RetryAfter
-			w.Header().Set("Retry-After", fmt.Sprintf("%d", apiErr.RetryAfter))
-			retryAfterInt := int(apiErr.RetryAfter)
-			retryAfter = &retryAfterInt
-		}
-	case steam.ErrorTypeAPIError:
-		if apiErr.StatusCode >= 500 {
-			code = "EXTERNAL_SERVICE_ERROR"
-			statusCode = http.StatusBadGateway
-		} else {
-			code = "EXTERNAL_SERVICE_ERROR"
-			statusCode = http.StatusBadGateway
-		}
-		details["service"] = "steam_api"
-		if apiErr.StatusCode != 0 {
-			details["upstream_status"] = apiErr.StatusCode
-		}
-	case steam.ErrorTypeNetwork:
-		code = "EXTERNAL_SERVICE_UNAVAILABLE"
-		statusCode = http.StatusBadGateway
-		details["service"] = "steam_api"
-	default:
-		code = "INTERNAL_ERROR"
-		statusCode = http.StatusInternalServerError
-	}
-
-	if apiErr.Retryable {
-		details["retryable"] = true
-	}
-
-	writeError(w, r, code, apiErr.Message, statusCode, details, retryAfter)
 }
 
 // writeTimeoutError creates a standardized timeout error response
