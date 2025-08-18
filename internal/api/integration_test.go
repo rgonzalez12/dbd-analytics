@@ -12,9 +12,7 @@ import (
 
 // TestSteamAPIOutageScenarios tests various Steam API failure scenarios
 func TestSteamAPIOutageScenarios(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping Steam API outage tests in short mode")
-	}
+	requireSteamAPIKey(t)
 
 	scenarios := []struct {
 		name            string
@@ -31,14 +29,14 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 		{
 			name:            "Non-existent Steam ID",
 			steamID:         "76561199999999999",   // Very high number, likely non-existent
-			expectedStatus:  http.StatusBadRequest, // Will be 400 when STEAM_API_KEY is not set
-			shouldHaveError: true,
+			expectedStatus:  0,                     // Status depends on API key availability
+			shouldHaveError: false,                 // May or may not error depending on setup
 		},
 		{
 			name:            "Valid Steam ID Format",
-			steamID:         "counteredspell",    // Valid vanity URL
-			expectedStatus:  0,                   // Status depends on Steam API response
-			shouldHaveError: false,               // May or may not error depending on Steam
+			steamID:         "counteredspell",      // Valid vanity URL
+			expectedStatus:  0,                     // Status depends on Steam API response
+			shouldHaveError: false,                 // May or may not error depending on Steam
 		},
 	}
 
@@ -52,10 +50,17 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 
 			handler.GetPlayerStatsWithAchievements(w, req)
 
+			// For validation errors, status should be predictable
 			if scenario.expectedStatus != 0 {
 				if w.Code != scenario.expectedStatus {
 					t.Errorf("Expected status %d, got %d", scenario.expectedStatus, w.Code)
 				}
+			} else {
+				// For API-dependent scenarios, just ensure we get a valid HTTP status
+				if w.Code < 200 || w.Code > 599 {
+					t.Errorf("Got invalid HTTP status code: %d", w.Code)
+				}
+				t.Logf("Scenario '%s' returned status %d", scenario.name, w.Code)
 			}
 
 			// Verify error response structure if error expected
@@ -150,9 +155,7 @@ func TestCacheResiliency(t *testing.T) {
 
 // TestConcurrentRequestHandling tests behavior under high concurrent load
 func TestConcurrentRequestHandling(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping concurrent load test in short mode")
-	}
+	requireSteamAPIKey(t)
 
 	handler := NewHandler()
 
@@ -173,14 +176,21 @@ func TestConcurrentRequestHandling(t *testing.T) {
 
 	// Collect results
 	successCount := 0
+	errorCount := 0
 	for i := 0; i < numRequests; i++ {
 		code := <-results
 		if code == http.StatusOK {
 			successCount++
+		} else if code == http.StatusForbidden || code == http.StatusBadRequest {
+			errorCount++
 		}
 	}
 
-	// At least some requests should succeed (depending on Steam API status)
-	// This is more about ensuring the handler doesn't panic under load
-	t.Logf("Concurrent test: %d/%d requests succeeded", successCount, numRequests)
+	// Test that handler doesn't panic under load - either all succeed or all fail appropriately
+	totalHandled := successCount + errorCount
+	if totalHandled != numRequests {
+		t.Errorf("Expected %d total handled requests, got %d", numRequests, totalHandled)
+	}
+
+	t.Logf("Concurrent test: %d/%d requests succeeded, %d failed with expected errors", successCount, numRequests, errorCount)
 }
