@@ -39,10 +39,8 @@
 		const steamId = parseSteamInput(rawInput);
 		error = '';
 		
-		// Only navigate if we're in the browser
 		if (browser) {
 			try {
-				// Use proper encoding for the Steam ID
 				goto(`/player/${encodeURIComponent(steamId)}`);
 			} catch (err) {
 				console.error('Navigation error:', err);
@@ -52,27 +50,57 @@
 	}
 </script>
 
-<form 
-	class="mx-auto max-w-xl space-y-3" 
-	on:submit={handleSubmit}
-	aria-busy={$navigating ? 'true' : 'false'}
->
-	<label for="steamId" class="block text-sm text-neutral-300">Steam64 ID or Vanity</label>
-	<input
-		id="steamId"
-		class="w-full rounded-xl border border-neutral-700 bg-neutral-900 px-3 py-2 outline-none focus:border-neutral-400"
-		bind:value={input}
-		placeholder="7656119… or your vanity"
-		disabled={!!$navigating}
-	/>
-	{#if error}
-		<div class="text-sm text-red-400" aria-live="polite">{error}</div>
-	{/if}
-	<button 
-		class="rounded-xl bg-white/90 px-3 py-2 text-neutral-900 hover:bg-white disabled:opacity-50" 
-		type="submit"
-		disabled={!!$navigating}
-	>
-		{$navigating ? 'Searching...' : 'Search'}
-	</button>
-</form>
+<div class="min-h-screen flex items-center justify-center p-4">
+	<div class="search-container">
+		<!-- Header -->
+		<div class="text-center mb-16">
+			<h1 class="text-6xl font-bold mb-6 horror-title">
+				<span class="bg-gradient-to-r from-red-600 via-red-500 to-red-700 bg-clip-text text-transparent">
+					DBD Analytics
+				</span>
+			</h1>
+			<p class="text-gray-300 text-xl font-light horror-subtitle">
+				Uncover the darkness within your Dead by Daylight statistics
+			</p>
+		</div>
+		
+		<!-- Search Form -->
+		<div class="bg-card p-8">
+			<form on:submit={handleSubmit} class="search-form">
+				<input
+					bind:value={input}
+					placeholder="Steam ID, Profile URL, or Vanity Name"
+					class="search-input"
+					disabled={!!$navigating}
+				/>
+				<button 
+					type="submit"
+					class="search-button"
+					disabled={!!$navigating}
+				>
+					{#if $navigating}
+						<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+					{:else}
+						Search
+					{/if}
+				</button>
+			</form>
+			
+			{#if error}
+				<div class="mt-4 text-sm text-red-300 bg-red-900/30 border border-red-700/50 rounded-lg p-4">
+					{error}
+				</div>
+			{/if}
+		</div>
+
+		<!-- Quick Info -->
+		<div class="mt-12 text-center">
+			<p class="text-gray-400 text-sm horror-subtitle">
+				Enter your Steam profile URL, Steam ID, or vanity name to delve into the Entity's realm
+			</p>
+			<p class="text-gray-500 text-xs mt-2 horror-subtitle">
+				Track your progress through the fog of terror
+			</p>
+		</div>
+	</div>
+</div>

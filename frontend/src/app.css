@@ -1,10 +1,562 @@
-@import "tailwindcss";
+/* Import ultra-clean modern fonts like Apple/Warby Parker */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=SF+Pro+Display:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=System+UI:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* App-wide utilities */
-:root { color-scheme: dark light; }
-html, body, #svelte { height: 100%; }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+html {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	scroll-behavior: smooth;
+}
 
 body {
-	background-color: #1a1a1a;
+	background: linear-gradient(135deg, #000000 0%, #1a0b0b 25%, #0a0a0a 50%, #1a0b0b 75%, #000000 100%);
+	color: #e5e5e5;
+	min-height: 100vh;
+	position: relative;
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+/* Minimal atmospheric background - barely visible fog */
+body::before {
+	content: '';
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: 
+		radial-gradient(circle at 20% 20%, rgba(139, 0, 0, 0.003) 0%, transparent 50%),
+		radial-gradient(circle at 80% 80%, rgba(139, 0, 0, 0.002) 0%, transparent 50%);
+	pointer-events: none;
+	z-index: -1;
+}
+
+/* Ultra-clean Apple-style title font */
+.horror-title {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	font-weight: 700;
+	text-shadow: 
+		0 0 10px rgba(220, 38, 38, 0.3),
+		0 0 20px rgba(220, 38, 38, 0.15),
+		1px 1px 2px rgba(0, 0, 0, 0.6);
+	letter-spacing: -0.02em;
+}
+
+.horror-subtitle {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	font-weight: 400;
+	letter-spacing: -0.01em;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Clean glass effect for cards - no effects at all */
+.bg-card {
+	background: rgba(0, 0, 0, 0.85);
+	border: 1px solid rgba(139, 0, 0, 0.3);
+	backdrop-filter: blur(12px);
+	border-radius: 0.875rem;
+	box-shadow: 
+		0 4px 12px -2px rgba(0, 0, 0, 0.4),
+		0 2px 6px -1px rgba(0, 0, 0, 0.2),
+		inset 0 1px 0 rgba(139, 0, 0, 0.1),
+		0 0 15px rgba(139, 0, 0, 0.08);
+}
+
+/* Enhanced search container */
+.search-container {
+	max-width: 600px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+/* Enhanced form styling with horror theme */
+.search-form {
+	display: flex;
+	gap: 0.75rem;
+	width: 100%;
+}
+
+.search-input {
+	flex: 1;
+	padding: 1rem 1.25rem;
+	background: rgba(0, 0, 0, 0.9);
+	border: 2px solid rgba(139, 0, 0, 0.4);
+	border-radius: 0.75rem;
+	color: #e5e5e5;
+	font-weight: 400;
+	backdrop-filter: blur(8px);
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	box-shadow: 
+		inset 0 1px 2px rgba(0, 0, 0, 0.4),
+		0 0 10px rgba(139, 0, 0, 0.05);
+	outline: none;
+}
+
+.search-input::placeholder {
+	color: #6b7280;
+	font-style: normal;
+}
+
+.search-input:focus {
+	border-color: #dc2626;
+	box-shadow: 
+		0 0 0 4px rgba(220, 38, 38, 0.15),
+		inset 0 1px 2px rgba(0, 0, 0, 0.4),
+		0 0 25px rgba(139, 0, 0, 0.2);
+	background: rgba(0, 0, 0, 0.95);
+}
+
+.search-button {
+	padding: 1rem 2rem;
+	background: linear-gradient(135deg, #dc2626, #b91c1c);
 	color: white;
+	border: none;
+	border-radius: 0.75rem;
+	font-weight: 600;
+	cursor: pointer;
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	letter-spacing: -0.01em;
+	box-shadow: 
+		0 4px 12px rgba(220, 38, 38, 0.3),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.search-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Ultra-clean player header like Apple/Warby Parker */
+.player-header {
+	display: flex;
+	align-items: center;
+	gap: 2rem;
+	padding: 2.5rem;
+	background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(26, 11, 11, 0.8) 100%);
+}
+
+.player-header h1 {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	font-weight: 600;
+	font-size: 1.875rem;
+	color: #ef4444;
+	letter-spacing: -0.025em;
+}
+
+.player-info {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+.player-info .steam-id-only {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	font-weight: 500;
+	color: #9ca3af;
+	font-size: 0.875rem;
+	letter-spacing: -0.01em;
+}
+
+.player-avatar {
+	width: 6rem;
+	height: 6rem;
+	border-radius: 50%;
+	border: 3px solid #dc2626;
+	box-shadow: 
+		0 6px 12px -2px rgba(0, 0, 0, 0.4),
+		0 0 20px rgba(220, 38, 38, 0.3);
+	filter: drop-shadow(0 0 10px rgba(139, 0, 0, 0.5));
+}
+
+.player-info h1 {
+	font-size: 2.5rem;
+	font-weight: 700;
+	background: linear-gradient(135deg, #dc2626 0%, #991b1b 50%, #7f1d1d 100%);
+	background-clip: text;
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+	font-family: 'Butcherman', serif;
+	letter-spacing: 0.05em;
+}
+
+/* Enhanced tab navigation with horror theme */
+.tab-navigation {
+	background: rgba(0, 0, 0, 0.8);
+	backdrop-filter: blur(12px);
+	padding: 0.75rem;
+	border-radius: 1rem;
+	border: 2px solid rgba(139, 0, 0, 0.3);
+	display: flex;
+	gap: 0.5rem;
+	box-shadow: 
+		inset 0 2px 4px rgba(0, 0, 0, 0.6),
+		0 0 20px rgba(139, 0, 0, 0.1);
+}
+
+.tab-button {
+	flex: 1;
+	padding: 1rem 1.5rem;
+	border-radius: 0.75rem;
+	font-weight: 600;
+	font-size: 0.875rem;
+	text-align: center;
+	transition: all 0.3s ease-in-out;
+	border: 2px solid transparent;
+	cursor: pointer;
+	font-family: 'JetBrains Mono', monospace;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.tab-button.active {
+	background: linear-gradient(135deg, #8b0000 0%, #660000 50%, #330000 100%);
+	color: #e5e5e5;
+	border-color: rgba(139, 0, 0, 0.6);
+	box-shadow: 
+		0 6px 12px -2px rgba(0, 0, 0, 0.4),
+		inset 0 1px 0 rgba(139, 0, 0, 0.2),
+		0 0 20px rgba(139, 0, 0, 0.3);
+	text-shadow: 0 0 10px rgba(139, 0, 0, 0.8);
+}
+
+.tab-button.inactive {
+	background: rgba(0, 0, 0, 0.4);
+	color: #999999;
+	border-color: rgba(139, 0, 0, 0.1);
+}
+
+.tab-button.inactive:hover {
+	background: rgba(139, 0, 0, 0.2);
+	color: #cccccc;
+	border-color: rgba(139, 0, 0, 0.3);
+	box-shadow: 0 0 15px rgba(139, 0, 0, 0.2);
+}
+
+/* Enhanced stats grid with horror styling */
+.stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 2rem;
+}
+
+.stats-card {
+	padding: 2rem;
+	transition: all 0.3s ease-in-out;
+	background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(26, 11, 11, 0.6) 100%);
+	border: 2px solid rgba(139, 0, 0, 0.2);
+	position: relative;
+	overflow: hidden;
+}
+
+.stats-card::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.1), transparent);
+	transition: all 0.6s ease-in-out;
+}
+
+.stats-card:hover::before {
+	left: 100%;
+}
+
+.stats-card:hover {
+	transform: translateY(-4px) scale(1.02);
+	border-color: rgba(139, 0, 0, 0.5);
+	box-shadow: 
+		0 12px 20px -4px rgba(0, 0, 0, 0.6),
+		0 0 30px rgba(139, 0, 0, 0.3);
+}
+
+.stats-card h3 {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: #888888;
+	margin-bottom: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	font-family: 'JetBrains Mono', monospace;
+}
+
+.stats-card p {
+	font-size: 2.25rem;
+	font-weight: 700;
+	font-family: 'JetBrains Mono', monospace;
+	text-shadow: 0 0 10px currentColor;
+}
+
+/* Enhanced achievement styling with horror theme */
+.achievement-grid {
+	display: grid;
+	gap: 1.5rem;
+}
+
+.achievement-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 1.25rem;
+	padding: 1.5rem;
+	border-radius: 1rem;
+	transition: all 0.3s ease-in-out;
+	border: 2px solid transparent;
+	position: relative;
+	overflow: hidden;
+}
+
+.achievement-item::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+	transition: all 0.8s ease-in-out;
+}
+
+.achievement-item.achievement-unlocked::before {
+	background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+}
+
+.achievement-item:hover::before {
+	left: 100%;
+}
+
+.achievement-item:hover {
+	transform: translateY(-3px) scale(1.01);
+	box-shadow: 0 12px 20px -4px rgba(0, 0, 0, 0.5);
+}
+
+.achievement-unlocked {
+	background: linear-gradient(135deg, rgba(0, 100, 0, 0.2) 0%, rgba(0, 50, 0, 0.1) 100%);
+	border-color: rgba(16, 185, 129, 0.4);
+	box-shadow: 
+		0 6px 12px -2px rgba(0, 0, 0, 0.3),
+		0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.achievement-locked {
+	background: rgba(0, 0, 0, 0.6);
+	border-color: rgba(139, 0, 0, 0.2);
+	box-shadow: 
+		0 4px 8px -2px rgba(0, 0, 0, 0.4),
+		inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Enhanced adept grid with horror styling */
+.adept-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 1.5rem;
+}
+
+.adept-item {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 1.25rem;
+	border-radius: 1rem;
+	transition: all 0.3s ease-in-out;
+	border: 2px solid transparent;
+	position: relative;
+	overflow: hidden;
+}
+
+.adept-item::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 100%;
+	height: 100%;
+	transition: all 0.8s ease-in-out;
+}
+
+.adept-item:hover::before {
+	left: 100%;
+}
+
+.adept-item:hover {
+	transform: translateY(-2px) scale(1.01);
+}
+
+.adept-unlocked {
+	background: linear-gradient(135deg, rgba(0, 100, 0, 0.2) 0%, rgba(0, 50, 0, 0.1) 100%);
+	border-color: rgba(16, 185, 129, 0.4);
+	box-shadow: 
+		0 6px 12px -2px rgba(0, 0, 0, 0.3),
+		0 0 15px rgba(16, 185, 129, 0.1);
+}
+
+.adept-unlocked::before {
+	background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+}
+
+.adept-locked {
+	background: rgba(0, 0, 0, 0.6);
+	border-color: rgba(139, 0, 0, 0.2);
+	box-shadow: 
+		0 4px 8px -2px rgba(0, 0, 0, 0.4),
+		inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.adept-locked::before {
+	background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.1), transparent);
+}
+
+/* Section spacing */
+.section-spacing {
+	margin-bottom: 3rem;
+}
+
+.section-spacing:last-child {
+	margin-bottom: 0;
+}
+
+/* Container improvements */
+.container-custom {
+	max-width: 90rem;
+	margin: 0 auto;
+	padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+	.container-custom {
+		padding: 0 1.5rem;
+	}
+}
+
+@media (min-width: 1024px) {
+	.container-custom {
+		padding: 0 2rem;
+	}
+}
+
+/* Horror-themed color classes */
+.text-horror-primary {
+	color: #dc2626;
+	text-shadow: 0 0 10px rgba(220, 38, 38, 0.5);
+}
+
+.text-horror-secondary {
+	color: #991b1b;
+	text-shadow: 0 0 8px rgba(153, 27, 27, 0.4);
+}
+
+.text-horror-accent {
+	color: #8b0000;
+	text-shadow: 0 0 6px rgba(139, 0, 0, 0.6);
+}
+
+.text-success-glow {
+	color: #10b981;
+	text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+.text-warning-glow {
+	color: #f59e0b;
+	text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.text-info-glow {
+	color: #3b82f6;
+	text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+	.search-form {
+		flex-direction: column;
+		gap: 1rem;
+	}
+	
+	.tab-navigation {
+		flex-direction: column;
+		gap: 0.5rem;
+		padding: 1rem;
+	}
+	
+	.tab-button {
+		width: 100%;
+		padding: 1rem;
+	}
+	
+	.player-header {
+		flex-direction: column;
+		text-align: center;
+		gap: 1.5rem;
+		padding: 2rem;
+	}
+	
+	.player-info h1 {
+		font-size: 2rem;
+	}
+	
+	.stats-grid {
+		grid-template-columns: 1fr;
+		gap: 1.5rem;
+	}
+	
+	.adept-grid {
+		grid-template-columns: 1fr;
+		gap: 1rem;
+	}
+	
+	.achievement-item {
+		padding: 1rem;
+		gap: 1rem;
+	}
+	
+	.adept-item {
+		padding: 1rem;
+	}
+}
+
+/* Enhanced tab navigation with better horror integration */
+.tab-navigation {
+	display: flex;
+	gap: 1rem;
+	margin-bottom: 2rem;
+	padding: 0.5rem;
+	background: linear-gradient(90deg, 
+		rgba(20, 20, 20, 0.8) 0%, 
+		rgba(30, 10, 10, 0.6) 50%, 
+		rgba(20, 20, 20, 0.8) 100%);
+	border-radius: 12px;
+	border: 1px solid rgba(139, 0, 0, 0.2);
+	backdrop-filter: blur(8px);
+}
+
+.tab-button {
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	font-weight: 500;
+	padding: 0.75rem 1.5rem;
+	border-radius: 8px;
+	border: 1px solid transparent;
+	background: transparent;
+	color: #9ca3af;
+	letter-spacing: -0.01em;
+	cursor: pointer;
+}
+
+.tab-button.active {
+	background: linear-gradient(135deg, rgba(139, 0, 0, 0.3), rgba(139, 0, 0, 0.2));
+	color: #ef4444;
+	border-color: rgba(139, 0, 0, 0.4);
+	box-shadow: 
+		0 2px 8px rgba(139, 0, 0, 0.2),
+		inset 0 1px 0 rgba(255, 255, 255, 0.08);
+	text-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+/* Clean header styling */
+header {
+	position: relative;
+	overflow: hidden;
 }

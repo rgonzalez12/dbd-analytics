@@ -173,6 +173,12 @@ export type Player = {
       rarity?: number;
     }>;
     adepts: { survivors: Record<string, boolean>; killers: Record<string, boolean> };
+    // Legacy format for backward compatibility
+    adept_survivors?: Record<string, boolean>;
+    adept_killers?: Record<string, boolean>;
+    // Backend format (PascalCase)
+    AdeptSurvivors?: Record<string, boolean>;
+    AdeptKillers?: Record<string, boolean>;
   };
   sources?: {
     stats?: { success: boolean; source: 'cache'|'api'|'fallback'; error?: string; fetched_at?: string };
@@ -239,4 +245,30 @@ export type SchemaPlayer = {
   achievements: SchemaUIAchievement[];
   lastUpdated: string;
   dataSources: SchemaDataSources;
+};
+
+// Individual types for backward compatibility and convenience
+export type Achievement = {
+  id: string;
+  name: string;
+  display_name?: string;
+  displayName?: string;
+  description: string;
+  icon?: string;
+  icon_gray?: string;
+  hidden?: boolean;
+  character?: string;
+  type: string;
+  unlocked: boolean;
+  achieved?: boolean;
+  unlock_time?: number;
+  unlockTime?: number;
+  rarity?: number;
+};
+
+export type Adept = {
+  name: string;
+  displayName: string;
+  unlocked: boolean;
+  category: 'survivor' | 'killer';
 };
