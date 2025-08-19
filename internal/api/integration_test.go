@@ -179,9 +179,10 @@ func TestConcurrentRequestHandling(t *testing.T) {
 	errorCount := 0
 	for i := 0; i < numRequests; i++ {
 		code := <-results
-		if code == http.StatusOK {
+		switch code {
+		case http.StatusOK:
 			successCount++
-		} else if code == http.StatusForbidden || code == http.StatusBadRequest {
+		case http.StatusForbidden, http.StatusBadRequest:
 			errorCount++
 		}
 	}

@@ -21,7 +21,8 @@ func requireSteamAPIKey(t *testing.T) {
 	}
 }
 
-// hasSteamAPIKey returns true if STEAM_API_KEY environment variable is set
-func hasSteamAPIKey() bool {
+// _hasSteamAPIKey returns true if STEAM_API_KEY environment variable is set
+// Prefixed with _ to indicate it's intentionally unused but kept for future use
+func _hasSteamAPIKey() bool {
 	return os.Getenv("STEAM_API_KEY") != ""
 }

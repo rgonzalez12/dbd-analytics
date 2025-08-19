@@ -17,8 +17,9 @@ func addJitter(baseTimeout time.Duration, jitterPercent float64) time.Duration {
 	return baseTimeout + jitter
 }
 
-// addJitterWithSeed adds jitter with a deterministic seed for testing
-func addJitterWithSeed(baseTimeout time.Duration, jitterPercent float64, seed int64) time.Duration {
+// _addJitterWithSeed adds jitter with a deterministic seed for testing
+// Prefixed with _ to indicate it's intentionally unused but kept for future testing
+func _addJitterWithSeed(baseTimeout time.Duration, jitterPercent float64, seed int64) time.Duration {
 	if jitterPercent <= 0 || jitterPercent > 1.0 {
 		jitterPercent = 0.1
 	}
