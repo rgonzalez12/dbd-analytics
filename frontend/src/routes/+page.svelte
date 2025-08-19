@@ -55,9 +55,7 @@
 		<!-- Header -->
 		<div class="text-center mb-16">
 			<h1 class="text-6xl font-bold mb-6 horror-title">
-				<span class="bg-gradient-to-r from-red-600 via-red-500 to-red-700 bg-clip-text text-transparent">
-					DBD Analytics
-				</span>
+				DBD Analytics
 			</h1>
 			<p class="text-gray-300 text-xl font-light horror-subtitle">
 				Uncover the darkness within your Dead by Daylight statistics
@@ -65,26 +63,28 @@
 		</div>
 		
 		<!-- Search Form -->
-		<div class="bg-card p-8">
-			<form on:submit={handleSubmit} class="search-form">
-				<input
-					bind:value={input}
-					placeholder="Steam ID, Profile URL, or Vanity Name"
-					class="search-input"
-					disabled={!!$navigating}
-				/>
-				<button 
-					type="submit"
-					class="search-button"
-					disabled={!!$navigating}
-				>
-					{#if $navigating}
-						<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-					{:else}
-						Search
-					{/if}
-				</button>
-			</form>
+		<form on:submit={handleSubmit} class="search-form">
+			<input
+				bind:value={input}
+				placeholder="Steam ID, Profile URL, or Vanity Name"
+				class="search-input"
+				disabled={!!$navigating}
+			/>
+			<button 
+				type="submit"
+				class="search-button"
+				disabled={!!$navigating}
+			>
+				{#if $navigating}
+					<div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+				{:else}
+					Search
+				{/if}
+			</button>
+		</form>
+		
+		<!-- Additional Info Card -->
+		<div class="bg-card p-8 mt-8">
 			
 			{#if error}
 				<div class="mt-4 text-sm text-red-300 bg-red-900/30 border border-red-700/50 rounded-lg p-4">
@@ -97,9 +97,6 @@
 		<div class="mt-12 text-center">
 			<p class="text-gray-400 text-sm horror-subtitle">
 				Enter your Steam profile URL, Steam ID, or vanity name to delve into the Entity's realm
-			</p>
-			<p class="text-gray-500 text-xs mt-2 horror-subtitle">
-				Track your progress through the fog of terror
 			</p>
 		</div>
 	</div>

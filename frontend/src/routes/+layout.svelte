@@ -12,7 +12,7 @@
 	<meta name="description" content="Dead by Daylight analytics and stats" />
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+<div class="min-h-screen">
 	<div class="mx-auto max-w-7xl relative">
 		<!-- Only show header on player pages -->
 		{#if isPlayerRoute}
