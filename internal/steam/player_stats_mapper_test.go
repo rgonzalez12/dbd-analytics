@@ -251,7 +251,7 @@ func TestAliasMap(t *testing.T) {
 // Mock test for integration - would need actual schema and user data
 func TestMapPlayerStatsIntegration(t *testing.T) {
 	// This would be a more comprehensive integration test
-	// For now, just test that the function signature works
+	// Test that the function signature works
 	ctx := context.Background()
 
 	// Would need mock client and cache for full test

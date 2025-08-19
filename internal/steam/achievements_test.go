@@ -113,7 +113,7 @@ func TestAdeptAchievementMapping(t *testing.T) {
 	if survivorCount != 46 {
 		t.Errorf("Expected 46 survivors, got %d", survivorCount)
 	}
-	// Note: 40 killers total, but Demogorgon doesn't have an adept achievement (was removed)
+	// 40 killers total, but Demogorgon doesn't have an adept achievement
 	if killerCount != 40 {
 		t.Errorf("Expected 40 killers in mapping, got %d", killerCount)
 	}

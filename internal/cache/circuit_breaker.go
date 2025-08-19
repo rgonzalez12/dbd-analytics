@@ -139,10 +139,10 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 		// Allow limited requests to test if service recovered
 
 	case CircuitClosed:
-		// Normal operation
+	// Normal operation
 
 	default:
-		// Should not happen, but handle gracefully
+	// Should not happen, but handle gracefully
 		log.Warn("Circuit breaker in unknown state, treating as closed")
 	}
 
@@ -153,7 +153,7 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 	if err != nil {
 		cb.handleFailure(err)
 
-		// Check if circuit should be opened after recording the failure
+		// Check if circuit should be opened
 		if cb.state == CircuitClosed && cb.shouldOpenCircuit() {
 			cb.openCircuit()
 		}

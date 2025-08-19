@@ -136,7 +136,7 @@ func TestTTLConstantsBackwardCompatibility(t *testing.T) {
 	}
 }
 
-// TestGetEnvDuration tests the core env parsing function
+// TestGetEnvDuration tests the env parsing function
 func TestGetEnvDuration(t *testing.T) {
 	tests := []struct {
 		name     string

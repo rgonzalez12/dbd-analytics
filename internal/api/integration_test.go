@@ -82,7 +82,7 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 	}
 }
 
-// TestRateLimitingMiddleware tests the rate limiting functionality
+// TestRateLimitingMiddleware tests rate limiting functionality
 func TestRateLimitingMiddleware(t *testing.T) {
 	// Create rate limiter allowing 2 requests per second
 	limiter := NewRequestLimiter(2, time.Second)

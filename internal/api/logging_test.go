@@ -94,7 +94,7 @@ func TestLogOutputFormat(t *testing.T) {
 		"test_field", "test_value",
 		"test_number", 42)
 
-	// Note: In a real test environment, we'd need to capture the output
+	// In a real test environment, we'd need to capture the output
 	// For now, this tests that the calls work correctly
 	t.Log("Log output format test completed")
 }
@@ -114,7 +114,7 @@ func TestErrorLogging(t *testing.T) {
 
 	writeErrorResponse(w, apiErr)
 
-	// Note: In a real test environment, we'd need to capture the output
+	// In a real test environment, we'd need to capture the output
 	// For now, this tests that the error response generation works correctly
 
 	if w.Code != 400 {

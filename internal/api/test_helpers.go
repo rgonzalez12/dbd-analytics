@@ -5,9 +5,7 @@ import (
 	"testing"
 )
 
-// requireSteamAPIKey only skips tests in short mode
-// When not in short mode, integration tests run regardless of API key availability
-// This allows testing both success cases (with key) and error handling (without key)
+// requireSteamAPIKey skips tests only in short mode
 func requireSteamAPIKey(t *testing.T) {
 	t.Helper()
 	
@@ -15,7 +13,6 @@ func requireSteamAPIKey(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	
-	// Let integration tests run even without API key to test error handling
 	key := os.Getenv("STEAM_API_KEY")
 	if key == "" {
 		t.Logf("Running integration test without STEAM_API_KEY - will test error handling behavior")

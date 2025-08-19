@@ -19,7 +19,7 @@ func TestAchievementMapper(t *testing.T) {
 			t.Errorf("Expected 46 survivors mapped, got %d", survivorCount)
 		}
 
-		// Note: 40 killers total in DBD, all should be mappable even though Demogorgon has no achievement
+		// 40 killers total in DBD, all should be mappable
 		if killerCount != 40 {
 			t.Errorf("Expected 40 killers mapped, got %d", killerCount)
 		}
@@ -92,7 +92,7 @@ func TestAchievementMapper(t *testing.T) {
 		mapped := mapper.MapPlayerAchievements(testAchievements)
 
 		// Find specific achievements and verify their types
-		// Note: In fallback mode (no schema), types are determined by AdeptAchievementMapping lookup
+		// In fallback mode, types are determined by AdeptAchievementMapping lookup
 		for _, achievement := range mapped {
 			switch achievement.ID {
 			case "ACH_UNLOCK_DWIGHT_PERKS":

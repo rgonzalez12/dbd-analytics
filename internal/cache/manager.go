@@ -183,7 +183,7 @@ func GenerateKey(prefix string, parts ...string) string {
 	return key
 }
 
-// Note: Cache key prefixes are now defined in keys.go
+// Cache key prefixes are defined in keys.go
 
 // Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
 const (

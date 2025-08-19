@@ -105,7 +105,7 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 
 		lastErr = err
 
-		// Check if we should retry this error type
+		// Check if we should retry this error
 		if shouldStop || !shouldRetryError(err) {
 			if operation != "" {
 				slog.Info("Operation failed with non-retryable error",

@@ -358,7 +358,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 	return resp.Response.SteamID, nil
 }
 
-// ResolveSteamID resolves a vanity URL to a Steam ID, or returns the input if it's already a Steam ID
+// ResolveSteamID resolves a vanity URL to Steam ID, or returns input if already a Steam ID
 func (c *Client) ResolveSteamID(steamIDOrVanity string) (string, *APIError) {
 	return c.resolveSteamID(steamIDOrVanity)
 }

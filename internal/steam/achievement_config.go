@@ -211,7 +211,7 @@ func (config *AchievementConfig) GetAchievementByAPIName(apiName string) (*Achie
 	return nil, false
 }
 
-// GetAchievementsByType returns all achievements of a specific type
+// GetAchievementsByType returns achievements of a specific type
 func (config *AchievementConfig) GetAchievementsByType(achievementType string) []AchievementEntry {
 	switch achievementType {
 	case "survivor":

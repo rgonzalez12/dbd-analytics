@@ -8,7 +8,7 @@
 	// Tab state
 	let activeTab: 'overview' | 'adepts' | 'stats' | 'achievements' = 'overview';
 	
-	// Dead by Daylight character mappings (restored from your original work)
+	// Character mappings
 	const adeptMapping = {
 		// Base Game Survivors
 		"ACH_UNLOCK_DWIGHT_PERKS": { name: "dwight", type: "survivor", displayName: "Dwight Fairfield" },
@@ -119,7 +119,7 @@
 	}
 
 	// Categorize achievements by type using the original Player data structure
-	// Note: Adept achievements are excluded here since they have their own dedicated tab
+	// Adept achievements are excluded here since they have their own dedicated tab
 	$: achievementsByCategory = (() => {
 		if (!player?.achievements?.mapped) return { killer: [], survivor: [], general: [] };
 

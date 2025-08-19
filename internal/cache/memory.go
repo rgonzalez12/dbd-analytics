@@ -76,7 +76,7 @@ func NewMemoryCache(config MemoryCacheConfig) *MemoryCache {
 	return cache
 }
 
-// Set stores a value with specified TTL
+// Set stores a value with TTL
 func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) error {
 	if key == "" {
 		return fmt.Errorf("cache key cannot be empty")

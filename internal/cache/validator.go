@@ -181,7 +181,7 @@ func (v *CacheValidator) validateEntry(key string, entry *CacheEntry) string {
 		return "future_access_time"
 	}
 
-	// Check if entry has already expired (shouldn't be in cache)
+	// Check if entry has already expired
 	if entry.IsExpired() {
 		return "expired_entry"
 	}
@@ -420,7 +420,7 @@ func (v *CacheValidator) attemptEntryRecovery(key string, entry *CacheEntry, cor
 			}
 
 		case "zero_accessed_at":
-			// Set accessed time to creation time or now
+			// Set accessed time to creation time
 			if !entry.ExpiresAt.IsZero() {
 				entry.AccessedAt = entry.ExpiresAt.Add(-5 * time.Minute)
 			} else {
