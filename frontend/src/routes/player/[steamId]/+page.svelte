@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import type { Player, Achievement, Adept } from '../../../lib/api/types';
 	import type { PageData } from './$types';
+	import { displayStatValue } from '../../../lib/api/player-adapter';
 
 	export let data: PageData;
 
@@ -282,21 +283,86 @@
 				</div>
 
 			{:else if activeTab === 'stats'}
-				<div class="bg-card p-8">
-					<h2 class="text-2xl font-bold text-white mb-6">Statistics</h2>
-					{#if player.stats}
-						<div class="stats-grid">
-							{#each Object.entries(player.stats) as [key, value]}
-								<div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/30">
-									<h3 class="text-slate-400 capitalize text-sm font-medium mb-2">{key.replace(/_/g, ' ')}</h3>
-									<p class="text-2xl font-bold {getGradeColor(Number(value))}">
-										{typeof value === 'number' ? value.toLocaleString() : value}
-									</p>
+				<div class="section-spacing">
+					{#if player.stats && player.stats.all && (player.stats.all.length > 0)}
+						<!-- Stats Summary -->
+						<div class="bg-card p-6 mb-6">
+							<h2 class="text-2xl font-bold text-white mb-4">Statistics Overview</h2>
+							<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+								<div>
+									<div class="text-2xl font-bold text-horror-primary">{player.stats.summary?.killer_count || 0}</div>
+									<div class="text-sm text-gray-400">Killer Stats</div>
 								</div>
-							{/each}
+								<div>
+									<div class="text-2xl font-bold text-success-glow">{player.stats.summary?.survivor_count || 0}</div>
+									<div class="text-sm text-gray-400">Survivor Stats</div>
+								</div>
+								<div>
+									<div class="text-2xl font-bold text-info-glow">{player.stats.summary?.general_count || 0}</div>
+									<div class="text-sm text-gray-400">General Stats</div>
+								</div>
+								<div>
+									<div class="text-2xl font-bold text-warning-glow">{player.stats.summary?.total_stats || 0}</div>
+									<div class="text-sm text-gray-400">Total Stats</div>
+								</div>
+							</div>
 						</div>
+
+						<!-- Killer Stats -->
+						{#if player.stats.killer && player.stats.killer.length > 0}
+							<div class="bg-card p-6 mb-6">
+								<h3 class="text-xl font-bold text-horror-primary mb-4">Killer Statistics ({player.stats.killer.length})</h3>
+								<div class="stats-grid">
+									{#each player.stats.killer as stat}
+										<div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700/30">
+											<h4 class="text-slate-400 text-sm font-medium mb-1">{stat.name}</h4>
+											<p class="text-lg font-bold text-horror-primary">
+												{displayStatValue(stat)}
+											</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- Survivor Stats -->
+						{#if player.stats.survivor && player.stats.survivor.length > 0}
+							<div class="bg-card p-6 mb-6">
+								<h3 class="text-xl font-bold text-success-glow mb-4">Survivor Statistics ({player.stats.survivor.length})</h3>
+								<div class="stats-grid">
+									{#each player.stats.survivor as stat}
+										<div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700/30">
+											<h4 class="text-slate-400 text-sm font-medium mb-1">{stat.name}</h4>
+											<p class="text-lg font-bold text-success-glow">
+												{displayStatValue(stat)}
+											</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
+
+						<!-- General Stats -->
+						{#if player.stats.general && player.stats.general.length > 0}
+							<div class="bg-card p-6">
+								<h3 class="text-xl font-bold text-info-glow mb-4">General Statistics ({player.stats.general.length})</h3>
+								<div class="stats-grid">
+									{#each player.stats.general as stat}
+										<div class="bg-slate-800/50 p-4 rounded-lg border border-slate-700/30">
+											<h4 class="text-slate-400 text-sm font-medium mb-1">{stat.name}</h4>
+											<p class="text-lg font-bold text-info-glow">
+												{displayStatValue(stat)}
+											</p>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					{:else}
-						<p class="text-slate-400 text-center py-8">No statistics available</p>
+						<div class="bg-card p-8 text-center">
+							<h2 class="text-2xl font-bold text-white mb-4">Statistics</h2>
+							<p class="text-slate-400">No statistics available or failed to load stats data.</p>
+						</div>
 					{/if}
 				</div>
 

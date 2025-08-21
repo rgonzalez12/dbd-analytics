@@ -49,18 +49,37 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 	const total = achievementSummary?.total_achievements || mapped.length;
 	const unlocked = achievementSummary?.unlocked_count || mapped.filter((a: any) => a.unlocked).length;
 
-	// Create minimal stats structure to satisfy the type
-	const emptyStats: any[] = [];
-	const defaultSummary = {
-		total_stats: 0,
-		killer_count: 0,
-		survivor_count: 0,
-		general_count: 0
-	};
-
-	// Process actual stats data using selectHeader with statsSummary
+	// Process stats data using the player adapter
+	const wireStats = (raw.stats?.stats || []).map(apiStat => {
+		const wireStat: any = {
+			id: apiStat.id,
+			display_name: apiStat.display_name,
+			value: apiStat.value,
+			category: apiStat.category,
+			value_type: apiStat.value_type,
+			sort_weight: apiStat.sort_weight
+		};
+		if (apiStat.formatted !== undefined) wireStat.formatted = apiStat.formatted;
+		if (apiStat.icon !== undefined) wireStat.icon = apiStat.icon;
+		if (apiStat.alias !== undefined) wireStat.alias = apiStat.alias;
+		if (apiStat.matched_by !== undefined) wireStat.matched_by = apiStat.matched_by;
+		return wireStat;
+	});
+	
 	const statsSummary = raw.stats?.summary || {};
-	const header = selectHeader([], statsSummary);
+	
+	// Convert to UI stats and organize
+	const uiStats = toUIStats(wireStats);
+	const sortedStats = sortStats(uiStats);
+	const groupedStats = groupStats(sortedStats);
+	const header = selectHeader(uiStats, statsSummary);
+	
+	const statsSummaryData = {
+		total_stats: uiStats.length,
+		killer_count: groupedStats.killer.length,
+		survivor_count: groupedStats.survivor.length,
+		general_count: groupedStats.general.length
+	};
 
 	return {
 		id: raw.steam_id,
@@ -71,13 +90,13 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		matches: toNum(raw.total_matches),
 		lastUpdated: raw.last_updated ?? null,
 		stats: {
-			// New structured stats (empty for now)
-			all: emptyStats,
-			killer: emptyStats,
-			survivor: emptyStats,
-			general: emptyStats,
+			// New structured stats (properly processed)
+			all: sortedStats,
+			killer: groupedStats.killer,
+			survivor: groupedStats.survivor,
+			general: groupedStats.general,
 			header: header,
-			summary: defaultSummary,
+			summary: statsSummaryData,
 			// Legacy individual fields for backward compatibility
 			killerPips: toNum(raw.killer_pips),
 			survivorPips: toNum(raw.survivor_pips),
