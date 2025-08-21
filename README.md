@@ -115,15 +115,6 @@ The system identifies grade types by examining Steam schema field names:
 - `DBD_SlasherTierIncrement` indicates killer grades
 - `DBD_UnlockRanking` indicates survivor grades
 
-## Documentation
-
-- [Technical Architecture](TECHNICAL_ARCHITECTURE.md) - System design details
-- [Achievement System](ACHIEVEMENTS.md) - Character name mapping for 86+ achievements
-- [Caching Strategy](CACHING.md) - Multi-layer cache and circuit breaker implementation
-- [Stats Implementation](STATS_IMPLEMENTATION.md) - Grade detection algorithm details
-- [Security](SECURITY.md) - Production security measures
-- [Logging](LOGGING.md) - Structured logging and monitoring setup
-
 ## Development
 
 ### Running Tests
