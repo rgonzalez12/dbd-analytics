@@ -20,9 +20,3 @@ func requireSteamAPIKey(t *testing.T) {
 		t.Logf("Running integration test with STEAM_API_KEY - will test live API behavior")
 	}
 }
-
-// _hasSteamAPIKey returns true if STEAM_API_KEY environment variable is set
-// Prefixed with _ to indicate it's intentionally unused but kept for future use
-func _hasSteamAPIKey() bool {
-	return os.Getenv("STEAM_API_KEY") != ""
-}

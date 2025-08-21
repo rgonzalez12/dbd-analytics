@@ -401,7 +401,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 				"duration_ms", fmt.Sprintf("%.2f", requestDuration.Seconds()*1000),
 				"error_type", "network_error",
 				"attempt", attempt+1)
-			lastErr = NewNetworkError(fmt.Errorf("error making GET request to %s: %w", apiURL, err))
+			lastErr = NewInternalError(fmt.Errorf("error making GET request to %s: %w", apiURL, err))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
 				return lastErr
 			}
@@ -466,12 +466,16 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 		}
 
 		if err := json.Unmarshal(body, result); err != nil {
+			previewLen := len(body)
+			if previewLen > 200 {
+				previewLen = 200
+			}
 			log.Error("steam_api_json_parse_failed",
 				"error", err.Error(),
 				"endpoint", endpoint,
 				"duration", requestDuration,
 				"response_size", len(body),
-				"body_preview", string(body)[:min(len(body), 200)],
+				"body_preview", string(body)[:previewLen],
 				"attempt", attempt+1)
 			lastErr = NewInternalError(fmt.Errorf("failed to parse JSON response from %s: %w", apiURL, err))
 			if !shouldRetryError(lastErr) || attempt >= c.retryConfig.MaxAttempts {
@@ -548,13 +552,6 @@ func isNumeric(s string) bool {
 	return true
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // GetSchemaForGame retrieves the game schema including achievements and stats
 func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 	log.Info("GetSchemaForGame called", "app_id", appID, "api_key_exists", c.apiKey != "", "api_key_length", len(c.apiKey))
@@ -571,13 +568,13 @@ func (c *Client) GetSchemaForGame(appID string) (*SchemaGame, *APIError) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, NewNetworkError(err)
+		return nil, NewInternalError(err)
 	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
 		log.Error("Network error in schema request", "error", err)
-		return nil, NewNetworkError(err)
+		return nil, NewInternalError(err)
 	}
 	defer resp.Body.Close()
 

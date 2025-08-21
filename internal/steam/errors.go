@@ -7,18 +7,6 @@ import (
 
 // Predefined error variables for common scenarios
 var (
-	ErrRateLimit = &APIError{
-		Type:       ErrorTypeRateLimit,
-		Message:    "Steam API rate-limited, try again later",
-		StatusCode: http.StatusTooManyRequests,
-		Retryable:  true,
-		RetryAfter: 60,
-	}
-	ErrUpstream = &APIError{
-		Type:      ErrorTypeAPIError,
-		Message:   "Steam API upstream error",
-		Retryable: true,
-	}
 )
 
 type ErrorType string
@@ -67,15 +55,6 @@ func NewUnauthorizedError(message string) *APIError {
 	}
 }
 
-func NewForbiddenError(message string) *APIError {
-	return &APIError{
-		Type:       ErrorTypeValidation,
-		Message:    message,
-		StatusCode: http.StatusForbidden,
-		Retryable:  false,
-	}
-}
-
 func NewNotFoundError(resource string) *APIError {
 	return &APIError{
 		Type:       ErrorTypeNotFound,
@@ -104,14 +83,6 @@ func isRetryableStatusCode(statusCode int) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func NewNetworkError(err error) *APIError {
-	return &APIError{
-		Type:      ErrorTypeNetwork,
-		Message:   fmt.Sprintf("Network error: %v", err),
-		Retryable: true,
 	}
 }
 

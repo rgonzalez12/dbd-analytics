@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -128,7 +129,7 @@ func TestGetPlayerSummary(t *testing.T) {
 			name:           "Steam API timeout/network error",
 			steamID:        "counteredspell",
 			mockResponse:   nil,
-			mockError:      steam.NewNetworkError(nil),
+			mockError:      steam.NewInternalError(fmt.Errorf("network error")),
 			expectedStatus: http.StatusBadGateway,
 			expectError:    true,
 		},
