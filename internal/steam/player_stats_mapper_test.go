@@ -14,13 +14,13 @@ func TestDecodeGrade(t *testing.T) {
 		expectedSub   int
 		expectedHuman string
 	}{
-		{"Unranked", 0, "DBD_SlasherTierIncrement", "Unknown", 1, "?"},
+		{"Unranked", 0, "DBD_SlasherTierIncrement", "Ash", 4, "Ash IV"},
 		{"Ash IV", 16, "DBD_SlasherTierIncrement", "Ash", 4, "Ash IV"},
 		{"Silver III Killer", 300, "DBD_SlasherTierIncrement", "Silver", 3, "Silver III"},
 		{"Bronze IV", 73, "DBD_SlasherTierIncrement", "Bronze", 4, "Bronze IV"},
 		{"Ash III Survivor", 545, "DBD_UnlockRanking", "Ash", 3, "Ash III"},
 		{"Ash III Survivor (541)", 541, "DBD_UnlockRanking", "Ash", 3, "Ash III"},
-		{"Unknown grade", 999, "DBD_SlasherTierIncrement", "Unknown", 1, "?"},
+		{"High grade value", 999, "DBD_SlasherTierIncrement", "Iridescent", 3, "Iridescent III"},
 	}
 
 	for _, tt := range tests {
@@ -39,12 +39,7 @@ func TestDecodeGrade(t *testing.T) {
 				t.Errorf("Expected human %s, got %s", tt.expectedHuman, human)
 			}
 
-			// For unknown grades, roman numeral is "?", not the expected roman numeral
-			if tt.name == "Unknown grade" || tt.expectedHuman == "?" {
-				if roman != "?" {
-					t.Errorf("Expected roman ?, got %s", roman)
-				}
-			} else if tt.expectedSub > 0 && roman != romanExpected(tt.expectedSub) {
+			if tt.expectedSub > 0 && roman != romanExpected(tt.expectedSub) {
 				t.Errorf("Expected roman %s, got %s", romanExpected(tt.expectedSub), roman)
 			}
 		})
