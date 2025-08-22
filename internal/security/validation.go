@@ -51,13 +51,11 @@ func ValidateEnvironment() error {
 		}
 	}
 
-	// Log security audit (without sensitive values)
 	logSecurityAudit(config)
-
+	
 	return nil
 }
 
-// logSecurityAudit logs security-related startup information
 func logSecurityAudit(config SecurityConfig) {
 	log.Info("Security audit completed",
 		"required_env_vars_count", len(config.RequiredEnvVars),
@@ -67,7 +65,6 @@ func logSecurityAudit(config SecurityConfig) {
 		"log_level", os.Getenv("LOG_LEVEL"),
 		"port", os.Getenv("PORT"))
 
-	// Log environment variables that are set (excluding sensitive ones)
 	var setEnvVars []string
 	for _, envVar := range []string{"LOG_LEVEL", "PORT", "WORKDIR"} {
 		if os.Getenv(envVar) != "" {

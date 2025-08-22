@@ -783,7 +783,6 @@ func formatValue(v float64, valueType string, fieldID string) string {
 		// Format floats with 1 decimal place
 		return fmt.Sprintf("%.1f", v)
 	case "grade":
-		// Decode grade using existing logic
 		_, human, _ := decodeGrade(v, fieldID)
 		return human
 	case "level":

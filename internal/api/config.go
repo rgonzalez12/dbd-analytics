@@ -127,17 +127,6 @@ func LoadAPIConfigFromEnv() APIConfig {
 	config.BaseBackoff = time.Duration(config.BaseBackoffMs) * time.Millisecond
 	config.MaxBackoff = time.Duration(config.MaxBackoffMs) * time.Millisecond
 
-	// Log configuration for debugging
-	log.Info("API configuration loaded",
-		"cb_max_fails", config.CBMaxFails,
-		"cb_reset_timeout", config.CBResetTimeout,
-		"api_timeout", config.APITimeout,
-		"achievements_timeout", config.AchievementsTimeout,
-		"max_retries", config.MaxRetries,
-		"base_backoff", config.BaseBackoff,
-		"rate_limit", config.RateLimit,
-		"source", "environment_with_defaults")
-
 	return config
 }
 

@@ -14,7 +14,6 @@
 
 <div class="min-h-screen">
 	<div class="mx-auto max-w-7xl relative">
-		<!-- Only show header on player pages -->
 		{#if isPlayerRoute}
 			<header class="p-6 bg-gradient-to-r from-black/60 via-red-950/10 to-black/60 backdrop-blur-sm">
 				<div class="flex items-center justify-between">

@@ -216,7 +216,6 @@ func GetTTLFromEnv() TTLConfig {
 		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", DefaultTTL),    // Use deprecated constant for backward compatibility
 	}
 
-	// Log TTL configuration source for debugging
 	internalLog.Info("Cache TTL configuration loaded",
 		"player_stats_ttl", config.PlayerStats,
 		"player_summary_ttl", config.PlayerSummary,
@@ -239,7 +238,6 @@ func getEnvDuration(envKey string, fallback time.Duration) time.Duration {
 				"source", "environment")
 			return duration
 		}
-		// Log warning about invalid duration format but continue with fallback
 		internalLog.Warn("Invalid duration format in environment variable",
 			"env_key", envKey,
 			"value", value,

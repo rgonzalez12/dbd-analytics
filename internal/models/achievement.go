@@ -51,8 +51,13 @@ type PlayerStatsWithAchievements struct {
 	// Structured stats data using schema as source of truth
 	Stats *StatsData `json:"stats,omitempty"`
 
-	// Data source information for debugging and monitoring
+	// Data source tracking
 	DataSources DataSourceStatus `json:"data_sources"`
+
+	APIProvider   string    `json:"api_provider"`
+	SchemaVersion string    `json:"schema_version"`
+	CacheHit      bool      `json:"cache_hit"`
+	LastUpdated   time.Time `json:"last_updated"`
 }
 
 // StatsData represents structured player statistics

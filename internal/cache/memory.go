@@ -423,7 +423,6 @@ func (mc *MemoryCache) detectAndRecover() int {
 			continue
 		}
 
-		// Attempt to re-serialize value to detect corruption
 		if _, err := json.Marshal(entry.Value); err != nil {
 			delete(mc.data, key)
 			mc.stats.MemoryUsage -= entry.Size
@@ -478,7 +477,6 @@ func (mc *MemoryCache) cleanupWorker() {
 					"remaining_entries", mc.getCurrentEntryCount())
 			}
 
-			// Log comprehensive metrics every 10 cleanups for observability
 			if cleanupCount%10 == 0 {
 				mc.logMetrics()
 			}
@@ -499,7 +497,6 @@ func (mc *MemoryCache) cleanupWorker() {
 	}
 }
 
-// logMetrics logs comprehensive cache metrics for observability
 func (mc *MemoryCache) logMetrics() {
 	stats := mc.Stats()
 

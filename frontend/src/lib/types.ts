@@ -1,5 +1,3 @@
-// Shared types for DBD profile page
-
 export type TabId = 'stats' | 'adepts' | 'achievements';
 
 export interface DbdAdept {
@@ -21,18 +19,4 @@ export interface DbdAchievement {
 	character?: string;
 	type?: string;
 	rarity?: number; // 0-100 global completion percentage
-}
-
-export interface DbdStats {
-	[key: string]: number;
-	matchesPlayed?: number;
-	escapes?: number;
-	kills?: number;
-}
-
-export interface PlayerBundle {
-	player: { id: string; name: string };
-	stats: DbdStats;
-	adepts: DbdAdept[];
-	achievements: DbdAchievement[];
 }

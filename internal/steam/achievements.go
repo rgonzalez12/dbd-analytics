@@ -156,7 +156,6 @@ func ProcessAchievements(steamAchievements []SteamAchievement) *models.Achieveme
 		}
 	}
 
-	// Log summary of achievement processing
 	logSteamInfo("Processed achievements",
 		"total_achievements", achievementCount,
 		"achieved_achievements", achievedCount,

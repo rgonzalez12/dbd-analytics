@@ -93,7 +93,7 @@ func (h *TestHandler) GetPlayerStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestGetPlayerSummary(t *testing.T) {
-	// Initialize logging for tests
+
 	log.Initialize()
 
 	tests := []struct {
@@ -226,7 +226,7 @@ func TestGetPlayerSummary(t *testing.T) {
 }
 
 func TestGetPlayerStats(t *testing.T) {
-	// Initialize logging for tests
+
 	log.Initialize()
 
 	tests := []struct {
@@ -475,7 +475,7 @@ func TestValidateSteamIDOrVanity(t *testing.T) {
 }
 
 func TestErrorResponseFormatting(t *testing.T) {
-	// Initialize logging for tests
+
 	log.Initialize()
 
 	tests := []struct {
@@ -553,7 +553,7 @@ func TestErrorResponseFormatting(t *testing.T) {
 }
 
 func TestRateLimitRetryAfterValue(t *testing.T) {
-	// Initialize logging for tests
+
 	log.Initialize()
 
 	tests := []struct {

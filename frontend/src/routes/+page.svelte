@@ -52,7 +52,6 @@
 
 <div class="min-h-screen flex items-center justify-center p-4">
 	<div class="search-container">
-		<!-- Header -->
 		<div class="text-center mb-16">
 			<h1 class="text-6xl font-bold mb-6 horror-title">
 				DBD Analytics
@@ -62,7 +61,6 @@
 			</p>
 		</div>
 		
-		<!-- Search Form -->
 		<form on:submit={handleSubmit} class="search-form">
 			<input
 				bind:value={input}
@@ -83,7 +81,6 @@
 			</button>
 		</form>
 		
-		<!-- Additional Info Card -->
 		<div class="bg-card p-8 mt-8">
 			
 			{#if error}
@@ -93,7 +90,6 @@
 			{/if}
 		</div>
 
-		<!-- Quick Info -->
 		<div class="mt-12 text-center">
 			<p class="text-gray-400 text-sm horror-subtitle">
 				Enter your Steam profile URL, Steam ID, or vanity name to delve into the Entity's realm

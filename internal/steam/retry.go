@@ -137,7 +137,6 @@ func withRetryAndLogging(config RetryConfig, fn RetryableFunc, operation string)
 		}
 	}
 
-	// Log final failure
 	if operation != "" {
 		slog.Error("Operation failed after exhausting all retries",
 			slog.String("operation", operation),
@@ -166,10 +165,8 @@ func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Du
 }
 
 func calculateBackoffDelay(attempt int, config RetryConfig) time.Duration {
-	// Exponential backoff: baseDelay * multiplier^attempt
 	delay := float64(config.BaseDelay) * math.Pow(config.Multiplier, float64(attempt))
 
-	// Cap at maxDelay
 	if delay > float64(config.MaxDelay) {
 		delay = float64(config.MaxDelay)
 	}

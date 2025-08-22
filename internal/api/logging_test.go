@@ -8,11 +8,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
-	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
 func TestStructuredLoggingValidation(t *testing.T) {
-	// Initialize logging for testing
 	log.Initialize()
 
 	tests := []struct {
@@ -87,7 +85,6 @@ func TestStructuredLoggingValidation(t *testing.T) {
 }
 
 func TestLogOutputFormat(t *testing.T) {
-	// Initialize logging for testing
 	log.Initialize()
 
 	log.Info("test_message",
@@ -100,34 +97,35 @@ func TestLogOutputFormat(t *testing.T) {
 }
 
 func TestErrorLogging(t *testing.T) {
-	// Initialize logging for testing
 	log.Initialize()
 
-	// Test error response logging
+	router := mux.NewRouter()
+	
+	// Add simple request ID middleware for logging context
+	router.Use(RequestIDMiddleware())
+
+	handler := NewHandler()
+	router.HandleFunc("/api/player/{steamid}", handler.GetPlayerStatsWithAchievements).Methods("GET")
+
+	// Test with invalid steam ID to trigger error logging
+	req := httptest.NewRequest("GET", "/api/player/invalid@id", nil)
 	w := httptest.NewRecorder()
-	apiErr := &steam.APIError{
-		Type:       steam.ErrorTypeValidation,
-		Message:    "Test validation error",
-		StatusCode: 400,
-		Retryable:  false,
+
+	router.ServeHTTP(w, req)
+
+	// Should return 400 for invalid steam ID
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 	}
 
-	writeErrorResponse(w, apiErr)
-
-	// In a real test environment, we'd need to capture the output
-	// For now, this tests that the error response generation works correctly
-
-	if w.Code != 400 {
-		t.Errorf("Expected status code 400, got %d", w.Code)
-	}
-
-	// Verify response body contains error information
+	// Verify error response structure
 	var response map[string]interface{}
 	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Response is not valid JSON: %s", w.Body.String())
+		t.Errorf("Response is not valid JSON: %s", w.Body.String())
 	}
 
-	if response["error"] != "Test validation error" {
-		t.Errorf("Expected error message 'Test validation error', got %v", response["error"])
+	// Check for message field (common error response format)
+	if response["message"] == nil {
+		t.Error("Expected 'message' field in response")
 	}
 }

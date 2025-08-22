@@ -148,8 +148,7 @@ func (c *Client) GetPlayerSummary(steamIDOrVanity string) (*SteamPlayer, *APIErr
 		return nil, notFoundErr
 	}
 
-	// Log successful operation with performance metrics
-	durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
+		durationMs := float64(time.Since(start).Nanoseconds()) / 1e6
 	logSteamPerformance("GetPlayerSummary", steamID64, endpoint, durationMs,
 		"persona_name", resp.Response.Players[0].PersonaName,
 		"status_code", 200)
@@ -166,8 +165,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	steamID64, err := c.resolveSteamID(steamIDOrVanity)
 	if err != nil {
-		// Wrap Steam ID resolution errors with additional context for debugging
-		wrappedErr := &APIError{
+				wrappedErr := &APIError{
 			Type:       err.Type,
 			Message:    fmt.Sprintf("GetPlayerStats failed during Steam ID resolution: %s", err.Message),
 			StatusCode: err.StatusCode,
@@ -185,8 +183,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	var resp playerStatsResponse
 
-	// Execute API request with enhanced retry logic and structured logging
-	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
+		retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
 			// Wrap API request errors with additional context for troubleshooting
 			wrappedErr := &APIError{
@@ -336,8 +333,7 @@ func (c *Client) resolveSteamID(steamIDOrVanity string) (string, *APIError) {
 
 	var resp VanityURLResponse
 
-	// Execute vanity URL resolution with enhanced retry logic and structured logging
-	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
+		retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
 			return err, false
 		}
@@ -383,8 +379,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 		apiURL := endpoint + "?" + params.Encode()
 		start := time.Now()
 
-		// Log outgoing Steam API request
-		log.Info("steam_api_request_start",
+				log.Info("steam_api_request_start",
 			"endpoint", endpoint,
 			"method", "GET",
 			"url", apiURL,
@@ -409,8 +404,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 		}
 		defer resp.Body.Close()
 
-		// Log response details
-		log.Info("steam_api_request_completed",
+				log.Info("steam_api_request_completed",
 			"endpoint", endpoint,
 			"status_code", resp.StatusCode,
 			"duration", requestDuration,
@@ -697,3 +691,6 @@ func (c *Client) GetGlobalAchievementPercentagesCached(ctx context.Context, cach
 
 	return percentages, nil
 }
+
+
+

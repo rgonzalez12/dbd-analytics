@@ -37,11 +37,9 @@ func TestAdeptRegexAndNormalization(t *testing.T) {
 					t.Errorf("Expected character %q, got %q", test.expectedChar, char)
 				}
 
-				// Test kind determination logic
 				normalizedChar := strings.ToLower(char)
-				kind := "survivor" // default
+				kind := "survivor"
 
-				// Create a mock killerNames map for testing
 				killerNames := make(map[string]bool)
 				killerNames["onryo"] = true
 				killerNames["onryō"] = true

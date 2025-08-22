@@ -159,8 +159,3 @@ function formatDuration(seconds: number): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   return `${Math.floor(seconds / 3600)}h`;
 }
-
-// Friendly empty state helper
-export function hasStats(stats: UIStat[]): boolean {
-  return stats.length > 0;
-}

@@ -13,14 +13,13 @@ func Initialize() {
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level:     logLevel,
-		AddSource: true, // Include source file and line number for debugging
+		AddSource: true,
 	}))
 
 	Logger = logger
 	slog.SetDefault(logger)
 }
 
-// getLogLevel determines the appropriate log level from LOG_LEVEL environment variable
 func getLogLevel() slog.Level {
 	level := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	switch level {
@@ -33,7 +32,7 @@ func getLogLevel() slog.Level {
 	case "error":
 		return slog.LevelError
 	default:
-		return slog.LevelInfo // Default to info level if not specified
+		return slog.LevelInfo
 	}
 }
 
@@ -71,8 +70,6 @@ func WithContext(args ...any) *slog.Logger {
 	}
 	return Logger.With(args...)
 }
-
-// Structured logging helpers for consistent field formatting
 
 func PlayerContext(playerID string) *slog.Logger {
 	return WithContext("player_id", playerID)

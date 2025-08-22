@@ -127,7 +127,6 @@
 
 {#if player}
 	<div class="container-custom py-8 section-spacing">
-		<!-- Player Header -->
 		<div class="bg-card player-header">
 			{#if player.avatar}
 				<img 
@@ -144,7 +143,6 @@
 			</div>
 		</div>
 
-		<!-- Tab Navigation -->
 		<div class="tab-navigation">
 			{#each [
 				{ id: 'overview' as const, label: 'Overview' },

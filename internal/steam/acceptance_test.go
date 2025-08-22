@@ -6,8 +6,6 @@ import (
 
 // TestSchemaFirstAcceptance validates our surgical edits for exact schema compliance
 func TestSchemaFirstAcceptance(t *testing.T) {
-	// This test will attempt to fetch global achievement percentages if STEAM_API_KEY is set,
-	// but will fall back to local processing if not available
 	mapper := NewAchievementMapper()
 
 	// Mock player data to test both paths

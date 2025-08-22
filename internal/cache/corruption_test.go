@@ -115,7 +115,7 @@ func TestCorruptionMetricsTracking(t *testing.T) {
 
 	// Try to set a value that will cause JSON marshaling to fail
 	// (this simulates corruption during size calculation)
-	funcValue := func() { /* can't be marshaled */ }
+	funcValue := func() {}
 	err := cache.Set("test_key", funcValue, time.Minute)
 	if err != nil {
 		t.Fatalf("Set should not fail even with unmarshallable value: %v", err)

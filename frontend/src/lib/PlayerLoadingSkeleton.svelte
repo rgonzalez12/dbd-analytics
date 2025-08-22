@@ -1,9 +1,7 @@
 <script lang="ts">
-	// Loading skeleton component for player pages
 </script>
 
 <article class="space-y-8">
-	<!-- Player Header Loading -->
 	<header class="space-y-4">
 		<div class="space-y-2">
 			<div class="h-9 w-64 animate-pulse rounded bg-neutral-800"></div>
@@ -25,7 +23,6 @@
 		</div>
 	</header>
 
-	<!-- Tab Navigation Loading -->
 	<div class="border-b border-neutral-700">
 		<div class="flex space-x-8">
 			{#each Array(3) as _}
@@ -34,7 +31,6 @@
 		</div>
 	</div>
 
-	<!-- Content Loading -->
 	<div class="min-h-[400px] space-y-6">
 		<div class="grid gap-6 lg:grid-cols-2">
 			{#each Array(2) as _}

@@ -204,7 +204,6 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 		return mapped[i].DisplayName < mapped[j].DisplayName
 	})
 
-	// 6) If len(mapped) < 200, log a WARN
 	if len(mapped) < 200 {
 		log.Warn("Achievement count unexpectedly low - schema likely incomplete",
 			"mapped_count", len(mapped),
@@ -404,14 +403,13 @@ func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache)
 		"killer_adepts", len(summary["adept_killers"].([]string)),
 		"unknown_achievements", len(unknowns))
 
-	// Log unknown achievements if any found
 	if len(unknowns) > 0 {
 		log.Warn("Unknown achievements detected - may need mapping updates",
 			"unknown_count", len(unknowns),
 			"suggestion", "Check Steam API or new game content for updates")
 
 		for _, unknown := range unknowns {
-			if unknown.Occurrences > 5 { // Only log frequently seen unknowns
+			if unknown.Occurrences > 5 {
 				log.Debug("Frequent unknown achievement",
 					"api_name", unknown.APIName,
 					"first_seen", unknown.FirstSeen.Format(time.RFC3339),
