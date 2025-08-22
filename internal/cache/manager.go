@@ -185,14 +185,6 @@ func GenerateKey(prefix string, parts ...string) string {
 
 // Cache key prefixes are defined in keys.go
 
-// Backward compatibility: TTL constants (deprecated - use TTLConfig instead)
-const (
-	PlayerStatsTTL   = 5 * time.Minute
-	PlayerSummaryTTL = 10 * time.Minute
-	SteamAPITTL      = 3 * time.Minute
-	DefaultTTL       = 3 * time.Minute
-)
-
 // TTLConfig holds configurable TTL values for different data types
 type TTLConfig struct {
 	PlayerStats        time.Duration `json:"player_stats_ttl"`
@@ -204,16 +196,16 @@ type TTLConfig struct {
 }
 
 // GetTTLFromEnv returns TTL configuration from environment variables with fallbacks
-// TTL Source Priority: Environment Variables > Deprecated Constants > Hardcoded Defaults
+// TTL Source Priority: Environment Variables > Hardcoded Defaults
 // This ensures production deployments can override TTL values without code changes
 func GetTTLFromEnv() TTLConfig {
 	config := TTLConfig{
-		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", PlayerStatsTTL),
-		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", PlayerSummaryTTL),
+		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),
+		PlayerSummary:      getEnvDuration("CACHE_PLAYER_SUMMARY_TTL", 10*time.Minute),
 		PlayerAchievements: getEnvDuration("CACHE_PLAYER_ACHIEVEMENTS_TTL", 2*time.Minute),
 		PlayerCombined:     getEnvDuration("CACHE_PLAYER_COMBINED_TTL", 10*time.Minute),
-		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", SteamAPITTL), // Use deprecated constant for backward compatibility
-		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", DefaultTTL),    // Use deprecated constant for backward compatibility
+		SteamAPI:           getEnvDuration("CACHE_STEAM_API_TTL", 3*time.Minute),
+		DefaultTTL:         getEnvDuration("CACHE_DEFAULT_TTL", 3*time.Minute),
 	}
 
 	internalLog.Info("Cache TTL configuration loaded",
@@ -223,7 +215,7 @@ func GetTTLFromEnv() TTLConfig {
 		"player_combined_ttl", config.PlayerCombined,
 		"steam_api_ttl", config.SteamAPI,
 		"default_ttl", config.DefaultTTL,
-		"source_priority", "env_vars > deprecated_constants > defaults")
+		"source_priority", "env_vars > hardcoded_defaults")
 
 	return config
 }

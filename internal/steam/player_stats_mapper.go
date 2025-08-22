@@ -33,12 +33,12 @@ type PlayerStatsResponse struct {
 	UnmappedStats []map[string]interface{}  `json:"unmapped_stats,omitempty"` // stats that fell through rules/alias
 }
 
-// Aliases map provides stable display names for important DBD stats
+// Aliases map provides display names for DBD stats
 var aliases = map[string]string{
 	// Core Game Stats
 	"DBD_CamperSkulls":                      "Survivor Bloodpoints (Skulls)",
 	"DBD_KillerSkulls":                      "Killer Bloodpoints (Skulls)", 
-	"DBD_SlasherSkulls":                     "Killer Bloodpoints (Skulls)", // Legacy alias
+	"DBD_SlasherSkulls":                     "Killer Bloodpoints (Skulls)", // Alias
 	"DBD_GeneratorPct_float":                "Generators Repaired (equivalent)",
 	"DBD_HealPct_float":                     "Survivors Healed (equivalent)",
 	"DBD_BloodwebPoints":                    "Bloodpoints Earned",
@@ -141,7 +141,7 @@ var aliases = map[string]string{
 	// Special Conditions
 	"DBD_EscapeNoBlood_Obsession":           "Escaped as Obsession Without Injury",
 	
-	// Legacy/Compatibility
+	// Compatibility
 	"DBD_MatchesPlayed":                     "Matches Played",
 	"DBD_MatchesWon":                        "Matches Won",
 	"DBD_PerfectMatch":                      "Perfect Matches",
@@ -626,7 +626,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		// Format value based on type
 		formatted := formatValue(value, valueType, id)
 
-		// Set specific aliases for important stats
+		// Set aliases for stats
 		switch id {
 		case "DBD_UnlockRanking":
 			alias = "survivor_grade"
@@ -673,7 +673,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		return mapped[i].DisplayName < mapped[j].DisplayName
 	})
 
-	// 8) Build summary with important values
+	// 8) Build summary
 	summary := make(map[string]interface{})
 	for _, stat := range mapped {
 		switch stat.Alias {
@@ -832,7 +832,7 @@ func formatDuration(seconds int64) string {
 func decodeGrade(v float64, fieldID string) (Grade, string, string) {
 	gradeCode := int(v)
 
-	// Determine if this is killer or survivor based on field name
+	// Determine role based on field name
 	isKillerGrade := strings.Contains(strings.ToLower(fieldID), "slasher") || 
 					strings.Contains(strings.ToLower(fieldID), "killer")
 	isSurvivorGrade := strings.Contains(strings.ToLower(fieldID), "unlock") || 

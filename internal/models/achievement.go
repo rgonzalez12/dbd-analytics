@@ -3,7 +3,7 @@ package models
 import "time"
 
 type AchievementData struct {
-	// Legacy format for backward compatibility
+	// Backward compatibility format
 	AdeptSurvivors map[string]bool `json:"adept_survivors"` // character name -> unlocked status
 	AdeptKillers   map[string]bool `json:"adept_killers"`   // character name -> unlocked status
 

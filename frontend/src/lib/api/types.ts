@@ -31,7 +31,7 @@ export type ApiPlayerStats = {
   avatar?: string; // Steam avatar URL
   total_matches?: number | string | null;
   last_updated?: string | null;
-  // Legacy fields for backward compatibility
+  // Backward compatibility fields
   killer_pips?: number | string | null;
   survivor_pips?: number | string | null;
   killed_campers?: number | string | null;
@@ -125,7 +125,7 @@ export type Player = {
       survivor_count?: number;
       general_count?: number;
     };
-    // Legacy individual fields for backward compatibility
+    // Individual fields for backward compatibility
     killerPips?: number;
     survivorPips?: number;
     killedCampers?: number;
@@ -173,7 +173,7 @@ export type Player = {
       rarity?: number;
     }>;
     adepts: { survivors: Record<string, boolean>; killers: Record<string, boolean> };
-    // Legacy format for backward compatibility
+    // Backward compatibility format
     adept_survivors?: Record<string, boolean>;
     adept_killers?: Record<string, boolean>;
     // Backend format (PascalCase)

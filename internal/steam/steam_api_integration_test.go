@@ -22,7 +22,7 @@ func TestLiveSteamAPI(t *testing.T) {
 	client := steam.NewClient()
 
 	t.Run("PlayerSummary", func(t *testing.T) {
-		summary, err := client.GetPlayerSummary("counteredspell") // vanity URL
+		summary, err := client.GetPlayerSummary("example_user") // vanity URL
 		if key == "" {
 			// Without API key, we expect an error
 			if err == nil {
@@ -41,7 +41,7 @@ func TestLiveSteamAPI(t *testing.T) {
 	})
 
 	t.Run("PlayerStats", func(t *testing.T) {
-		stats, err := client.GetPlayerStats("counteredspell") // vanity URL
+		stats, err := client.GetPlayerStats("example_user") // vanity URL
 		if key == "" {
 			// Without API key, we expect an error
 			if err == nil {

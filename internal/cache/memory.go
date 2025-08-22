@@ -113,7 +113,7 @@ func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) err
 		return fmt.Errorf("cache is shutting down")
 	}
 
-	// Check if this is an update to existing key
+	// Check for key update
 	existingEntry, isUpdate := mc.data[key]
 
 	// Check if we need to evict entries (only for new keys)
@@ -335,7 +335,7 @@ func (mc *MemoryCache) evictLRU() {
 	first := true
 
 	for key, entry := range mc.data {
-		// Skip entries that are already expired (they'll be cleaned up separately)
+		// Skip expired entries
 		if entry.IsExpired() {
 			continue
 		}
@@ -373,7 +373,7 @@ func (mc *MemoryCache) evictLRU() {
 // calculateSize estimates the memory size of a value in bytes
 func (mc *MemoryCache) calculateSize(value interface{}) int64 {
 	// Simple estimation using JSON marshaling
-	// This is not perfectly accurate but gives a reasonable approximation
+	// Approximate memory usage calculation
 	data, err := json.Marshal(value)
 	if err != nil {
 		// Track corruption event

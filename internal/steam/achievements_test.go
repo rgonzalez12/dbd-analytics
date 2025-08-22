@@ -63,7 +63,7 @@ func TestProcessAchievements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ProcessAchievements(tt.achievements)
 
-			// Check that result is not nil
+			// Check result is not nil
 			if result == nil {
 				t.Fatal("ProcessAchievements returned nil")
 			}
@@ -86,7 +86,7 @@ func TestProcessAchievements(t *testing.T) {
 				}
 			}
 
-			// Check that LastUpdated is recent
+			// Check LastUpdated is recent
 			if time.Since(result.LastUpdated) > time.Minute {
 				t.Errorf("LastUpdated timestamp is too old: %v", result.LastUpdated)
 			}
@@ -118,7 +118,7 @@ func TestAdeptAchievementMapping(t *testing.T) {
 		t.Errorf("Expected 40 killers in mapping, got %d", killerCount)
 	}
 
-	// Check that specific known characters exist with correct types
+	// Check known characters exist with correct types
 	testCharacters := []struct {
 		name     string
 		charType string
@@ -144,9 +144,9 @@ func TestAdeptAchievementMapping(t *testing.T) {
 }
 
 func TestPlayerStatsWithAchievements(t *testing.T) {
-	// Test that the enhanced model works correctly
+	// Test enhanced model works correctly
 	stats := models.PlayerStats{
-		SteamID:     "counteredspell",
+		SteamID:     "example_user",
 		DisplayName: "TestPlayer",
 		KillerPips:  100,
 	}

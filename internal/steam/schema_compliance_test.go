@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-// TestSchemaFirstAcceptance validates our surgical edits for exact schema compliance
-func TestSchemaFirstAcceptance(t *testing.T) {
+// TestSchemaFirstCompliance validates our precise edits for exact schema compliance
+func TestSchemaFirstCompliance(t *testing.T) {
 	mapper := NewAchievementMapper()
 
 	// Mock player data to test both paths

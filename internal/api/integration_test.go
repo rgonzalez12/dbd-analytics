@@ -34,7 +34,7 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 		},
 		{
 			name:            "Valid Steam ID Format",
-			steamID:         "counteredspell",      // Valid vanity URL
+			steamID:         "example_user",      // Valid vanity URL
 			expectedStatus:  0,                     // Status depends on Steam API response
 			shouldHaveError: false,                 // May or may not error depending on Steam
 		},
@@ -165,8 +165,8 @@ func TestConcurrentRequestHandling(t *testing.T) {
 
 	for i := 0; i < numRequests; i++ {
 		go func() {
-			req := httptest.NewRequest("GET", "/api/player/counteredspell", nil)
-			req = mux.SetURLVars(req, map[string]string{"steamid": "counteredspell"})
+			req := httptest.NewRequest("GET", "/api/player/example_user", nil)
+			req = mux.SetURLVars(req, map[string]string{"steamid": "example_user"})
 			w := httptest.NewRecorder()
 
 			handler.GetPlayerStatsWithAchievements(w, req)

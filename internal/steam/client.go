@@ -363,7 +363,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 	var lastErr *APIError
 
 	for attempt := 0; attempt <= c.retryConfig.MaxAttempts; attempt++ {
-		// If this is a retry attempt, wait before trying again
+		// Wait before retry attempt
 		if attempt > 0 {
 			delay := c.calculateRetryDelay(lastErr, attempt-1)
 

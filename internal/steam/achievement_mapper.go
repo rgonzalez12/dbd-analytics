@@ -35,11 +35,11 @@ type UnknownAchievement struct {
 }
 
 type AchievementMapper struct {
-	unknownAchievs map[string]*UnknownAchievement
-	unknownsMutex  sync.RWMutex
-	client         *Client
-	adeptRegex     *regexp.Regexp
-	adeptsByAPI    map[string]string // apiName -> "killer"|"survivor"
+	unknownAchievements map[string]*UnknownAchievement
+	unknownsMutex       sync.RWMutex
+	client              *Client
+	adeptRegex          *regexp.Regexp
+	adeptsByAPI         map[string]string // apiName -> "killer"|"survivor"
 }
 
 func NewAchievementMapper() *AchievementMapper {
@@ -53,20 +53,20 @@ func NewAchievementMapper() *AchievementMapper {
 	log.Info("Created achievement mapper", "steam_client_exists", client != nil)
 
 	return &AchievementMapper{
-		unknownAchievs: make(map[string]*UnknownAchievement),
-		client:         client,
-		adeptRegex:     regexp.MustCompile(`^Adept\s+(?:The\s+)?(.+)$`),
-		adeptsByAPI:    adeptsByAPI,
+		unknownAchievements: make(map[string]*UnknownAchievement),
+		client:              client,
+		adeptRegex:          regexp.MustCompile(`^Adept\s+(?:The\s+)?(.+)$`),
+		adeptsByAPI:         adeptsByAPI,
 	}
 }
 
 func (am *AchievementMapper) trackUnknown(apiName string) {
 	am.unknownsMutex.Lock()
 	defer am.unknownsMutex.Unlock()
-	u := am.unknownAchievs[apiName]
+	u := am.unknownAchievements[apiName]
 	if u == nil {
 		u = &UnknownAchievement{APIName: apiName, FirstSeen: time.Now()}
-		am.unknownAchievs[apiName] = u
+		am.unknownAchievements[apiName] = u
 	}
 	u.Occurrences++
 }
@@ -220,13 +220,13 @@ func (am *AchievementMapper) MapPlayerAchievementsWithCache(achievements *Player
 
 // buildAllAchievementMappings processes all player achievements when schema is unavailable
 func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]SteamAchievement, globalPercentages map[string]float64, _ cache.Cache, _ context.Context) []AchievementMapping {
-	// SURGICAL EDIT: In fallback mode, only process known adept achievements
+	// In fallback mode, only process known adept achievements
 	// Since schema is unavailable, we can't validate general achievements reliably
 	mapped := make([]AchievementMapping, 0, len(AdeptAchievementMapping))
 
 	// Process each achievement from player data
 	for apiName, steamAch := range unlockedMap {
-		// SURGICAL EDIT: Only process adept achievements in fallback mode
+		// Only process adept achievements in fallback mode to maintain data integrity
 		entry, isAdept := AdeptAchievementMapping[apiName]
 		if !isAdept {
 			am.trackUnknown(apiName)
@@ -337,8 +337,8 @@ func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
 	am.unknownsMutex.RLock()
 	defer am.unknownsMutex.RUnlock()
 
-	unknowns := make([]*UnknownAchievement, 0, len(am.unknownAchievs))
-	for _, unknown := range am.unknownAchievs {
+	unknowns := make([]*UnknownAchievement, 0, len(am.unknownAchievements))
+	for _, unknown := range am.unknownAchievements {
 		unknowns = append(unknowns, unknown)
 	}
 

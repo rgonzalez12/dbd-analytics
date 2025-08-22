@@ -97,7 +97,7 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 			general: groupedStats.general,
 			header: header,
 			summary: statsSummaryData,
-			// Legacy individual fields for backward compatibility
+			// Individual fields for backward compatibility
 			killerPips: toNum(raw.killer_pips),
 			survivorPips: toNum(raw.survivor_pips),
 			killedCampers: toNum(raw.killed_campers),

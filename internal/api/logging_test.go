@@ -84,18 +84,6 @@ func TestStructuredLoggingValidation(t *testing.T) {
 	}
 }
 
-func TestLogOutputFormat(t *testing.T) {
-	log.Initialize()
-
-	log.Info("test_message",
-		"test_field", "test_value",
-		"test_number", 42)
-
-	// In a real test environment, we'd need to capture the output
-	// For now, this tests that the calls work correctly
-	t.Log("Log output format test completed")
-}
-
 func TestErrorLogging(t *testing.T) {
 	log.Initialize()
 

@@ -150,7 +150,7 @@ func ProcessAchievements(steamAchievements []SteamAchievement) *models.Achieveme
 					"character", character.Name,
 					"type", character.Type)
 			} else if strings.HasPrefix(achievement.APIName, "NEW_ACHIEVEMENT_") {
-				// Track unknown achievements that might be newer character Adepts
+				// Track unknown achievements for newer character Adepts
 				unknownAchievements++
 			}
 		}

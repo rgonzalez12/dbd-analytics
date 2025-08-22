@@ -142,8 +142,7 @@ func AddStatMapping(steamKey, fieldPath string) {
 }
 
 func ConvertToFlatPlayerStats(dbdStats DBDPlayerStats) interface{} {
-	// This would need to import models package, but to avoid circular imports,
-	// we'll return a map that can be easily converted
+	// Return a map to avoid circular imports
 	return map[string]interface{}{
 		"steam_id":     dbdStats.SteamID,
 		"display_name": dbdStats.DisplayName,

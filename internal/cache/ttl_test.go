@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// TestTTLSourcePriority verifies that environment variables override default constants
+// TestTTLSourcePriority verifies environment variables override defaults
 func TestTTLSourcePriority(t *testing.T) {
 	// Save original env values for cleanup
 	originalPlayerStats := os.Getenv("CACHE_PLAYER_STATS_TTL")
@@ -117,23 +117,6 @@ func TestTTLSourcePriority(t *testing.T) {
 			t.Errorf("Expected DefaultTTL 3m from constant, got %v", config.DefaultTTL)
 		}
 	})
-}
-
-// TestTTLConstantsBackwardCompatibility verifies deprecated constants still exist
-func TestTTLConstantsBackwardCompatibility(t *testing.T) {
-	// Verify deprecated constants are still available for backward compatibility
-	if PlayerStatsTTL != 5*time.Minute {
-		t.Errorf("PlayerStatsTTL constant changed: expected 5m, got %v", PlayerStatsTTL)
-	}
-	if PlayerSummaryTTL != 10*time.Minute {
-		t.Errorf("PlayerSummaryTTL constant changed: expected 10m, got %v", PlayerSummaryTTL)
-	}
-	if SteamAPITTL != 3*time.Minute {
-		t.Errorf("SteamAPITTL constant changed: expected 3m, got %v", SteamAPITTL)
-	}
-	if DefaultTTL != 3*time.Minute {
-		t.Errorf("DefaultTTL constant changed: expected 3m, got %v", DefaultTTL)
-	}
 }
 
 // TestGetEnvDuration tests the env parsing function

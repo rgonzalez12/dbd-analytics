@@ -194,7 +194,7 @@ func TestCacheKeyGeneration(t *testing.T) {
 		{"prefix", []string{}, "prefix"},
 		{"prefix", []string{"part1"}, "prefix:part1"},
 		{"prefix", []string{"part1", "part2"}, "prefix:part1:part2"},
-		{"player_stats", []string{"counteredspell"}, "player_stats:counteredspell"},
+		{"player_stats", []string{"example_user"}, "player_stats:example_user"},
 	}
 
 	for _, test := range tests {
