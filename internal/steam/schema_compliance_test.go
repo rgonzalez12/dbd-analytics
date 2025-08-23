@@ -8,7 +8,6 @@ import (
 func TestSchemaFirstCompliance(t *testing.T) {
 	mapper := NewAchievementMapper()
 
-	// Mock player data to test both paths
 	mockPlayerData := &PlayerAchievements{
 		SteamID:  "test_player",
 		GameName: "Dead by Daylight",
@@ -23,13 +22,11 @@ func TestSchemaFirstCompliance(t *testing.T) {
 
 	results := mapper.MapPlayerAchievements(mockPlayerData)
 
-	// Test 1: Verify strict type distribution
 	typeCounts := make(map[string]int)
 	for _, ach := range results {
 		typeCounts[ach.Type]++
 	}
 
-	// In fallback mode (no schema), only adept achievements are processed
 	expectedTypes := []string{"adept_survivor", "adept_killer"}
 	for _, expectedType := range expectedTypes {
 		if typeCounts[expectedType] == 0 {
@@ -37,7 +34,6 @@ func TestSchemaFirstCompliance(t *testing.T) {
 		}
 	}
 
-	// Test 2: No bad types should exist (general type not available in fallback mode)
 	allowedTypes := []string{"adept_survivor", "adept_killer"}
 	for actualType := range typeCounts {
 		isValidType := false

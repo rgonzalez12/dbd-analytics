@@ -37,7 +37,6 @@ type UserStat struct {
 // HumanizeAchievements converts raw achievements to UI-friendly format using schema
 func HumanizeAchievements(schema *Schema, rawAchievements []PlayerAchievement, lang string) []UIAchievement {
 	if schema == nil {
-		// Fallback when schema is unavailable
 		return humanizeAchievementsWithoutSchema(rawAchievements)
 	}
 
@@ -80,7 +79,6 @@ func HumanizeAchievements(schema *Schema, rawAchievements []PlayerAchievement, l
 // HumanizeStats converts raw stats to UI-friendly format using schema
 func HumanizeStats(schema *Schema, rawStats []UserStat, lang string) []UIStat {
 	if schema == nil {
-		// Fallback when schema is unavailable
 		return humanizeStatsWithoutSchema(rawStats)
 	}
 
@@ -108,14 +106,13 @@ func HumanizeStats(schema *Schema, rawStats []UserStat, lang string) []UIStat {
 	return stats
 }
 
-// humanizeAchievementsWithoutSchema provides fallback behavior when schema is unavailable
 func humanizeAchievementsWithoutSchema(rawAchievements []PlayerAchievement) []UIAchievement {
 	achievements := make([]UIAchievement, 0, len(rawAchievements))
 
 	for _, raw := range rawAchievements {
 		ui := UIAchievement{
 			APIName:     raw.APIName,
-			DisplayName: raw.APIName, // Use API name as fallback
+			DisplayName: raw.APIName,
 			Description: "",
 			Hidden:      false,
 			Achieved:    raw.Achieved == 1,
@@ -129,14 +126,13 @@ func humanizeAchievementsWithoutSchema(rawAchievements []PlayerAchievement) []UI
 	return achievements
 }
 
-// humanizeStatsWithoutSchema provides fallback behavior when schema is unavailable
 func humanizeStatsWithoutSchema(rawStats []UserStat) []UIStat {
 	stats := make([]UIStat, 0, len(rawStats))
 
 	for _, raw := range rawStats {
 		ui := UIStat{
 			Key:         raw.Name,
-			DisplayName: raw.Name, // Use raw name as fallback
+			DisplayName: raw.Name,
 			Value:       raw.Value,
 			Unknown:     true, // Mark as unknown since we don't have schema
 		}

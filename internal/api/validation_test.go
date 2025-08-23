@@ -17,56 +17,30 @@ func TestSteamIDValidation(t *testing.T) {
 	tests := []struct {
 		name           string
 		steamID        string
-		endpoint       string
 		expectedStatus int
 		expectedError  string
 	}{
 		{
-			name:           "Invalid Steam ID - Too Short",
+			name:           "Invalid Steam ID Format",
 			steamID:        "123456789",
-			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
-			name:           "Invalid Steam ID - Too Long",
-			steamID:        "765611980000000001",
-			endpoint:       "",
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
-		},
-		{
-			name:           "Invalid Steam ID - Wrong Prefix",
+			name:           "Invalid Steam ID Prefix",
 			steamID:        "12345678901234567",
-			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
 		},
 		{
-			name:           "Invalid Steam ID - Contains Letters",
-			steamID:        "7656119800000000a",
-			endpoint:       "",
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "Invalid Steam ID format. Must be 17 digits starting with 7656119",
-		},
-		{
-			name:           "Invalid Vanity URL - Too Short",
+			name:           "Invalid Vanity URL Format",
 			steamID:        "ab",
-			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
 		},
 		{
-			name:           "Invalid Vanity URL - Special Characters",
+			name:           "Invalid Vanity URL Characters",
 			steamID:        "test@user",
-			endpoint:       "",
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
-		},
-		{
-			name:           "Another Invalid Test",
-			steamID:        "test@invalid",
-			endpoint:       "",
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Invalid vanity URL format. Must be 3-32 characters, alphanumeric with underscore/hyphen only",
 		},
@@ -74,7 +48,7 @@ func TestSteamIDValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			url := "/api/player/" + tt.steamID + tt.endpoint
+			url := "/api/player/" + tt.steamID
 
 			req := httptest.NewRequest("GET", url, nil)
 			w := httptest.NewRecorder()

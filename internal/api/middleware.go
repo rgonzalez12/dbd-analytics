@@ -261,13 +261,12 @@ func getClientFingerprint(r *http.Request) string {
 	userAgent := r.Header.Get("User-Agent")
 	apiKey := r.Header.Get("X-API-Key")
 
-	// Create a simple hash for privacy
 	fingerprint := clientIP
 	if len(userAgent) > 0 {
-		fingerprint += "_" + userAgent[:min(50, len(userAgent))] // Truncate for security
+		fingerprint += "_" + userAgent[:min(50, len(userAgent))]
 	}
 	if len(apiKey) > 0 {
-		fingerprint += "_" + apiKey[:8] // Use first 8 chars of API key
+		fingerprint += "_" + apiKey[:8]
 	}
 
 	return fingerprint

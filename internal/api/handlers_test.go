@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +11,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-// MockSteamClient implements a mock for testing
 type MockSteamClient struct {
 	GetPlayerSummaryFunc func(steamIDOrVanity string) (*steam.SteamPlayer, *steam.APIError)
 	GetPlayerStatsFunc   func(steamIDOrVanity string) (*steam.SteamPlayerstats, *steam.APIError)
@@ -32,7 +30,6 @@ func (m *MockSteamClient) GetPlayerStats(steamIDOrVanity string) (*steam.SteamPl
 	return nil, steam.NewInternalError(nil)
 }
 
-// SteamClient interface for dependency injection
 type SteamClient interface {
 	GetPlayerSummary(steamIDOrVanity string) (*steam.SteamPlayer, *steam.APIError)
 	GetPlayerStats(steamIDOrVanity string) (*steam.SteamPlayerstats, *steam.APIError)
@@ -129,7 +126,12 @@ func TestGetPlayerSummary(t *testing.T) {
 			name:           "Steam API timeout/network error",
 			steamID:        "counteredspell",
 			mockResponse:   nil,
-			mockError:      steam.NewInternalError(fmt.Errorf("network error")),
+			mockError: &steam.APIError{
+				Type:       steam.ErrorTypeNetwork,
+				Message:    "Connection timeout",
+				StatusCode: 0,
+				Retryable:  true,
+			},
 			expectedStatus: http.StatusBadGateway,
 			expectError:    true,
 		},

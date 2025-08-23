@@ -25,7 +25,7 @@ func achievementTimeout() time.Duration {
 			return time.Duration(timeoutSecs) * time.Second
 		}
 	}
-	return 5 * time.Second // Default fallback
+	return 5 * time.Second
 }
 
 func logSteamError(level string, msg string, playerID string, err error, fields ...interface{}) {
@@ -214,7 +214,6 @@ func (c *Client) GetUserStatsForGame(ctx context.Context, steamID string, appID 
 
 // GetUserStatsForGameCached retrieves user stats with caching support
 func (c *Client) GetUserStatsForGameCached(ctx context.Context, steamID string, appID int, cacheManager interface{}) (*SteamPlayerstats, *APIError) {
-	// Use cache if available
 	if cacheManager != nil {
 		cache, ok := cacheManager.(interface {
 			Get(key string) (interface{}, bool)
@@ -251,7 +250,6 @@ func (c *Client) GetUserStatsForGameCached(ctx context.Context, steamID string, 
 		}
 	}
 
-	// No cache available - direct API call
 	return c.GetUserStatsForGame(ctx, steamID, appID)
 }
 

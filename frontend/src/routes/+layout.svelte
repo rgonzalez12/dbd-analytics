@@ -3,7 +3,6 @@
 	import { navigating, page } from '$app/stores';
 	import LoadingSkeleton from '$lib/LoadingSkeleton.svelte';
 	
-	// Determine which loading skeleton to show based on route
 	$: isPlayerRoute = $page.route.id?.includes('/player/[steamId]');
 </script>
 

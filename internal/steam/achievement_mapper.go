@@ -16,7 +16,7 @@ import (
 type AchievementMapping struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`         // displayName from schema
-	DisplayName string  `json:"display_name"` // kept for backwards compatibility
+	DisplayName string  `json:"display_name"`
 	Description string  `json:"description"`
 	Icon        string  `json:"icon,omitempty"`
 	IconGray    string  `json:"icon_gray,omitempty"`

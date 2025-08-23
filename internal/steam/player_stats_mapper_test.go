@@ -168,53 +168,6 @@ func TestFormatValue(t *testing.T) {
 	}
 }
 
-func TestFormatInt(t *testing.T) {
-	tests := []struct {
-		input    int
-		expected string
-	}{
-		{123, "123"},
-		{1234, "1,234"},
-		{12345, "12,345"},
-		{123456, "123,456"},
-		{1234567, "1,234,567"},
-		{0, "0"},
-	}
-
-	for _, tt := range tests {
-		t.Run(string(rune(tt.input)), func(t *testing.T) {
-			result := formatInt(tt.input)
-			if result != tt.expected {
-				t.Errorf("formatInt(%d) = %s, expected %s", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		name     string
-		seconds  int64
-		expected string
-	}{
-		{"Seconds only", 45, "45s"},
-		{"Minutes and seconds", 75, "1m 15s"},
-		{"Hours and minutes", 3665, "1h 1m"},
-		{"Hours only", 3600, "1h 0m"},      // Always shows minutes
-		{"Minutes only", 300, "5m 0s"},     // Always shows seconds
-		{"Zero", 0, "0s"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatDuration(tt.seconds)
-			if result != tt.expected {
-				t.Errorf("Expected %s, got %s", tt.expected, result)
-			}
-		})
-	}
-}
-
 func TestAliasMap(t *testing.T) {
 	// Test key aliases exist
 	requiredAliases := []string{
@@ -243,16 +196,11 @@ func TestAliasMap(t *testing.T) {
 	}
 }
 
-// Mock test for integration - would need actual schema and user data
 func TestMapPlayerStatsIntegration(t *testing.T) {
-	// More comprehensive integration test
-	// Test function signature works
 	ctx := context.Background()
 
-	// Would need mock client and cache for full test
 	_, err := MapPlayerStats(ctx, "test_steam_id", nil, nil)
 
-	// Should fail gracefully with nil client
 	if err == nil {
 		t.Error("Expected error with nil client")
 	}

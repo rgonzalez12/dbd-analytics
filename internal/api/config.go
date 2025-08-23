@@ -9,7 +9,7 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
-// APIConfig holds configurable parameters for API resilience and performance
+// APIConfig holds configurable paramefunc (c *Config) Validate() error {rs for API resilience and performance
 type APIConfig struct {
 	// Circuit Breaker Configuration
 	CBMaxFails         int `json:"cb_max_fails"`

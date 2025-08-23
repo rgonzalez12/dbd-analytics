@@ -15,30 +15,29 @@ import (
 
 // Stat represents a single player statistic with metadata
 type Stat struct {
-	ID          string  `json:"id"`           // schema name
-	DisplayName string  `json:"display_name"` // schema displayName
-	Value       float64 `json:"value"`        // raw numeric
-	Formatted   string  `json:"formatted"`    // human string (optional; derived)
-	Category    string  `json:"category"`     // "killer" | "survivor" | "general"
-	ValueType   string  `json:"value_type"`   // "count" | "float" | "grade" | "level" | "duration"
-	SortWeight  int     `json:"sort_weight"`  // for stable ordering in UI
+	ID          string  `json:"id"`
+	DisplayName string  `json:"display_name"`
+	Value       float64 `json:"value"`
+	Formatted   string  `json:"formatted"`
+	Category    string  `json:"category"`
+	ValueType   string  `json:"value_type"`
+	SortWeight  int     `json:"sort_weight"`
 	Icon        string  `json:"icon,omitempty"`
-	Alias       string  `json:"alias,omitempty"`      // e.g., killer_grade
+	Alias       string  `json:"alias,omitempty"`
 }
 
 // PlayerStatsResponse represents the complete stats response
 type PlayerStatsResponse struct {
 	Stats         []Stat                    `json:"stats"`
-	Summary       map[string]interface{}    `json:"summary"` // totals you want (optional)
-	UnmappedStats []map[string]interface{}  `json:"unmapped_stats,omitempty"` // stats that fell through rules/alias
+	Summary       map[string]interface{}    `json:"summary"`
+	UnmappedStats []map[string]interface{}  `json:"unmapped_stats,omitempty"`
 }
 
 // Aliases map provides display names for DBD stats
 var aliases = map[string]string{
-	// Core Game Stats
 	"DBD_CamperSkulls":                      "Survivor Bloodpoints (Skulls)",
 	"DBD_KillerSkulls":                      "Killer Bloodpoints (Skulls)", 
-	"DBD_SlasherSkulls":                     "Killer Bloodpoints (Skulls)", // Alias
+	"DBD_SlasherSkulls":                     "Killer Bloodpoints (Skulls)",
 	"DBD_GeneratorPct_float":                "Generators Repaired (equivalent)",
 	"DBD_HealPct_float":                     "Survivors Healed (equivalent)",
 	"DBD_BloodwebPoints":                    "Bloodpoints Earned",
@@ -52,11 +51,9 @@ var aliases = map[string]string{
 	"DBD_BloodwebPerkMaxLevel":              "Max Perk Level Achieved",
 	"DBD_MaxBloodwebPointsOneCategory":      "Max Points in One Category",
 	
-	// Grades and Ranking
 	"DBD_UnlockRanking":                     "Survivor Grade",
 	"DBD_SlasherTierIncrement":              "Killer Grade",
 	
-	// Survivor Core Stats
 	"DBD_Escape":                            "Total Escapes",
 	"DBD_EscapeThroughHatch":                "Escapes Through Hatch",
 	"DBD_EscapeKO":                          "Escapes While Injured",
@@ -68,14 +65,12 @@ var aliases = map[string]string{
 	"DBD_HookedAndEscape":                   "Hooked and Still Escaped",
 	"DBD_SaveCounter":                       "Survivors Saved",
 	
-	// Survivor Items and Loadouts
 	"DBD_CamperNewItem":                     "Escaped with New Item",
 	"DBD_CamperEscapeWithItemFrom":          "Escaped with Others' Items",
 	"DBD_CamperFullLoadout":                 "Survivor Full Loadout Matches",
 	"DBD_CamperKeepUltraRare":               "Kept Ultra Rare Items",
 	"DBD_CamperMaxScoreByCategory":          "Survivor Max Score by Category",
 	
-	// Killer Core Stats
 	"DBD_SacrificedCampers":                 "Survivors Sacrificed",
 	"DBD_KilledCampers":                     "Survivors Killed (Mori)",
 	"DBD_SacrificedCampers_iam":             "Sacrificed (IAM Tracked)",
@@ -85,17 +80,14 @@ var aliases = map[string]string{
 	"DBD_SlasherMaxScoreByCategory":         "Killer Max Score by Category",
 	"DBD_SlasherPowerKillAllCampers":        "4K with Power Ability",
 	
-	// Killer Power Specific
 	"DBD_ChainsawHit":                       "Chainsaw Hits (Hillbilly/Cannibal)",
 	"DBD_UncloakAttack":                     "Uncloak Attacks (Wraith)",
 	"DBD_TrapPickup":                        "Bear Trap Catches (Trapper)",
 	"DBD_SlasherChainAttack":                "Chain Attacks",
 	"DBD_SlasherChainInterruptAfter3":       "Chain Interrupts After 3+",
 	
-	// Offerings and Items
 	"DBD_BurnOffering_UltraRare":            "Ultra Rare Offerings Used",
 	
-	// Map-Specific Generator Repairs
 	"DBD_EscapeNoBlood_MapAsy_Asylum":       "Escaped Asylum Without Injury",
 	"DBD_FixSecondFloorGenerator_MapAsy_Asylum":         "Asylum Second Floor Generator",
 	"DBD_FixSecondFloorGenerator_MapSub_Street":         "Haddonfield Second Floor Generator", 
@@ -419,12 +411,10 @@ func determineValueType(id, displayName string, _ float64) string {
 		return "level"
 	}
 	
-	// Float fields (including _Pct_float which are equivalents, not percentages)
 	if strings.Contains(id, "_float") || strings.Contains(id, "Pct_float") {
 		return "float"
 	}
 	
-	// Default to count
 	return "count"
 }
 
@@ -597,7 +587,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 
 		schemaDisplayName := schemaByID[id]
 		
-		// Resolve display name priority: schema → alias → fallback
+		// Resolve display name priority
 		var displayName, alias, matchedBy string
 		var category, valueType string
 		var sortWeight int
@@ -653,7 +643,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 
 		mapped = append(mapped, stat)
 
-		// Track unmapped stats (those using fallback naming)
+		// Track unmapped stats
 		if matchedBy == "fallback" {
 			unmappedStats = append(unmappedStats, map[string]interface{}{
 				"id":           id,
@@ -700,8 +690,9 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 	}
 
 	response := &PlayerStatsResponse{
-		Stats:   mapped,
-		Summary: summary,
+		Stats:         mapped,
+		Summary:       summary,
+		UnmappedStats: unmappedStats,
 	}
 
 	return response, nil

@@ -141,7 +141,6 @@ func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) err
 	return nil
 }
 
-// Get retrieves a value by key with detailed miss reason tracking
 func (mc *MemoryCache) Get(key string) (interface{}, bool) {
 	if key == "" {
 		log.Warn("Cache operation attempted with empty key", "operation", "get")
@@ -361,7 +360,7 @@ func (mc *MemoryCache) evictLRU() {
 		mc.stats.Evictions++
 		mc.stats.LRUEvictions++
 
-		log.Debug("LRU eviction (basic policy - Redis upgrade recommended for production)",
+		log.Debug("LRU eviction",
 			"key", oldestKey,
 			"age", time.Since(oldestTime),
 			"remaining_entries", len(mc.data),
@@ -372,23 +371,15 @@ func (mc *MemoryCache) evictLRU() {
 
 // calculateSize estimates the memory size of a value in bytes
 func (mc *MemoryCache) calculateSize(value interface{}) int64 {
-	// Simple estimation using JSON marshaling
-	// Approximate memory usage calculation
+	// JSON marshaling size estimation
 	data, err := json.Marshal(value)
 	if err != nil {
-		// Track corruption event
 		mc.stats.CorruptionEvents++
-		log.Error("Cache value serialization failed - potential corruption",
-			"error", err.Error(),
-			"corruption_events_total", mc.stats.CorruptionEvents,
-			"value_type", fmt.Sprintf("%T", value))
-
-		// Fallback to a conservative estimate
-		return 1024 // 1KB default
+		log.Error("Cache value serialization failed", "error", err.Error())
+		return 1024
 	}
 
-	// Add overhead for map storage, pointers, etc.
-	return int64(len(data)) + 200 // ~200 bytes overhead per entry
+	return int64(len(data)) + 200
 }
 
 // detectAndRecover performs corruption detection and recovery
@@ -481,13 +472,11 @@ func (mc *MemoryCache) cleanupWorker() {
 				mc.logMetrics()
 			}
 
-			// Check if cleanup is taking too long (potential performance issue)
 			if duration > 100*time.Millisecond {
 				log.Warn("Cache cleanup took longer than expected",
 					"duration", duration,
 					"evicted", evicted,
-					"corrupted", corrupted,
-					"performance_concern", "consider_redis_upgrade")
+					"corrupted", corrupted)
 			}
 
 		case <-mc.stopCleanup:

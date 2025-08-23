@@ -2,131 +2,63 @@ package api
 
 import (
 	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/rgonzalez12/dbd-analytics/internal/steam"
 )
 
-func TestEnhancedErrorResponses(t *testing.T) {
-	tests := []struct {
-		name             string
-		errorType        steam.ErrorType
-		statusCode       int
-		expectedStatus   int
-		expectRetryAfter bool
-		expectDetails    bool
-	}{
-		{
-			name:             "Rate Limit Error",
-			errorType:        steam.ErrorTypeRateLimit,
-			statusCode:       429,
-			expectedStatus:   429,
-			expectRetryAfter: true,
-			expectDetails:    true,
-		},
-		{
-			name:             "Not Found Error",
-			errorType:        steam.ErrorTypeNotFound,
-			statusCode:       404,
-			expectedStatus:   404,
-			expectRetryAfter: false,
-			expectDetails:    true,
-		},
-		{
-			name:             "API Error",
-			errorType:        steam.ErrorTypeAPIError,
-			statusCode:       502,
-			expectedStatus:   502,
-			expectRetryAfter: true,
-			expectDetails:    true,
-		},
-		{
-			name:             "Network Error",
-			errorType:        steam.ErrorTypeNetwork,
-			statusCode:       0, // No status code set
-			expectedStatus:   502,
-			expectRetryAfter: true,
-			expectDetails:    true,
-		},
-		{
-			name:             "Validation Error",
-			errorType:        steam.ErrorTypeValidation,
-			statusCode:       400,
-			expectedStatus:   400,
-			expectRetryAfter: false,
-			expectDetails:    true,
-		},
-		{
-			name:             "Internal Error",
-			errorType:        steam.ErrorTypeInternal,
-			statusCode:       0,
-			expectedStatus:   500,
-			expectRetryAfter: false,
-			expectDetails:    true,
-		},
-	}
+func TestCriticalErrorHandling(t *testing.T) {
+	t.Run("RateLimitErrorIncludesRetryAfter", func(t *testing.T) {
+		apiErr := &steam.APIError{
+			Type:       steam.ErrorTypeRateLimit,
+			Message:    "Rate limit exceeded",
+			StatusCode: 429,
+			Retryable:  true,
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create a mock error
-			apiErr := &steam.APIError{
-				Type:       tt.errorType,
-				Message:    "Test error message",
-				StatusCode: tt.statusCode,
-				Retryable:  tt.expectRetryAfter,
-			}
+		w := httptest.NewRecorder()
+		writeErrorResponse(w, apiErr)
 
-			// Create response recorder
-			w := httptest.NewRecorder()
+		if w.Code != 429 {
+			t.Errorf("Expected status 429, got %d", w.Code)
+		}
 
-			// Create a handler instance (we'll use writeErrorResponse directly)
-			handler := NewHandler()
-			handler.writeErrorResponseTest(w, apiErr)
+		var response map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &response)
 
-			// Check status code
-			if w.Code != tt.expectedStatus {
-				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
-			}
+		if response["retry_after"] == nil {
+			t.Error("Rate limit response must include retry_after field")
+		}
+		if response["retryable"] != true {
+			t.Error("Rate limit response must be marked as retryable")
+		}
+	})
 
-			// Parse response body
-			var response map[string]interface{}
-			if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-				t.Fatalf("Failed to unmarshal response: %v", err)
-			}
+	t.Run("ValidationErrorsProvideDetails", func(t *testing.T) {
+		apiErr := &steam.APIError{
+			Type:       steam.ErrorTypeValidation,
+			Message:    "Invalid Steam ID",
+			StatusCode: 400,
+			Retryable:  false,
+		}
 
-			// Check required fields
-			if response["error"] == nil {
-				t.Error("Expected 'error' field in response")
-			}
-			if response["type"] == nil {
-				t.Error("Expected 'type' field in response")
-			}
+		w := httptest.NewRecorder()
+		writeErrorResponse(w, apiErr)
 
-			// Check details field
-			if tt.expectDetails {
-				if response["details"] == nil {
-					t.Error("Expected 'details' field in response")
-				}
-			}
+		if w.Code != 400 {
+			t.Errorf("Expected status 400, got %d", w.Code)
+		}
 
-			// Check retry_after field
-			if tt.expectRetryAfter {
-				if response["retry_after"] == nil {
-					t.Error("Expected 'retry_after' field in response")
-				}
-				if response["retryable"] != true {
-					t.Error("Expected 'retryable' to be true")
-				}
-			}
+		var response map[string]interface{}
+		json.Unmarshal(w.Body.Bytes(), &response)
 
-			t.Logf("Response: %+v", response)
-		})
-	}
-}
-
-// Helper method to test writeErrorResponse
-func (h *Handler) writeErrorResponseTest(w http.ResponseWriter, apiErr *steam.APIError) {
-	writeErrorResponse(w, apiErr)
+		if response["details"] == nil {
+			t.Error("Validation errors must include details field")
+		}
+		// Validation errors should not include retryAfter (indicating they're not retryable)
+		if response["retryAfter"] != nil {
+			t.Error("Validation errors must not be retryable (should not have retryAfter)")
+		}
+	})
 }

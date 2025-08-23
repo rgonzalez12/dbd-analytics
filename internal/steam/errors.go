@@ -25,7 +25,7 @@ type APIError struct {
 	Message    string    `json:"error"`
 	StatusCode int       `json:"status_code,omitempty"`
 	Retryable  bool      `json:"retryable,omitempty"`
-	RetryAfter int       `json:"retry_after,omitempty"` // seconds to wait before retrying
+	RetryAfter int       `json:"retry_after,omitempty"`
 }
 
 func (e *APIError) Error() string {
@@ -33,7 +33,7 @@ func (e *APIError) Error() string {
 }
 
 func NewRateLimitError() *APIError {
-	return NewRateLimitErrorWithRetryAfter(60) // Default 60 seconds
+	return NewRateLimitErrorWithRetryAfter(60)
 }
 
 func NewRateLimitErrorWithRetryAfter(retryAfter int) *APIError {

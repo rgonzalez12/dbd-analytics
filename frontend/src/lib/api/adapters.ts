@@ -32,7 +32,7 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		id: achievement.id,
 		name: achievement.display_name || achievement.name || achievement.id,
 		display_name: achievement.display_name || achievement.name || achievement.id,
-		displayName: achievement.display_name || achievement.name || achievement.id, // For backward compatibility
+		displayName: achievement.display_name || achievement.name || achievement.id,
 		description: achievement.description || "",
 		...(achievement.icon !== undefined && { icon: achievement.icon }),
 		...(achievement.icon_gray !== undefined && { icon_gray: achievement.icon_gray }),
@@ -40,9 +40,9 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 		...(achievement.character !== undefined && { character: achievement.character }),
 		type: achievement.type || "general",
 		unlocked: Boolean(achievement.unlocked),
-		achieved: Boolean(achievement.unlocked), // For backward compatibility with existing UI
+		achieved: Boolean(achievement.unlocked),
 		...(achievement.unlock_time !== undefined && { unlock_time: achievement.unlock_time }),
-		...(achievement.unlock_time !== undefined && { unlockTime: achievement.unlock_time }), // For backward compatibility
+		...(achievement.unlock_time !== undefined && { unlockTime: achievement.unlock_time }),
 		...(achievement.rarity !== undefined && { rarity: achievement.rarity })
 	}));
 
@@ -97,7 +97,6 @@ export function toDomainPlayer(raw: ApiPlayerStats): Player {
 			general: groupedStats.general,
 			header: header,
 			summary: statsSummaryData,
-			// Individual fields for backward compatibility
 			killerPips: toNum(raw.killer_pips),
 			survivorPips: toNum(raw.survivor_pips),
 			killedCampers: toNum(raw.killed_campers),

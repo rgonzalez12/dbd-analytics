@@ -31,7 +31,6 @@ export type ApiPlayerStats = {
   avatar?: string; // Steam avatar URL
   total_matches?: number | string | null;
   last_updated?: string | null;
-  // Backward compatibility fields
   killer_pips?: number | string | null;
   survivor_pips?: number | string | null;
   killed_campers?: number | string | null;
@@ -102,7 +101,7 @@ export type ApiPlayerStats = {
 // Domain types - strict, UI-friendly with defaults
 export type Player = {
   id: string;
-  steamId?: string;               // Optional for backward compatibility
+  steamId?: string;
   name: string;
   avatar?: string;                // Optional avatar URL
   public?: boolean;               // Optional public status
@@ -125,7 +124,6 @@ export type Player = {
       survivor_count?: number;
       general_count?: number;
     };
-    // Individual fields for backward compatibility
     killerPips?: number;
     survivorPips?: number;
     killedCampers?: number;
@@ -153,13 +151,13 @@ export type Player = {
     timePlayedHours?: number;
   };
   achievements: {
-    total: number;                  // default to 0
-    unlocked: number;               // default to 0
+    total: number;
+    unlocked: number;
     mapped: Array<{
       id: string;
       name: string;
       display_name?: string;
-      displayName?: string;         // For backward compatibility
+      displayName?: string;
       description: string;
       icon?: string;
       icon_gray?: string;
@@ -167,16 +165,14 @@ export type Player = {
       character?: string;
       type: string;
       unlocked: boolean;
-      achieved?: boolean;           // For backward compatibility
+      achieved?: boolean;
       unlock_time?: number;
-      unlockTime?: number;          // For backward compatibility
+      unlockTime?: number;
       rarity?: number;
     }>;
     adepts: { survivors: Record<string, boolean>; killers: Record<string, boolean> };
-    // Backward compatibility format
     adept_survivors?: Record<string, boolean>;
     adept_killers?: Record<string, boolean>;
-    // Backend format (PascalCase)
     AdeptSurvivors?: Record<string, boolean>;
     AdeptKillers?: Record<string, boolean>;
   };
@@ -247,7 +243,7 @@ export type SchemaPlayer = {
   dataSources: SchemaDataSources;
 };
 
-// Individual types for backward compatibility and convenience
+// Individual types for convenience
 export type Achievement = {
   id: string;
   name: string;

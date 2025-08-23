@@ -1,10 +1,6 @@
 declare global {
 	namespace App {
-		// interface Error {}
-		// interface Locals {}
-		// interface PageData {}
-		// interface PageState {}
-		// interface Platform {}
+		// SvelteKit interfaces will be declared here when needed
 	}
 }
 

@@ -3,7 +3,6 @@ package models
 import "time"
 
 type AchievementData struct {
-	// Backward compatibility format
 	AdeptSurvivors map[string]bool `json:"adept_survivors"` // character name -> unlocked status
 	AdeptKillers   map[string]bool `json:"adept_killers"`   // character name -> unlocked status
 
@@ -17,7 +16,7 @@ type AchievementData struct {
 type MappedAchievement struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`         // displayName from schema
-	DisplayName string  `json:"display_name"` // kept for backwards compatibility
+	DisplayName string  `json:"display_name"`
 	Description string  `json:"description"`
 	Icon        string  `json:"icon,omitempty"`
 	IconGray    string  `json:"icon_gray,omitempty"`
@@ -45,7 +44,6 @@ type AchievementSummary struct {
 type PlayerStatsWithAchievements struct {
 	PlayerStats
 
-	// Achievement data (optional - may be nil if achievements failed to load)
 	Achievements *AchievementData `json:"achievements,omitempty"`
 
 	// Structured stats data using schema as source of truth
