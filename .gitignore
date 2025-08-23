@@ -3,10 +3,7 @@
 # Grade discovery results may contain personal data
 grade_discovery_results.json
 
-# Tools are separate modules - exclude entirely
-tools/
-
-# Test files - keep private
+# Test files
 *_test.go
 **/*_test.go
 
