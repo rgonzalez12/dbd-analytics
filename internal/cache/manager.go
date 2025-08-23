@@ -84,7 +84,7 @@ func DevelopmentConfig() Config {
 	return config
 }
 
-// Manager provides a factory and management layer for different cache implementations
+// Manager is a factory and management layer for different cache implementations
 type Manager struct {
 	config         Config
 	cache          Cache
@@ -129,7 +129,7 @@ func (m *Manager) ExecuteWithFallback(key string, fn func() (interface{}, error)
 	return m.circuitBreaker.ExecuteWithStaleCache(key, fn)
 }
 
-// GetCacheStatus returns comprehensive cache and circuit breaker status
+// GetCacheStatus returns cache and circuit breaker status
 func (m *Manager) GetCacheStatus() map[string]interface{} {
 	status := map[string]interface{}{
 		"cache_type": m.config.Type,
@@ -164,7 +164,7 @@ func (m *Manager) createCache() (Cache, error) {
 	case RedisCacheType:
 		return nil, fmt.Errorf("redis cache not yet implemented - use memory cache for now. " +
 			"consider Redis when you need: distributed caching, persistence, clustering, " +
-			"or cache sizes > 10GB. current memory cache handles up to ~100k entries efficiently")
+			"or cache sizes > 10GB. current memory cache handles up to ~100k entries")
 	default:
 		return nil, fmt.Errorf("unsupported cache type: %s", m.config.Type)
 	}
@@ -197,7 +197,7 @@ type TTLConfig struct {
 
 // GetTTLFromEnv returns TTL configuration from environment variables with fallbacks
 // TTL Source Priority: Environment Variables > Hardcoded Defaults
-// This ensures production deployments can override TTL values without code changes
+// Production deployments can override TTL values without code changes
 func GetTTLFromEnv() TTLConfig {
 	config := TTLConfig{
 		PlayerStats:        getEnvDuration("CACHE_PLAYER_STATS_TTL", 5*time.Minute),

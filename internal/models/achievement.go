@@ -6,7 +6,7 @@ type AchievementData struct {
 	AdeptSurvivors map[string]bool `json:"adept_survivors"` // character name -> unlocked status
 	AdeptKillers   map[string]bool `json:"adept_killers"`   // character name -> unlocked status
 
-	// Enhanced achievement data with mapping
+	// Achievement data with mapping
 	MappedAchievements []MappedAchievement `json:"mapped_achievements,omitempty"`
 	Summary            AchievementSummary  `json:"summary,omitempty"`
 
@@ -39,7 +39,7 @@ type AchievementSummary struct {
 	CompletionRate    float64  `json:"completion_rate"`
 }
 
-// PlayerStatsWithAchievements represents the enhanced response with both stats and achievements
+// PlayerStatsWithAchievements represents the response with both stats and achievements
 type PlayerStatsWithAchievements struct {
 	PlayerStats
 

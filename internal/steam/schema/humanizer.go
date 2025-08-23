@@ -21,20 +21,20 @@ type UIStat struct {
 	Unknown     bool        `json:"unknown"`
 }
 
-// PlayerAchievement represents raw achievement data from Steam API
+// PlayerAchievement represents raw achievement data from the Steam API
 type PlayerAchievement struct {
 	APIName    string `json:"apiname"`
 	Achieved   int    `json:"achieved"`
 	UnlockTime int64  `json:"unlocktime,omitempty"`
 }
 
-// UserStat represents raw stat data from Steam API
+// UserStat represents raw stat data from the Steam API
 type UserStat struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
 }
 
-// HumanizeAchievements converts raw achievements to UI-friendly format using schema
+// HumanizeAchievements converts raw achievements to a readable format using schema
 func HumanizeAchievements(schema *Schema, rawAchievements []PlayerAchievement, lang string) []UIAchievement {
 	if schema == nil {
 		return humanizeAchievementsWithoutSchema(rawAchievements)

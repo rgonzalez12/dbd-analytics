@@ -451,7 +451,7 @@ var killerGradePoints = map[int]int{
 	439: 6, // Bronze II
 	640: 0, // Ash IV (alternative)
 
-	// Additional mappings to handle edge cases
+	// Additional mappings for low values
 	0:    0,  // Reset/Unranked -> Ash IV
 	1:    0,  // Very low values -> Ash IV
 	15:   0,  // Below observed range -> Ash IV
@@ -494,7 +494,7 @@ var survivorGradePoints = map[int]int{
 	4251: 19, // Iridescent I
 	8995: 16, // Iridescent IV
 
-	// Additional mappings to handle more edge cases
+	// Additional mappings for various values
 	0:    0,  // Reset/Unranked -> Ash IV
 	1:    0,  // Very low values -> Ash IV
 	10:   0,  // Low values -> Ash IV
@@ -503,7 +503,7 @@ var survivorGradePoints = map[int]int{
 	1000: 2,  // Higher values -> Ash II
 	1500: 3,  // High values -> Ash I
 	3000: 12, // Very high values -> Gold IV
-	5000: 16, // Extremely high values -> Iridescent IV
+	5000: 16, // Very high values -> Iridescent IV
 	9999: 19, // Maximum observed -> Iridescent I
 }
 
@@ -574,7 +574,7 @@ func MapPlayerStats(ctx context.Context, steamID string, cacheManager cache.Cach
 		}
 	}
 
-	// 6) Map each stat in the union with comprehensive rule detection
+	// 6) Map each stat with rule detection
 	mapped := make([]Stat, 0, len(keys))
 	unmappedStats := make([]map[string]interface{}, 0)
 
@@ -814,7 +814,7 @@ func formatDuration(seconds int64) string {
 	}
 }
 
-// decodeGrade converts raw grade value to human readable format using improved mapping
+// decodeGrade converts raw grade value to human readable format
 func decodeGrade(v float64, fieldID string) (Grade, string, string) {
 	gradeCode := int(v)
 

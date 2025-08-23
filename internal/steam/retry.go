@@ -153,7 +153,7 @@ func calculateRetryDelay(attempt int, config RetryConfig, err *APIError) time.Du
 	// If we have a rate limit error with RetryAfter, use it
 	if err.Type == ErrorTypeRateLimit && err.RetryAfter > 0 {
 		delay := time.Duration(err.RetryAfter) * time.Second
-		// Cap the delay to max delay to prevent extremely long waits
+		// Cap the delay to max configured delay
 		if delay > config.MaxDelay {
 			delay = config.MaxDelay
 		}
@@ -171,9 +171,9 @@ func calculateBackoffDelay(attempt int, config RetryConfig) time.Duration {
 		delay = float64(config.MaxDelay)
 	}
 
-	// Add jitter if enabled to prevent thundering herd
+	// Jitter if enabled
 	if config.Jitter {
-		// Jitter between 50% and 100% of calculated delay (0.5 to 1.0)
+		// Jitter between 50% and 100% of calculated delay
 		jitterFactor := 0.5 + (rand.Float64() * 0.5)
 		delay = delay * jitterFactor
 	}

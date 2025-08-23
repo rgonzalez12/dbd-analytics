@@ -132,7 +132,7 @@ func (rl *RequestLimiter) cleanupRoutine() {
 	}
 }
 
-// RateLimitMiddleware creates HTTP middleware for rate limiting with enhanced client identification
+// RateLimitMiddleware creates HTTP middleware for rate limiting with client identification
 func RateLimitMiddleware(limiter *RequestLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +152,7 @@ func RateLimitMiddleware(limiter *RequestLimiter) func(http.Handler) http.Handle
 					"max_requests", limiter.maxReqs,
 					"window", limiter.window)
 
-				// Enhanced rate limit headers
+				// Rate limit headers
 				w.Header().Set("Content-Type", "application/json")
 				w.Header().Set("Retry-After", strconv.Itoa(int(limiter.window.Seconds())))
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limiter.maxReqs))
@@ -208,11 +208,11 @@ func parseIPFromRemoteAddr(addr string) string {
 	return addr
 }
 
-// SecurityMiddleware adds security headers and enhanced protection
+// SecurityMiddleware adds security headers and protection
 func SecurityMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Enhanced security headers
+			// Security headers
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("X-Frame-Options", "DENY")
 			w.Header().Set("X-XSS-Protection", "1; mode=block")
@@ -232,15 +232,13 @@ func SecurityMiddleware() func(http.Handler) http.Handler {
 
 			// Block suspicious requests
 			userAgent := r.Header.Get("User-Agent")
-			if userAgent == "" || len(userAgent) > 512 {
-				http.Error(w, "Invalid request", http.StatusBadRequest)
-				return
-			}
+		if userAgent == "" || len(userAgent) > 512 {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
 
-			// Rate limit per user agent + IP combination for better protection
-			clientFingerprint := getClientFingerprint(r)
-
-			// Add client fingerprint to context for downstream middleware
+		// Rate limit per user agent + IP combination
+		clientFingerprint := getClientFingerprint(r)			// Add client fingerprint to context for downstream middleware
 			ctx := context.WithValue(r.Context(), clientFingerprintKey, clientFingerprint)
 
 			if r.Method == "OPTIONS" {
@@ -255,7 +253,7 @@ func SecurityMiddleware() func(http.Handler) http.Handler {
 
 // getClientFingerprint creates a unique identifier for rate limiting
 func getClientFingerprint(r *http.Request) string {
-	// Combine IP, User-Agent hash, and API key for unique fingerprinting
+	// Combine IP, User-Agent hash, and API key for fingerprinting
 	clientIP := getClientIP(r)
 	userAgent := r.Header.Get("User-Agent")
 	apiKey := r.Header.Get("X-API-Key")
@@ -279,7 +277,7 @@ func min(a, b int) int {
 	return b
 }
 
-// APIKeyMiddleware provides optional API key authentication for public endpoints
+// APIKeyMiddleware adds optional API key authentication for public endpoints
 func APIKeyMiddleware() func(http.Handler) http.Handler {
 	requiredKey := os.Getenv("API_KEY")
 

@@ -229,12 +229,12 @@ func (mc *MemoryCache) EvictExpired() int {
 	return mc.evictExpiredLocked()
 }
 
-// Stats returns comprehensive cache performance metrics
+// Stats returns cache performance metrics
 func (mc *MemoryCache) Stats() CacheStats {
 	mc.mu.RLock()
 	defer mc.mu.RUnlock()
 
-	// Create a copy of stats with enhanced metrics
+	// Create a copy of stats
 	stats := CacheStats{
 		Hits:             mc.stats.Hits,
 		Misses:           mc.stats.Misses,
@@ -387,7 +387,7 @@ func (mc *MemoryCache) detectAndRecover() int {
 	now := time.Now()
 
 	for key, entry := range mc.data {
-		// Check for obvious corruption indicators
+		// Check for nil entries
 		if entry == nil {
 			delete(mc.data, key)
 			corrupted++
@@ -402,7 +402,7 @@ func (mc *MemoryCache) detectAndRecover() int {
 			continue
 		}
 
-		// Check for impossibly old access times (> 1 year ago)
+		// Check for very old access times
 		if now.Sub(entry.AccessedAt) > 365*24*time.Hour {
 			delete(mc.data, key)
 			mc.stats.MemoryUsage -= entry.Size
@@ -532,7 +532,7 @@ func (mc *MemoryCache) GetStats() CacheStats {
 		hitRate = float64(mc.stats.Hits) / float64(totalRequests)
 	}
 
-	// Return a copy to prevent race conditions
+	// Return a copy of the stats
 	return CacheStats{
 		Hits:             mc.stats.Hits,
 		Misses:           mc.stats.Misses,

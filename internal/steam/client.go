@@ -185,7 +185,7 @@ func (c *Client) GetPlayerStats(steamIDOrVanity string) (*SteamPlayerstats, *API
 
 	retryErr := withRetryAndLogging(c.retryConfig, func() (*APIError, bool) {
 		if err := c.makeRequest(endpoint, params, &resp); err != nil {
-			// Wrap API request errors with additional context for troubleshooting
+			// Wrap API request errors with additional context
 			wrappedErr := &APIError{
 				Type:       err.Type,
 				Message:    fmt.Sprintf("GetPlayerStats API request failed: %s", err.Message),
@@ -410,7 +410,7 @@ func (c *Client) makeRequest(endpoint string, params url.Values, result interfac
 			"content_length", resp.Header.Get("Content-Length"),
 			"attempt", attempt+1)
 
-		// Handle rate limiting with enhanced header parsing
+		// Handle rate limiting with header parsing
 		if resp.StatusCode == http.StatusTooManyRequests {
 			retryAfter := c.parseRateLimitHeaders(resp.Header)
 			log.Warn("steam_api_rate_limited",
@@ -506,7 +506,7 @@ func (c *Client) parseRateLimitHeaders(headers http.Header) int {
 	// First check Retry-After header (preferred)
 	if retryAfter := headers.Get("Retry-After"); retryAfter != "" {
 		if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
-			// Cap at reasonable maximum (5 minutes)
+			// Cap at 5 minutes maximum
 			if seconds > 300 {
 				return 300
 			}

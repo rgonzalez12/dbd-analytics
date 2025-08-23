@@ -328,7 +328,7 @@ func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) 
 	return summary
 }
 
-// GetUnknownAchievements returns list of unmapped achievements for monitoring
+// GetUnknownAchievements returns list of unmapped achievements
 func (am *AchievementMapper) GetUnknownAchievements() []*UnknownAchievement {
 	am.unknownsMutex.RLock()
 	defer am.unknownsMutex.RUnlock()
@@ -380,7 +380,7 @@ func MapAchievements(achievements *PlayerAchievements) []AchievementMapping {
 	return getGlobalMapper().MapPlayerAchievements(achievements)
 }
 
-// GetMappedAchievements returns mapped achievements with summary and monitoring
+// GetMappedAchievements returns mapped achievements with summary
 func GetMappedAchievements(achievements *PlayerAchievements) map[string]interface{} {
 	return GetAchievements(achievements, nil)
 }
@@ -419,7 +419,7 @@ func GetAchievements(achievements *PlayerAchievements, cacheManager cache.Cache)
 		"summary":      summary,
 	}
 
-	// Include unknown achievements in response for monitoring
+	// Include unknown achievements in response
 	if len(unknowns) > 0 {
 		result["unknown_achievements"] = unknowns
 	}

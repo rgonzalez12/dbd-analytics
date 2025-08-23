@@ -283,7 +283,7 @@ func (cb *CircuitBreaker) getFallbackData() (interface{}, error) {
 		return nil, errors.New("circuit breaker open and no fallback cache available")
 	}
 
-	// Simplified fallback response - could be enhanced to return actual cached data
+	// Simplified fallback response
 	return map[string]interface{}{
 		"status":    "fallback",
 		"message":   "Service temporarily unavailable, using cached data",
@@ -358,7 +358,7 @@ func (cb *CircuitBreaker) GetMetrics() CircuitBreakerMetrics {
 	return metrics
 }
 
-// GetDetailedStatus returns comprehensive status information
+// GetDetailedStatus returns detailed status information
 func (cb *CircuitBreaker) GetDetailedStatus() map[string]interface{} {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
