@@ -15,7 +15,7 @@ type AchievementData struct {
 
 type MappedAchievement struct {
 	ID          string  `json:"id"`
-	Name        string  `json:"name"`         // displayName from schema
+	Name        string  `json:"name"` // displayName from schema
 	DisplayName string  `json:"display_name"`
 	Description string  `json:"description"`
 	Icon        string  `json:"icon,omitempty"`
@@ -28,7 +28,6 @@ type MappedAchievement struct {
 	Rarity      float64 `json:"rarity,omitempty"` // 0-100 global completion percentage
 }
 
-// AchievementSummary provides statistical overview of achievements
 type AchievementSummary struct {
 	TotalAchievements int      `json:"total_achievements"`
 	UnlockedCount     int      `json:"unlocked_count"`
@@ -71,7 +70,6 @@ type DataSourceStatus struct {
 	StructuredStats DataSourceInfo `json:"structured_stats"` // New field for our schema-based stats
 }
 
-// DataSourceInfo provides detailed information about data source fetch results
 type DataSourceInfo struct {
 	Success   bool      `json:"success"`
 	Source    string    `json:"source"` // "cache" | "api" | "fallback"

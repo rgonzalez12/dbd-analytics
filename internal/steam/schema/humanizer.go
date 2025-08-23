@@ -2,15 +2,15 @@ package schema
 
 // UIAchievement represents a humanized achievement for frontend display
 type UIAchievement struct {
-	APIName     string    `json:"apiName"`
-	DisplayName string    `json:"displayName"`
-	Description string    `json:"description"`
-	Hidden      bool      `json:"hidden"`
-	Achieved    bool      `json:"achieved"`
-	UnlockTime  int64     `json:"unlockTime,omitempty"`
-	Icon        string    `json:"icon,omitempty"`
-	IconGray    string    `json:"iconGray,omitempty"`
-	Unknown     bool      `json:"unknown"`
+	APIName     string `json:"apiName"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Hidden      bool   `json:"hidden"`
+	Achieved    bool   `json:"achieved"`
+	UnlockTime  int64  `json:"unlockTime,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	IconGray    string `json:"iconGray,omitempty"`
+	Unknown     bool   `json:"unknown"`
 }
 
 // UIStat represents a humanized statistic for frontend display

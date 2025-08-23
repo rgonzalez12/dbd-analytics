@@ -21,14 +21,12 @@ const (
 	DefaultTTL     = 24 * time.Hour
 )
 
-// SchemaClient handles Steam game schema operations
 type SchemaClient struct {
 	httpClient *http.Client
 	cache      *SchemaCache
 	apiKey     string
 }
 
-// SchemaCache provides in-memory caching with TTL
 type SchemaCache struct {
 	mu       sync.RWMutex
 	data     map[string]*CacheEntry
@@ -69,10 +67,10 @@ type schemaResponse struct {
 }
 
 type GameSchema struct {
-	GameName     string                   `json:"gameName"`
-	GameVersion  string                   `json:"gameVersion"`
-	Achievements []RawAchievementSchema   `json:"availableGameStats"`
-	Stats        []RawStatSchema          `json:"stats"`
+	GameName     string                 `json:"gameName"`
+	GameVersion  string                 `json:"gameVersion"`
+	Achievements []RawAchievementSchema `json:"availableGameStats"`
+	Stats        []RawStatSchema        `json:"stats"`
 }
 
 type RawAchievementSchema struct {
@@ -86,9 +84,9 @@ type RawAchievementSchema struct {
 }
 
 type RawStatSchema struct {
-	Name        string `json:"name"`
-	DefaultValue int   `json:"defaultvalue"`
-	DisplayName string `json:"displayName"`
+	Name         string `json:"name"`
+	DefaultValue int    `json:"defaultvalue"`
+	DisplayName  string `json:"displayName"`
 }
 
 // NewSchemaClient creates a new schema client with caching
@@ -107,7 +105,7 @@ func NewSchemaClient() *SchemaClient {
 	}
 
 	cache := NewSchemaCache(ttl)
-	
+
 	return &SchemaClient{
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
@@ -122,7 +120,7 @@ func NewSchemaCache(ttl time.Duration) *SchemaCache {
 	cache := &SchemaCache{
 		data:     make(map[string]*CacheEntry),
 		ttl:      ttl,
-		cleanup:  time.NewTicker(time.Hour), // Clean up every hour
+		cleanup:  time.NewTicker(time.Hour),
 		stopChan: make(chan struct{}),
 	}
 
@@ -174,10 +172,8 @@ func (c *SchemaClient) ForceRefresh(ctx context.Context, appID, lang string) (*S
 
 	cacheKey := fmt.Sprintf("%s:%s", appID, lang)
 
-	// Clear cache entry
 	c.cache.Delete(cacheKey)
 
-	// Fetch fresh data
 	return c.GetSchemaForGame(ctx, appID, lang)
 }
 
@@ -187,7 +183,6 @@ func (c *SchemaClient) fetchSchemaFromAPI(ctx context.Context, appID, lang strin
 		return nil, fmt.Errorf("STEAM_API_KEY environment variable not set")
 	}
 
-	// Build URL
 	baseURL, err := url.Parse(SchemaEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("invalid schema endpoint URL: %w", err)
@@ -199,29 +194,24 @@ func (c *SchemaClient) fetchSchemaFromAPI(ctx context.Context, appID, lang strin
 	params.Set("l", lang)
 	baseURL.RawQuery = params.Encode()
 
-	// Create request with context
 	req, err := http.NewRequestWithContext(ctx, "GET", baseURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("User-Agent", "dbd-analytics/1.0")
 
-	// Make request with retries
 	resp, err := c.doRequestWithRetries(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Parse response
 	var apiResp schemaResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Convert to our schema format
 	schema := &Schema{
 		AppID:        appID,
 		Language:     lang,
@@ -230,7 +220,6 @@ func (c *SchemaClient) fetchSchemaFromAPI(ctx context.Context, appID, lang strin
 		FetchedAt:    time.Now(),
 	}
 
-	// Process achievements
 	for _, ach := range apiResp.Game.Achievements {
 		schema.Achievements[ach.Name] = AchievementMeta{
 			DisplayName: ach.DisplayName,
@@ -241,7 +230,6 @@ func (c *SchemaClient) fetchSchemaFromAPI(ctx context.Context, appID, lang strin
 		}
 	}
 
-	// Process stats
 	for _, stat := range apiResp.Game.Stats {
 		schema.Stats[stat.Name] = stat.DisplayName
 	}

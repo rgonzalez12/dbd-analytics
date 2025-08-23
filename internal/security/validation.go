@@ -52,7 +52,7 @@ func ValidateEnvironment() error {
 	}
 
 	logSecurityAudit(config)
-	
+
 	return nil
 }
 

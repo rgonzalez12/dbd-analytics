@@ -5,10 +5,6 @@ import (
 	"net/http"
 )
 
-// Predefined error variables for common scenarios
-var (
-)
-
 type ErrorType string
 
 const (

@@ -123,9 +123,9 @@ func TestGetPlayerSummary(t *testing.T) {
 			expectError:    true,
 		},
 		{
-			name:           "Steam API timeout/network error",
-			steamID:        "counteredspell",
-			mockResponse:   nil,
+			name:         "Steam API timeout/network error",
+			steamID:      "counteredspell",
+			mockResponse: nil,
 			mockError: &steam.APIError{
 				Type:       steam.ErrorTypeNetwork,
 				Message:    "Connection timeout",

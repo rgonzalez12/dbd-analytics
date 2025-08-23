@@ -700,7 +700,6 @@ func (h *Handler) fetchPlayerAchievementsWithSource(steamID string) (*models.Ach
 		"mapped_achievements_count", len(mappedAchievements),
 		"data_source", "schema_with_hardcoded_fallback")
 
-	// Helper function for safe map access
 	getIntFromMap := func(m map[string]interface{}, key string, defaultValue int) int {
 		if value, exists := m[key]; exists {
 			if intValue, ok := value.(int); ok {
@@ -849,7 +848,6 @@ func (h *Handler) fetchPlayerStructuredStatsWithSource(steamID string) (*models.
 			return nil, "api", err
 		}
 
-		// Convert to model format
 		statsData := &models.StatsData{
 			Stats:   make([]interface{}, len(statsResponse.Stats)),
 			Summary: statsResponse.Summary,
@@ -876,7 +874,6 @@ func (h *Handler) fetchPlayerStructuredStatsWithSource(steamID string) (*models.
 		return nil, "api", err
 	}
 
-	// Convert to model format
 	statsData := &models.StatsData{
 		Stats:   make([]interface{}, len(statsResponse.Stats)),
 		Summary: statsResponse.Summary,

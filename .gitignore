@@ -6,6 +6,10 @@ grade_discovery_results.json
 # Tools are separate modules - exclude entirely
 tools/
 
+# Test files - keep private
+*_test.go
+**/*_test.go
+
 # Frontend dependencies and build
 node_modules/
 .vite/

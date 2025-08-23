@@ -15,7 +15,7 @@ import (
 
 type AchievementMapping struct {
 	ID          string  `json:"id"`
-	Name        string  `json:"name"`         // displayName from schema
+	Name        string  `json:"name"` // displayName from schema
 	DisplayName string  `json:"display_name"`
 	Description string  `json:"description"`
 	Icon        string  `json:"icon,omitempty"`
@@ -43,7 +43,6 @@ type AchievementMapper struct {
 }
 
 func NewAchievementMapper() *AchievementMapper {
-	// Build adepts lookup from existing mapping
 	adeptsByAPI := make(map[string]string)
 	for apiName, adept := range AdeptAchievementMapping {
 		adeptsByAPI[apiName] = adept.Type
@@ -224,7 +223,6 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 	// Since schema is unavailable, we can't validate general achievements reliably
 	mapped := make([]AchievementMapping, 0, len(AdeptAchievementMapping))
 
-	// Process each achievement from player data
 	for apiName, steamAch := range unlockedMap {
 		// Only process adept achievements in fallback mode to maintain data integrity
 		entry, isAdept := AdeptAchievementMapping[apiName]
@@ -258,7 +256,6 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 			Character:   entry.Name, // keep mapping's casing
 		}
 
-		// Set adept type
 		if entry.Type == "killer" {
 			mapping.Type = "adept_killer"
 		} else {
@@ -283,7 +280,6 @@ func (am *AchievementMapper) buildAllAchievementMappings(unlockedMap map[string]
 	return mapped
 }
 
-// GetAchievementSummary returns a summary of achievements by type with enhanced adept tracking
 func (am *AchievementMapper) GetAchievementSummary(mapped []AchievementMapping) map[string]interface{} {
 	summary := map[string]interface{}{
 		"total_achievements":   len(mapped),

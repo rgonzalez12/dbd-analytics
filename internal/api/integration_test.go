@@ -28,15 +28,15 @@ func TestSteamAPIOutageScenarios(t *testing.T) {
 		},
 		{
 			name:            "Non-existent Steam ID",
-			steamID:         "76561199999999999",   // Very high number, likely non-existent
-			expectedStatus:  0,                     // Status depends on API key availability
-			shouldHaveError: false,                 // May or may not error depending on setup
+			steamID:         "76561199999999999", // Very high number, likely non-existent
+			expectedStatus:  0,                   // Status depends on API key availability
+			shouldHaveError: false,               // May or may not error depending on setup
 		},
 		{
 			name:            "Valid Steam ID Format",
-			steamID:         "example_user",      // Valid vanity URL
-			expectedStatus:  0,                     // Status depends on Steam API response
-			shouldHaveError: false,                 // May or may not error depending on Steam
+			steamID:         "example_user", // Valid vanity URL
+			expectedStatus:  0,              // Status depends on Steam API response
+			shouldHaveError: false,          // May or may not error depending on Steam
 		},
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/rgonzalez12/dbd-analytics/internal/log"
 )
 
-// MemoryCache implements in-memory cache with TTL and LRU eviction
 type MemoryCache struct {
 	mu             sync.RWMutex
 	data           map[string]*CacheEntry
@@ -31,7 +30,6 @@ type MemoryCacheConfig struct {
 }
 
 func NewMemoryCache(config MemoryCacheConfig) *MemoryCache {
-	// Validate and apply defaults with bounds checking
 	if config.MaxEntries <= 0 {
 		config.MaxEntries = 1000
 		log.Warn("Invalid MaxEntries, using default", "default", 1000)
@@ -113,10 +111,8 @@ func (mc *MemoryCache) Set(key string, value interface{}, ttl time.Duration) err
 		return fmt.Errorf("cache is shutting down")
 	}
 
-	// Check for key update
 	existingEntry, isUpdate := mc.data[key]
 
-	// Check if we need to evict entries (only for new keys)
 	if !isUpdate && len(mc.data) >= mc.maxEntries {
 		mc.evictLRU()
 	}

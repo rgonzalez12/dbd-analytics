@@ -124,7 +124,7 @@ func TestFallbackDisplayName(t *testing.T) {
 	}{
 		{"DBD prefix removal", "DBD_Generator_Repaired", "Generator Repaired"},
 		{"Camper to Survivor", "DBD_Camper_Escapes", "Survivor Escapes"},
-		{"Slasher to Killer", "DBD_Slasher_Hooks", "Killer Hooks"}, 
+		{"Slasher to Killer", "DBD_Slasher_Hooks", "Killer Hooks"},
 		{"Complex replacement", "DBD_Camper_Slasher_Interaction", "Survivor Killer Interaction"},
 		{"No DBD prefix", "Some_Other_Stat", "Some Other Stat"},
 	}
@@ -172,7 +172,7 @@ func TestAliasMap(t *testing.T) {
 	// Test key aliases exist
 	requiredAliases := []string{
 		"DBD_SlasherTierIncrement",
-		"DBD_UnlockRanking", 
+		"DBD_UnlockRanking",
 		"DBD_SlasherSkulls",
 		"DBD_CamperSkulls",
 		"DBD_BloodwebMaxPrestigeLevel",

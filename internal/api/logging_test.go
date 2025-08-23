@@ -88,7 +88,7 @@ func TestErrorLogging(t *testing.T) {
 	log.Initialize()
 
 	router := mux.NewRouter()
-	
+
 	// Add simple request ID middleware for logging context
 	router.Use(RequestIDMiddleware())
 

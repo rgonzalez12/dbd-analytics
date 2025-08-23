@@ -243,7 +243,7 @@ func TestRequestIDGeneration(t *testing.T) {
 	ids := make(map[string]bool)
 
 	for i := 0; i < 100; i++ {
-			id := GenerateRequestID()		// Should not be empty
+		id := GenerateRequestID() // Should not be empty
 		if id == "" {
 			t.Error("Request ID should not be empty")
 		}

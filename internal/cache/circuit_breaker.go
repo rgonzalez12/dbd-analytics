@@ -142,7 +142,7 @@ func (cb *CircuitBreaker) executeWithOptions(fn func() (interface{}, error), use
 	// Normal operation
 
 	default:
-	// Should not happen, but handle gracefully
+		// Should not happen, but handle gracefully
 		log.Warn("Circuit breaker in unknown state, treating as closed")
 	}
 
@@ -283,11 +283,7 @@ func (cb *CircuitBreaker) getFallbackData() (interface{}, error) {
 		return nil, errors.New("circuit breaker open and no fallback cache available")
 	}
 
-	// This is a simplified fallback - in practice you'd want to:
-	// - Return the most recent cached data
-	// - Extend TTL on stale but usable data
-	// - Return default/empty data structure
-
+	// Simplified fallback response - could be enhanced to return actual cached data
 	return map[string]interface{}{
 		"status":    "fallback",
 		"message":   "Service temporarily unavailable, using cached data",

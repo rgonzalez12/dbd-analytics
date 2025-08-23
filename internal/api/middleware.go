@@ -115,7 +115,6 @@ func (rl *RequestLimiter) Allow(clientID string) bool {
 	return false
 }
 
-// cleanupRoutine removes old unused client entries
 func (rl *RequestLimiter) cleanupRoutine() {
 	ticker := time.NewTicker(rl.cleanup)
 	defer ticker.Stop()

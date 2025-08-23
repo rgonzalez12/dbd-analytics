@@ -8,26 +8,20 @@ import (
 	"time"
 )
 
-// BenchmarkCorruptionDetection tests performance impact of corruption checks
-func BenchmarkCorruptionDetection(b *testing.B) {
+// BenchmarkBasicOperations tests core cache operations
+func BenchmarkBasicOperations(b *testing.B) {
 	cache := NewMemoryCache(MemoryCacheConfig{
-		MaxEntries:      10000,
+		MaxEntries:      1000,
 		DefaultTTL:      5 * time.Minute,
 		CleanupInterval: 1 * time.Minute,
 	})
 	defer cache.Close()
 
-	// Populate cache with test data
-	for i := 0; i < 1000; i++ {
-		key := fmt.Sprintf("test_key_%d", i)
-		value := generateTestValue(i)
-		cache.Set(key, value, 5*time.Minute)
-	}
-
 	b.ResetTimer()
-
 	for i := 0; i < b.N; i++ {
-		cache.detectAndRecover()
+		key := fmt.Sprintf("key_%d", i%100)
+		cache.Set(key, "value", time.Minute)
+		cache.Get(key)
 	}
 }
 
